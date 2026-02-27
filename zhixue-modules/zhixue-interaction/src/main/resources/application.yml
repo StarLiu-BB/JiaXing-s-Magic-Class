@@ -1,0 +1,49 @@
+server:
+  port: 9205
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.211.175:3306/zhixue_interaction?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: rootpassword
+  data:
+    redis:
+      host: 192.168.211.175
+      port: 6379
+
+mybatis-flex:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+spring:
+  rabbitmq:
+    host: 192.168.211.175
+    port: 5672
+    username: admin
+    password: Rabbit@123456789
+    virtual-host: /
+    listener:
+      simple:
+        acknowledge-mode: auto
+        retry:
+          enabled: true
+          max-attempts: 3
+
+interaction:
+  websocket-port: 9999
+  danmaku-queue: queue_danmaku
+  danmaku-exchange: exchange_danmaku
+  danmaku-routing-key: danmaku.broadcast
+
+logging:
+  level:
+    com.zhixue: INFO
+
+zhixue:
+  security:
+    jwt-secret: zhixue-cloud-jwt-secret-key-2024-must-be-at-least-256-bits-long
+    jwt-expiration: 7200
+
+

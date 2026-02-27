@@ -1,0 +1,62 @@
+server:
+  port: 9206
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.211.175:3306/zhixue_order?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: rootpassword
+  data:
+    redis:
+      host: 192.168.211.175
+      port: 6379
+      # Password should be configured in Nacos encrypted configuration
+      # password: ${zhixue.security.redis.password:}
+
+mybatis-flex:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+spring:
+  rabbitmq:
+    host: 192.168.211.175
+    port: 5672
+    username: admin
+    password: Rabbit@123456789
+    virtual-host: /
+    listener:
+      simple:
+        acknowledge-mode: auto
+        retry:
+          enabled: true
+          max-attempts: 3
+
+seata:
+  enabled: true
+  application-id: zhixue-order
+  tx-service-group: order_tx_group
+  service:
+    vgroup-mapping:
+      order_tx_group: default
+    grouplist:
+      default: 192.168.211.175:8091
+
+order:
+  pay-result-queue: queue_order_pay_result
+  pay-result-exchange: exchange_order
+  pay-result-routing-key: order.pay.result
+  timeout-queue: queue_order_timeout
+  timeout-exchange: exchange_order_delay
+  timeout-routing-key: order.timeout
+  pay-callback-url: http://localhost:9206/pay/callback
+
+# Security configuration should be stored in Nacos with encryption
+# See .kiro/specs/security-hardening/CONFIGURATION.md for setup instructions
+
+logging:
+  level:
+    com.zhixue: INFO
+
+

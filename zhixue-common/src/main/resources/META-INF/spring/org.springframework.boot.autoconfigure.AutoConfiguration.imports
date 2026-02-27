@@ -1,0 +1,4 @@
+com.zhixue.common.redis.config.RedisConfig
+com.zhixue.common.mybatis.config.MybatisPlusConfig
+com.zhixue.common.swagger.config.Knife4jConfig
+

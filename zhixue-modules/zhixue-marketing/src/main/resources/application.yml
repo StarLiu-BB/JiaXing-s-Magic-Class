@@ -1,0 +1,41 @@
+server:
+  port: 9207
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.211.175:3306/zhixue_marketing?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: rootpassword
+  redis:
+    host: 192.168.211.175
+    port: 6379
+
+mybatis-flex:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+xxl:
+  job:
+    admin:
+      addresses: http://192.168.211.175:8180/xxl-job-admin
+    accessToken:
+    executor:
+      appname: zhixue-marketing-executor
+      address:
+      ip:
+      port: 9997
+      logpath: logs/xxl-job
+      logretentiondays: 30
+
+marketing:
+  seckill:
+    stock-key-prefix: "seckill:stock:"
+    user-key-prefix: "seckill:users:"
+
+logging:
+  level:
+    com.zhixue: INFO
+
+

@@ -1,0 +1,87 @@
+<!--pages/category/index.wxml-->
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-section">
+    <view class="search-box" bindtap="onSearchTap">
+      <image class="search-icon" src="/images/icon-search.png" mode="aspectFit" />
+      <text class="search-placeholder">搜索课程、老师</text>
+    </view>
+  </view>
+
+  <!-- 分类内容 -->
+  <view class="category-content">
+    <!-- 左侧分类列表 -->
+    <scroll-view class="category-sidebar" scroll-y="{{true}}" show-scrollbar="{{false}}">
+      <view class="category-item {{currentCategory === index ? 'active' : ''}}" 
+            wx:for="{{categoryList}}" 
+            wx:key="id" 
+            data-index="{{index}}"
+            bindtap="onCategorySelect">
+        <text class="category-name">{{item.name}}</text>
+        <view class="active-bar" wx:if="{{currentCategory === index}}"></view>
+      </view>
+    </scroll-view>
+
+    <!-- 右侧课程列表 -->
+    <scroll-view class="course-content" scroll-y="{{true}}" show-scrollbar="{{false}}">
+      <!-- 子分类 -->
+      <view class="subcategory-section" wx:if="{{subCategoryList.length > 0}}">
+        <view class="subcategory-list">
+          <view class="subcategory-item {{currentSubCategory === index ? 'active' : ''}}" 
+                wx:for="{{subCategoryList}}" 
+                wx:key="id"
+                data-index="{{index}}"
+                bindtap="onSubCategorySelect">
+            {{item.name}}
+          </view>
+        </view>
+      </view>
+
+      <!-- 排序筛选 -->
+      <view class="filter-section">
+        <view class="filter-item {{sortType === 'default' ? 'active' : ''}}" data-type="default" bindtap="onSortTap">综合</view>
+        <view class="filter-item {{sortType === 'sales' ? 'active' : ''}}" data-type="sales" bindtap="onSortTap">销量</view>
+        <view class="filter-item {{sortType === 'price' ? 'active' : ''}}" data-type="price" bindtap="onSortTap">
+          价格
+          <text class="sort-icon">{{priceSort === 'asc' ? '↑' : '↓'}}</text>
+        </view>
+        <view class="filter-item {{sortType === 'new' ? 'active' : ''}}" data-type="new" bindtap="onSortTap">最新</view>
+      </view>
+
+      <!-- 课程列表 -->
+      <view class="course-list">
+        <view class="course-item" wx:for="{{courseList}}" wx:key="id" data-id="{{item.id}}" bindtap="onCourseTap">
+          <image class="course-cover" src="{{item.cover || '/images/course-default.png'}}" mode="aspectFill" lazy-load="{{true}}" />
+          <view class="course-info">
+            <text class="course-title">{{item.title}}</text>
+            <text class="course-desc" wx:if="{{item.description}}">{{item.description}}</text>
+            <view class="course-meta">
+              <text class="course-teacher" wx:if="{{item.teacher}}">{{item.teacher}}</text>
+              <text class="course-sales" wx:if="{{item.sales > 0}}">{{item.sales}}人学习</text>
+            </view>
+            <view class="course-bottom">
+              <text class="course-price">¥{{item.price}}</text>
+              <text class="course-original" wx:if="{{item.originalPrice > item.price}}">¥{{item.originalPrice}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 加载状态 -->
+      <view class="loading-state" wx:if="{{loading}}">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <!-- 空状态 -->
+      <view class="empty-state" wx:if="{{!loading && courseList.length === 0}}">
+        <image class="empty-icon" src="/images/empty.png" mode="aspectFit" />
+        <text class="empty-text">暂无课程</text>
+      </view>
+
+      <!-- 底部提示 -->
+      <view class="load-more" wx:if="{{!loading && courseList.length > 0 && !hasMore}}">
+        <text class="load-more-text">没有更多了</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>

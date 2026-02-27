@@ -1,0 +1,98 @@
+server:
+  port: 9001
+
+spring:
+  data:
+    redis:
+      host: 192.168.211.175
+      port: 6379
+      # password: your_password  # 如果有密码则取消注释
+  main:
+    web-application-type: reactive
+    allow-bean-definition-overriding: true
+  cloud:
+    gateway:
+      # CORS 跨域配置
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "http://localhost:3001"
+              - "http://localhost:9208"
+              - "http://127.0.0.1:3000"
+              - "http://127.0.0.1:3001"
+              - "http://127.0.0.1:9208"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: zhixue-auth
+          uri: lb://zhixue-auth
+          predicates:
+            - Path=/auth/**
+          filters:
+            - StripPrefix=1
+        - id: zhixue-course
+          uri: lb://zhixue-course
+          predicates:
+            - Path=/course/**
+          filters:
+            - StripPrefix=1
+        - id: zhixue-system
+          uri: lb://zhixue-system
+          predicates:
+            - Path=/system/**
+          filters:
+            - StripPrefix=1
+        - id: zhixue-ai
+          uri: lb://zhixue-ai
+          predicates:
+            - Path=/ai/**
+          filters:
+            - StripPrefix=1
+    sentinel:
+      transport:
+        dashboard: 192.168.211.175:8858
+        port: 8719
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # 暴露 Prometheus 端点，供 Prometheus 抓取指标
+        include: health,info,gateway,prometheus
+
+zhixue:
+  security:
+    # JWT secret (Base64 encoded, minimum 256 bits)
+    jwt-secret: emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n
+    jwt-expiration: 7200
+
+security:
+  whitelist:
+    - /auth/login
+    - /auth/register
+    - /auth/captcha
+    - /course/list
+    - /course/category/list
+    - /course/detail/**
+
+logging:
+  level:
+    com.zhixue: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.cloud.loadbalancer: DEBUG
+    reactor.netty.http.client: DEBUG

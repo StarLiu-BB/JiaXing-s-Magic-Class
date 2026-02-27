@@ -1,0 +1,276 @@
+/* pages/my/index.wxss */
+.container {
+  background-color: #f5f7fa;
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+/* 用户信息卡片 */
+.user-card {
+  position: relative;
+  margin-bottom: 20rpx;
+}
+
+.user-bg {
+  height: 200rpx;
+  background: linear-gradient(135deg, #1890ff 0%, #36cfc9 100%);
+  border-radius: 0 0 40rpx 40rpx;
+}
+
+.user-content {
+  display: flex;
+  align-items: center;
+  padding: 0 40rpx;
+  margin-top: -80rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.user-avatar-wrap {
+  position: relative;
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  border: 6rpx solid #fff;
+  box-shadow: 0 8rpx 30rpx rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  background-color: #f0f0f0;
+}
+
+.user-avatar {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-edit {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40rpx;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-icon {
+  font-size: 24rpx;
+}
+
+.user-info {
+  flex: 1;
+  margin-left: 30rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8rpx;
+}
+
+.user-id {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.login-tip {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.user-arrow {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arrow-icon {
+  font-size: 32rpx;
+  color: #ccc;
+}
+
+/* 数据统计 */
+.stats-section {
+  display: flex;
+  background-color: #fff;
+  margin: 0 30rpx 20rpx;
+  padding: 30rpx 0;
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+}
+
+.stats-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-right: 1rpx solid #f0f0f0;
+}
+
+.stats-item:last-child {
+  border-right: none;
+}
+
+.stats-num {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8rpx;
+}
+
+.stats-label {
+  font-size: 24rpx;
+  color: #999;
+}
+
+/* 菜单区域 */
+.menu-section {
+  background-color: #fff;
+  margin: 0 30rpx 20rpx;
+  padding: 30rpx;
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.section-more {
+  font-size: 26rpx;
+  color: #999;
+}
+
+/* 订单菜单 */
+.order-menu {
+  display: flex;
+  justify-content: space-around;
+}
+
+.order-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20rpx 0;
+}
+
+.order-icon-wrap {
+  position: relative;
+  width: 80rpx;
+  height: 80rpx;
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f5ff 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16rpx;
+}
+
+.order-icon {
+  font-size: 40rpx;
+}
+
+.order-badge {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  background-color: #ff4d4f;
+  color: #fff;
+  font-size: 22rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
+}
+
+.order-label {
+  font-size: 26rpx;
+  color: #666;
+}
+
+/* 功能菜单 */
+.menu-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-icon-wrap {
+  width: 60rpx;
+  height: 60rpx;
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f5ff 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+}
+
+.menu-icon {
+  font-size: 32rpx;
+}
+
+.menu-label {
+  flex: 1;
+  font-size: 30rpx;
+  color: #333;
+}
+
+.menu-arrow {
+  font-size: 28rpx;
+  color: #ccc;
+}
+
+/* 退出登录 */
+.logout-section {
+  margin: 40rpx 30rpx;
+}
+
+.logout-btn {
+  width: 100%;
+  height: 90rpx;
+  line-height: 90rpx;
+  background-color: #fff;
+  color: #ff4d4f;
+  font-size: 32rpx;
+  border-radius: 45rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+}
+
+.logout-btn::after {
+  border: none;
+}
+
+/* 安全区域 */
+.safe-area {
+  height: constant(safe-area-inset-bottom);
+  height: env(safe-area-inset-bottom);
+}

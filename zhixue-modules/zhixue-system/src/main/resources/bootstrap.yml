@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: zhixue-system
+  cloud:
+    nacos:
+      server-addr: 192.168.211.175:8848
+      discovery:
+        namespace: 64c04068-aa6b-4a44-adbb-640173bc9cc9  # 使用正确的 namespace ID
+        group: DEFAULT_GROUP
+        enabled: true
+        # ip: 127.0.0.1  # Removed to allow auto-detection of LAN IP for remote Nacos connectivity
+        # 添加心跳和日志配置便于调试
+        heart-beat-interval: 5000
+        heart-beat-timeout: 15000
+
+logging:
+  level:
+    com.alibaba.nacos: DEBUG

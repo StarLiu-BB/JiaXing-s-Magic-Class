@@ -1,0 +1,49 @@
+server:
+  port: 9201
+
+spring:
+  application:
+    name: zhixue-system
+  cloud:
+    nacos:
+      server-addr: 192.168.211.175:8848
+      discovery:
+        namespace: 64c04068-aa6b-4a44-adbb-640173bc9cc9
+        group: DEFAULT_GROUP
+        enabled: true
+        # ip: 127.0.0.1  # Removed to allow auto-detection of LAN IP for remote Nacos connectivity
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.211.175:3306/zhixue_system?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    # Use dedicated database account (not root)
+    # Create account: CREATE USER 'zhixue_system'@'%' IDENTIFIED BY 'STRONG_PASSWORD';
+    # Grant privileges: GRANT SELECT, INSERT, UPDATE, DELETE ON zhixue_system.* TO 'zhixue_system'@'%';
+    username: root
+    # Password should be configured in Nacos encrypted configuration
+    # password: ${zhixue.security.database.password:}
+    # 如果使用 root 用户，可以取消注释下面这行并设置密码
+    password: rootpassword
+  main:
+    allow-bean-definition-overriding: true
+  data:
+    redis:
+      host: 192.168.211.175
+      port: 6379
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  type-aliases-package: com.zhixue.system.domain.entity
+
+# Security configuration should be stored in Nacos with encryption
+# See .kiro/specs/security-hardening/CONFIGURATION.md for setup instructions
+
+logging:
+  level:
+    com.zhixue: INFO
+
+zhixue:
+  security:
+    jwt-secret: zhixue-cloud-jwt-secret-key-2024-must-be-at-least-256-bits-long
+    jwt-expiration: 7200

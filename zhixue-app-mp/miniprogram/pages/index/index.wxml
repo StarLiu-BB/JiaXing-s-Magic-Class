@@ -1,0 +1,85 @@
+<!--pages/index/index.wxml-->
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-section">
+    <view class="search-box" bindtap="onSearchTap">
+      <image class="search-icon" src="/images/icon-search.png" mode="aspectFit" />
+      <text class="search-placeholder">搜索课程、老师</text>
+    </view>
+  </view>
+
+  <!-- 轮播图 -->
+  <view class="banner-section" wx:if="{{bannerList.length > 0}}">
+    <swiper class="banner-swiper" indicator-dots="{{true}}" autoplay="{{true}}" interval="3000" duration="500" circular="{{true}}">
+      <swiper-item wx:for="{{bannerList}}" wx:key="id" data-index="{{index}}" bindtap="onBannerTap">
+        <image class="banner-image" src="{{item.imageUrl}}" mode="aspectFill" lazy-load="{{true}}" />
+      </swiper-item>
+    </swiper>
+  </view>
+
+  <!-- 分类导航 -->
+  <view class="category-section" wx:if="{{categoryList.length > 0}}">
+    <view class="section-title">课程分类</view>
+    <view class="category-grid">
+      <view class="category-item" wx:for="{{categoryList}}" wx:key="id" data-id="{{item.id}}" bindtap="onCategoryTap">
+        <view class="category-icon-wrap">
+          <image class="category-icon" src="{{item.icon || '/images/category-default.png'}}" mode="aspectFit" />
+        </view>
+        <text class="category-name">{{item.name}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 热门课程 -->
+  <view class="course-section" wx:if="{{hotCourseList.length > 0}}">
+    <view class="section-header">
+      <view class="section-title">热门推荐</view>
+      <text class="more-link" bindtap="onMoreHotTap">查看更多</text>
+    </view>
+    <scroll-view class="course-scroll" scroll-x="{{true}}" show-scrollbar="{{false}}" enhanced="{{true}}">
+      <view class="course-list">
+        <view class="course-item" wx:for="{{hotCourseList}}" wx:key="id" data-id="{{item.id}}" bindtap="onCourseTap">
+          <image class="course-cover" src="{{item.cover || '/images/course-default.png'}}" mode="aspectFill" lazy-load="{{true}}" />
+          <view class="course-info">
+            <text class="course-title">{{item.title}}</text>
+            <view class="course-meta">
+              <text class="course-price">¥{{item.price}}</text>
+              <text class="course-sales" wx:if="{{item.sales > 0}}">{{item.sales}}人学习</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 最新课程 -->
+  <view class="course-section" wx:if="{{latestCourseList.length > 0}}">
+    <view class="section-title">最新课程</view>
+    <view class="course-list-vertical">
+      <view class="course-item-vertical" wx:for="{{latestCourseList}}" wx:key="id" data-id="{{item.id}}" bindtap="onCourseTap">
+        <image class="course-cover-vertical" src="{{item.cover || '/images/course-default.png'}}" mode="aspectFill" lazy-load="{{true}}" />
+        <view class="course-info-vertical">
+          <view>
+            <text class="course-title-vertical">{{item.title}}</text>
+            <text class="course-desc-vertical" wx:if="{{item.description}}">{{item.description}}</text>
+          </view>
+          <view class="course-bottom-vertical">
+            <text class="course-teacher" wx:if="{{item.teacher}}">{{item.teacher}}</text>
+            <text class="course-price">¥{{item.price}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading-state" wx:if="{{loading}}">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && bannerList.length === 0 && categoryList.length === 0 && hotCourseList.length === 0 && latestCourseList.length === 0}}">
+    <image class="empty-icon" src="/images/empty.png" mode="aspectFit" />
+    <text class="empty-text">暂无数据</text>
+  </view>
+</view>

@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: zhixue-ai
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.211.175:8848
+      # 明确指定gRPC端口，避免客户端尝试连接默认的localhost:9848
+      grpc-port: 9848

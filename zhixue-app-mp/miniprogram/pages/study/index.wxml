@@ -1,0 +1,131 @@
+<!--pages/study/index.wxml-->
+<view class="container">
+  <!-- 顶部统计卡片 -->
+  <view class="stats-card">
+    <view class="stats-bg"></view>
+    <view class="stats-content">
+      <view class="stats-main">
+        <view class="stats-item-large">
+          <text class="stats-num-large">{{studyStats.totalHours || 0}}</text>
+          <text class="stats-label-large">总学习时长(小时)</text>
+        </view>
+        <view class="stats-divider"></view>
+        <view class="stats-item-large">
+          <text class="stats-num-large">{{studyStats.totalCourses || 0}}</text>
+          <text class="stats-label-large">已学课程</text>
+        </view>
+      </view>
+      <view class="stats-sub">
+        <view class="stats-sub-item">
+          <text class="sub-num">{{studyStats.todayHours || 0}}</text>
+          <text class="sub-label">今日学习(小时)</text>
+        </view>
+        <view class="stats-sub-item">
+          <text class="sub-num">{{studyStats.continuousDays || 0}}</text>
+          <text class="sub-label">连续学习(天)</text>
+        </view>
+        <view class="stats-sub-item">
+          <text class="sub-num">{{studyStats.completedCourses || 0}}</text>
+          <text class="sub-label">已完成课程</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 学习日历 -->
+  <view class="calendar-section">
+    <view class="section-header">
+      <text class="section-title">学习日历</text>
+      <text class="section-more" bindtap="onCalendarTap">查看详情 ></text>
+    </view>
+    <view class="calendar-content">
+      <view class="week-row">
+        <text class="week-item" wx:for="{{weekDays}}" wx:key="index">{{item}}</text>
+      </view>
+      <view class="day-row">
+        <view class="day-item {{item.isToday ? 'today' : ''}} {{item.hasStudy ? 'studied' : ''}} {{item.isCurrentMonth ? '' : 'other-month'}}" 
+              wx:for="{{calendarDays}}" 
+              wx:key="date">
+          <text class="day-num">{{item.day}}</text>
+          <view class="study-dot" wx:if="{{item.hasStudy}}"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 最近学习 -->
+  <view class="recent-section">
+    <view class="section-header">
+      <text class="section-title">最近学习</text>
+      <text class="section-more" bindtap="onAllCourseTap">全部课程 ></text>
+    </view>
+    <view class="course-list">
+      <view class="course-item" wx:for="{{recentCourses}}" wx:key="id" data-id="{{item.id}}" bindtap="onCourseTap">
+        <image class="course-cover" src="{{item.cover || '/images/course-default.png'}}" mode="aspectFill" lazy-load="{{true}}" />
+        <view class="course-info">
+          <text class="course-title">{{item.title}}</text>
+          <text class="course-chapter">{{item.currentChapter || '第1章 课程介绍'}}</text>
+          <view class="progress-wrap">
+            <view class="progress-bar">
+              <view class="progress-fill" style="width: {{item.progress || 0}}%"></view>
+            </view>
+            <text class="progress-text">已学{{item.progress || 0}}%</text>
+          </view>
+          <view class="course-bottom">
+            <text class="last-study">上次学习: {{item.lastStudyTime || '今天'}}</text>
+            <view class="continue-btn" catchtap="onContinueTap" data-id="{{item.id}}">继续学习</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{!loading && recentCourses.length === 0}}">
+      <image class="empty-icon" src="/images/empty-study.png" mode="aspectFit" />
+      <text class="empty-text">还没有学习记录</text>
+      <text class="empty-tip">快去发现感兴趣的课程吧</text>
+      <view class="go-study-btn" bindtap="onGoStudyTap">去学习</view>
+    </view>
+  </view>
+
+  <!-- 学习计划 -->
+  <view class="plan-section" wx:if="{{studyPlans.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">学习计划</text>
+      <text class="section-more" bindtap="onPlanTap">管理 ></text>
+    </view>
+    <view class="plan-list">
+      <view class="plan-item" wx:for="{{studyPlans}}" wx:key="id">
+        <view class="plan-icon-wrap">
+          <text class="plan-icon">📅</text>
+        </view>
+        <view class="plan-info">
+          <text class="plan-title">{{item.title}}</text>
+          <text class="plan-desc">{{item.description}}</text>
+        </view>
+        <view class="plan-status {{item.status === 'completed' ? 'completed' : ''}}">
+          {{item.status === 'completed' ? '已完成' : '进行中'}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 学习排行榜 -->
+  <view class="rank-section">
+    <view class="section-header">
+      <text class="section-title">学习排行</text>
+      <text class="section-more" bindtap="onRankTap">查看全部 ></text>
+    </view>
+    <view class="rank-list">
+      <view class="rank-item {{index < 3 ? 'top' : ''}}" wx:for="{{rankList}}" wx:key="id">
+        <view class="rank-num {{index < 3 ? 'top-num' : ''}}">{{index + 1}}</view>
+        <image class="rank-avatar" src="{{item.avatar || '/images/avatar-default.png'}}" mode="aspectFill" />
+        <text class="rank-name">{{item.nickname}}</text>
+        <text class="rank-hours">{{item.studyHours}}小时</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部安全区域 -->
+  <view class="safe-area"></view>
+</view>

@@ -1,0 +1,38 @@
+server:
+  port: 9203
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.211.175:3306/zhixue_media?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: rootpassword
+  servlet:
+    multipart:
+      max-file-size: 512MB
+      max-request-size: 512MB
+
+mybatis-flex:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+minio:
+  endpoint: http://192.168.211.175:9000
+  external-url: http://192.168.211.175:9000
+  # Credentials should be configured in Nacos encrypted configuration
+  # access-key: ${zhixue.security.minio.access-key:}
+  # secret-key: ${zhixue.security.minio.secret-key:}
+  bucket: zhixue-media
+  chunk-path: chunks
+
+media:
+  ffmpeg-path: ffmpeg
+
+# Security configuration should be stored in Nacos with encryption
+# See .kiro/specs/security-hardening/CONFIGURATION.md for setup instructions
+
+logging:
+  level:
+    com.zhixue: INFO
+

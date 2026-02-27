@@ -1,0 +1,49 @@
+server:
+  port: 9208
+
+spring:
+  application:
+    name: zhixue-ai
+  cloud:
+    nacos:
+      server-addr: 192.168.211.175:8848
+      discovery:
+        namespace: 64c04068-aa6b-4a44-adbb-640173bc9cc9
+        group: DEFAULT_GROUP
+        enabled: true
+        # ip: 127.0.0.1  # Removed to allow auto-detection of LAN IP for remote Nacos connectivity
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.211.175:3306/zhixue_ai?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: Root@123456789
+  data:
+    elasticsearch:
+      repositories:
+        enabled: true
+      client:
+        rest:
+          uris: http://192.168.211.175:9200
+  main:
+    allow-bean-definition-overriding: true
+
+mybatis-flex:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+zhipuai:
+  api-key: e276d73a9e9b4b7ba5a5849393e210f6.0g9GG58ydh9O82Bh  # 替换为你的真实 Key
+  model: glm-4-flash    # 默认模型
+  timeout: 60           # 超时时间（秒）
+  enabled: true         # 是否启用
+ai:
+  dashscope:
+    api-key: sk-d6ed1e6754b84d6e95e6d56414c64ed7
+    model: qwen-plus
+
+# Security configuration should be stored in Nacos with encryption
+# See .kiro/specs/security-hardening/CONFIGURATION.md for setup instructions
+
+logging:
+  level:
+    com.zhixue: INFO

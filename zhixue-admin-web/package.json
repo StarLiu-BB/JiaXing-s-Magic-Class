@@ -1,0 +1,33 @@
+{
+  "name": "zhixue-admin-web",
+  "version": "1.0.0",
+  "description": "智学云平台管理系统",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
+  },
+  "dependencies": {
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.0",
+    "pinia": "^2.1.7",
+    "axios": "^1.6.5",
+    "element-plus": "^2.5.8",
+    "@element-plus/icons-vue": "^2.3.1",
+    "echarts": "^5.4.3",
+    "vue-echarts": "^6.6.9",
+    "nprogress": "^0.2.0",
+    "@wangeditor/editor": "^5.1.23",
+    "@wangeditor/editor-for-vue": "^5.1.12"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.1.0",
+    "sass": "^1.71.1",
+    "unplugin-vue-components": "^0.26.0",
+    "unplugin-auto-import": "^0.17.4"
+  }
+}
+

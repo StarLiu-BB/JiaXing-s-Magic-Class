@@ -1,0 +1,27 @@
+// 全局样式
+@import './variables.scss';
+
+// 侧边栏样式
+.el-menu {
+  border-right: none;
+}
+
+.el-menu--collapse {
+  width: 54px;
+}
+
+// 滚动条样式
+.scrollbar-wrapper {
+  overflow-x: hidden !important;
+  
+  .el-scrollbar__bar {
+    &.is-vertical {
+      right: 0px;
+    }
+    
+    &.is-horizontal {
+      display: none;
+    }
+  }
+}
+

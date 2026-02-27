@@ -1,0 +1,128 @@
+<!--pages/course/detail/index.wxml-->
+<view class="container" wx:if="{{courseInfo}}">
+  <!-- 课程封面视频 -->
+  <view class="cover-section">
+    <video class="cover-video" src="{{courseInfo.videoUrl}}" poster="{{courseInfo.cover}}" controls="{{false}}" show-center-play-btn="{{true}}" />
+  </view>
+
+  <!-- 课程信息 -->
+  <view class="info-section">
+    <view class="course-title">{{courseInfo.title}}</view>
+    <view class="course-subtitle">{{courseInfo.description}}</view>
+    <view class="course-meta">
+      <view class="meta-item">
+        <text class="meta-label">价格</text>
+        <text class="meta-value price">¥{{courseInfo.price}}</text>
+        <text class="meta-value original-price" wx:if="{{courseInfo.originalPrice > courseInfo.price}}">¥{{courseInfo.originalPrice}}</text>
+      </view>
+      <view class="meta-item">
+        <text class="meta-label">销量</text>
+        <text class="meta-value">{{courseInfo.sales}}人</text>
+      </view>
+      <view class="meta-item">
+        <text class="meta-label">评分</text>
+        <text class="meta-value">{{courseInfo.rating || 5.0}}分</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Tab切换 -->
+  <view class="tab-section">
+    <view class="tab-bar">
+      <view class="tab-item {{activeTab === 'intro' ? 'active' : ''}}" data-tab="intro" bindtap="onTabChange">
+        简介
+      </view>
+      <view class="tab-item {{activeTab === 'chapters' ? 'active' : ''}}" data-tab="chapters" bindtap="onTabChange">
+        目录
+      </view>
+      <view class="tab-item {{activeTab === 'reviews' ? 'active' : ''}}" data-tab="reviews" bindtap="onTabChange">
+        评价
+      </view>
+    </view>
+
+    <!-- 简介 -->
+    <view class="tab-content" wx:if="{{activeTab === 'intro'}}">
+      <view class="intro-content">
+        <view class="intro-item">
+          <text class="intro-label">课程简介</text>
+          <text class="intro-text">{{courseInfo.introduction || '暂无简介'}}</text>
+        </view>
+        <view class="intro-item" wx:if="{{courseInfo.objectives && courseInfo.objectives.length > 0}}">
+          <text class="intro-label">学习目标</text>
+          <view class="intro-list">
+            <text class="intro-list-item" wx:for="{{courseInfo.objectives}}" wx:key="index">{{item}}</text>
+          </view>
+        </view>
+        <view class="intro-item" wx:if="{{courseInfo.suitable && courseInfo.suitable.length > 0}}">
+          <text class="intro-label">适合人群</text>
+          <view class="intro-list">
+            <text class="intro-list-item" wx:for="{{courseInfo.suitable}}" wx:key="index">{{item}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 目录 -->
+    <view class="tab-content" wx:if="{{activeTab === 'chapters'}}">
+      <view class="chapters-content">
+        <view class="chapter-item" wx:for="{{chapters}}" wx:key="id" data-chapter="{{item}}" bindtap="onChapterTap">
+          <view class="chapter-header">
+            <text class="chapter-title">{{item.title}}</text>
+            <text class="chapter-count">{{item.lessons ? item.lessons.length : 0}}课时</text>
+          </view>
+          <view class="lessons-list" wx:if="{{item.lessons && item.lessons.length > 0}}">
+            <view class="lesson-item" wx:for="{{item.lessons}}" wx:for-item="lesson" wx:key="id">
+              <text class="lesson-title">{{lesson.title}}</text>
+              <text class="lesson-duration">{{lesson.duration}}分钟</text>
+              <text class="lesson-free" wx:if="{{lesson.isFree}}">免费</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 评价 -->
+    <view class="tab-content" wx:if="{{activeTab === 'reviews'}}">
+      <view class="reviews-content">
+        <view class="review-item" wx:for="{{reviews}}" wx:key="id">
+          <view class="review-header">
+            <image class="review-avatar" src="{{item.userAvatar || '/images/default-avatar.png'}}" />
+            <view class="review-user">
+              <text class="review-name">{{item.userName}}</text>
+              <view class="review-rating">
+                <text class="rating-star" wx:for="{{5}}" wx:key="index" wx:for-item="star">
+                  {{index < item.rating ? '★' : '☆'}}
+                </text>
+              </view>
+            </view>
+            <text class="review-time">{{item.createTime}}</text>
+          </view>
+          <text class="review-content">{{item.content}}</text>
+        </view>
+        <view class="empty" wx:if="{{reviews.length === 0}}">
+          <text>暂无评价</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部购买栏 -->
+  <view class="bottom-bar">
+    <view class="bar-left">
+      <view class="action-btn" bindtap="onFavoriteTap">
+        <text class="iconfont {{isFavorite ? 'icon-favorite-fill' : 'icon-favorite'}}"></text>
+        <text>{{isFavorite ? '已收藏' : '收藏'}}</text>
+      </view>
+    </view>
+    <view class="bar-right">
+      <button class="btn-study" bindtap="onStudyTap">开始学习</button>
+      <button class="btn-buy" bindtap="onBuyTap">立即购买</button>
+    </view>
+  </view>
+</view>
+
+<!-- 加载状态 -->
+<view class="loading" wx:if="{{loading}}">
+  <text>加载中...</text>
+</view>
+

@@ -1,0 +1,47 @@
+# Maven
+target/
+*.jar
+*.war
+
+# IDEA
+.idea/
+*.iml
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# VS Code
+.vscode/
+
+# Logs
+logs/
+*.log
+
+# Local config
+application-local.yml
+application-dev.yml
+application-prod.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (如果有前端)
+node_modules/
+
+# Nacos/Redis等本地数据
+data/
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+
+# Trae
+.trae/
+.maven-repo/
+test_*.ps1
+test_*.txt

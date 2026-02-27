@@ -1,0 +1,81 @@
+<!--pages/course/player/index.wxml-->
+<view class="player-container">
+  <!-- 视频播放器 -->
+  <view class="video-wrapper">
+    <video
+      id="course-video"
+      class="course-video"
+      src="{{videoUrl}}"
+      controls="{{true}}"
+      show-center-play-btn="{{true}}"
+      enable-play-gesture="{{true}}"
+      show-fullscreen-btn="{{true}}"
+      bindplay="onVideoPlay"
+      bindpause="onVideoPause"
+      bindtimeupdate="onVideoTimeUpdate"
+      bindended="onVideoEnded"
+      bindfullscreenchange="onFullscreenChange"
+    />
+    
+    <!-- 弹幕层 -->
+    <view class="danmaku-layer" wx:if="{{showDanmaku}}">
+      <view class="danmaku-item" wx:for="{{danmakuList}}" wx:key="id" style="color: {{item.color}}">
+        {{item.text}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 控制栏 -->
+  <view class="control-bar">
+    <view class="control-item" bindtap="onToggleChapters">
+      <text class="iconfont icon-menu"></text>
+      <text>目录</text>
+    </view>
+    <view class="control-item" bindtap="onToggleDanmaku">
+      <text class="iconfont {{showDanmaku ? 'icon-danmaku-on' : 'icon-danmaku-off'}}"></text>
+      <text>弹幕</text>
+    </view>
+  </view>
+
+  <!-- 章节侧边栏 -->
+  <view class="chapters-sidebar {{showChapters ? 'show' : ''}}" catchtap="onToggleChapters">
+    <view class="sidebar-mask" catchtap="onToggleChapters"></view>
+    <view class="sidebar-content" catchtap="">
+      <view class="sidebar-header">
+        <text class="sidebar-title">课程目录</text>
+        <text class="sidebar-close" bindtap="onToggleChapters">×</text>
+      </view>
+      <scroll-view class="sidebar-scroll" scroll-y="{{true}}">
+        <view class="chapter-group" wx:for="{{chapters}}" wx:key="id">
+          <view class="chapter-title">{{item.title}}</view>
+          <view class="lessons-list">
+            <view 
+              class="lesson-item {{currentLesson && currentLesson.id === lesson.id ? 'active' : ''}}"
+              wx:for="{{item.lessons}}" 
+              wx:for-item="lesson"
+              wx:key="id"
+              data-chapter="{{item}}"
+              data-lesson="{{lesson}}"
+              bindtap="onSelectChapter"
+            >
+              <text class="lesson-name">{{lesson.title}}</text>
+              <text class="lesson-duration">{{lesson.duration}}分钟</text>
+              <text class="lesson-free" wx:if="{{lesson.isFree}}">免费</text>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- 弹幕输入框 -->
+  <view class="danmaku-input-wrapper">
+    <input 
+      class="danmaku-input" 
+      placeholder="发个弹幕吧~" 
+      bindconfirm="onSendDanmaku"
+      confirm-type="send"
+    />
+  </view>
+</view>
+

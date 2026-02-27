@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhixue.course.mapper.CourseMapper">
+    <resultMap id="CourseResult" type="com.zhixue.course.domain.entity.Course">
+        <id column="id" property="id"/>
+        <result column="title" property="title"/>
+        <result column="description" property="description"/>
+        <result column="teacher_id" property="teacherId"/>
+        <result column="category_id" property="categoryId"/>
+        <result column="cover_url" property="coverUrl"/>
+        <result column="price" property="price"/>
+        <result column="status" property="status"/>
+        <result column="shelf_status" property="shelfStatus"/>
+        <result column="publish_time" property="publishTime"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, title, description, teacher_id, category_id, cover_url, price, status, shelf_status, publish_time, create_time, update_time, deleted
+    </sql>
+
+    <select id="selectAll" resultMap="CourseResult">
+        select <include refid="Base_Column_List"/> from course where deleted = 0
+    </select>
+</mapper>
+

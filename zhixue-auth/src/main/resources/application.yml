@@ -1,0 +1,35 @@
+server:
+  port: 9100
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  data:
+    redis:
+      host: 192.168.211.175
+      port: 6379
+      # Password should be configured in Nacos encrypted configuration
+      # password: ${zhixue.security.redis.password:}
+
+# Security configuration should be stored in Nacos with encryption
+# See .kiro/specs/security-hardening/CONFIGURATION.md for setup instructions
+zhixue:
+  security:
+    # Encryption key for decrypting secrets (store in Nacos)
+    # encryption:
+    #   key: YOUR_BASE64_ENCRYPTION_KEY
+    # JWT secret (Base64 encoded, minimum 256 bits)
+    jwt-secret: emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n
+    jwt-expiration: 7200
+
+security:
+  whitelist:
+    - /auth/login
+    - /auth/register
+    - /auth/captcha
+
+logging:
+  level:
+    com.zhixue: DEBUG
+    org.springframework.data.redis: DEBUG
+

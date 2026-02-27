@@ -1,0 +1,328 @@
+/* pages/course/detail/index.wxss */
+.container {
+  padding-bottom: 120rpx;
+}
+
+/* 封面视频 */
+.cover-section {
+  width: 100%;
+  height: 420rpx;
+  background-color: #000;
+}
+
+.cover-video {
+  width: 100%;
+  height: 100%;
+}
+
+/* 课程信息 */
+.info-section {
+  background-color: #fff;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+}
+
+.course-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 15rpx;
+}
+
+.course-subtitle {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 20rpx;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.course-meta {
+  display: flex;
+  gap: 40rpx;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5rpx;
+}
+
+.meta-label {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.meta-value {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.price {
+  color: #ff4d4f;
+  font-weight: bold;
+  font-size: 32rpx;
+}
+
+.original-price {
+  font-size: 24rpx;
+  color: #999;
+  text-decoration: line-through;
+}
+
+/* Tab切换 */
+.tab-section {
+  background-color: #fff;
+  margin-bottom: 20rpx;
+}
+
+.tab-bar {
+  display: flex;
+  border-bottom: 2rpx solid #f0f0f0;
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 30rpx 0;
+  font-size: 28rpx;
+  color: #666;
+  position: relative;
+}
+
+.tab-item.active {
+  color: #1890ff;
+  font-weight: bold;
+}
+
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60rpx;
+  height: 4rpx;
+  background-color: #1890ff;
+}
+
+.tab-content {
+  min-height: 400rpx;
+  padding: 30rpx;
+}
+
+/* 简介内容 */
+.intro-content {
+  font-size: 28rpx;
+  line-height: 1.8;
+}
+
+.intro-item {
+  margin-bottom: 30rpx;
+}
+
+.intro-label {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 15rpx;
+  display: block;
+}
+
+.intro-text {
+  color: #666;
+  line-height: 1.8;
+}
+
+.intro-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.intro-list-item {
+  color: #666;
+  padding-left: 20rpx;
+  position: relative;
+}
+
+.intro-list-item::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: #1890ff;
+}
+
+/* 目录内容 */
+.chapters-content {
+  font-size: 28rpx;
+}
+
+.chapter-item {
+  margin-bottom: 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  padding-bottom: 20rpx;
+}
+
+.chapter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15rpx;
+}
+
+.chapter-title {
+  font-weight: bold;
+  color: #333;
+}
+
+.chapter-count {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.lessons-list {
+  padding-left: 20rpx;
+}
+
+.lesson-item {
+  display: flex;
+  align-items: center;
+  padding: 15rpx 0;
+  gap: 15rpx;
+}
+
+.lesson-title {
+  flex: 1;
+  color: #666;
+}
+
+.lesson-duration {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.lesson-free {
+  font-size: 24rpx;
+  color: #52c41a;
+  padding: 2rpx 8rpx;
+  border: 1rpx solid #52c41a;
+  border-radius: 4rpx;
+}
+
+/* 评价内容 */
+.reviews-content {
+  font-size: 28rpx;
+}
+
+.review-item {
+  margin-bottom: 30rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 15rpx;
+  margin-bottom: 15rpx;
+}
+
+.review-avatar {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+}
+
+.review-user {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5rpx;
+}
+
+.review-name {
+  font-size: 26rpx;
+  color: #333;
+}
+
+.review-rating {
+  font-size: 24rpx;
+  color: #ffa940;
+}
+
+.rating-star {
+  margin-right: 2rpx;
+}
+
+.review-time {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.review-content {
+  color: #666;
+  line-height: 1.6;
+}
+
+/* 底部购买栏 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  border-top: 1rpx solid #f0f0f0;
+  padding: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+}
+
+.bar-left {
+  display: flex;
+  gap: 30rpx;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5rpx;
+  font-size: 24rpx;
+  color: #666;
+}
+
+.bar-right {
+  display: flex;
+  gap: 15rpx;
+}
+
+.btn-study,
+.btn-buy {
+  padding: 20rpx 40rpx;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  border: none;
+}
+
+.btn-study {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.btn-buy {
+  background-color: #1890ff;
+  color: #fff;
+}
+
+/* 加载状态 */
+.loading {
+  text-align: center;
+  padding: 100rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+

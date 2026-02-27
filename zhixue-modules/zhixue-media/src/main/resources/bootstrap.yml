@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: zhixue-media
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.211.175:8848
+        namespace: 64c04068-aa6b-4a44-adbb-640173bc9cc9
+        group: DEFAULT_GROUP
+      # 明确指定gRPC端口，避免客户端尝试连接默认的localhost:9848
+      grpc-port: 9848

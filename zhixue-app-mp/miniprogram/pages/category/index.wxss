@@ -1,0 +1,260 @@
+/* pages/category/index.wxss */
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f5f7fa;
+}
+
+/* 搜索栏 */
+.search-section {
+  background-color: #fff;
+  padding: 20rpx 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background-color: #f5f5f5;
+  border-radius: 40rpx;
+  padding: 16rpx 30rpx;
+}
+
+.search-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 16rpx;
+  opacity: 0.6;
+}
+
+.search-placeholder {
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* 分类内容 */
+.category-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 左侧分类列表 */
+.category-sidebar {
+  width: 180rpx;
+  background-color: #f8f8f8;
+}
+
+.category-item {
+  position: relative;
+  padding: 30rpx 20rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: #666;
+  border-left: 6rpx solid transparent;
+}
+
+.category-item.active {
+  background-color: #fff;
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.active-bar {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6rpx;
+  height: 40rpx;
+  background: linear-gradient(180deg, #1890ff 0%, #36cfc9 100%);
+  border-radius: 3rpx;
+}
+
+/* 右侧内容 */
+.course-content {
+  flex: 1;
+  background-color: #fff;
+}
+
+/* 子分类 */
+.subcategory-section {
+  padding: 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.subcategory-list {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.subcategory-item {
+  padding: 12rpx 24rpx;
+  margin: 0 16rpx 16rpx 0;
+  background-color: #f5f5f5;
+  border-radius: 30rpx;
+  font-size: 26rpx;
+  color: #666;
+}
+
+.subcategory-item.active {
+  background: linear-gradient(135deg, #1890ff 0%, #36cfc9 100%);
+  color: #fff;
+}
+
+/* 排序筛选 */
+.filter-section {
+  display: flex;
+  padding: 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.filter-item {
+  flex: 1;
+  text-align: center;
+  font-size: 28rpx;
+  color: #666;
+  padding: 16rpx 0;
+}
+
+.filter-item.active {
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.sort-icon {
+  font-size: 24rpx;
+  margin-left: 4rpx;
+}
+
+/* 课程列表 */
+.course-list {
+  padding: 20rpx;
+}
+
+.course-item {
+  display: flex;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.course-item:last-child {
+  border-bottom: none;
+}
+
+.course-cover {
+  width: 200rpx;
+  height: 120rpx;
+  border-radius: 12rpx;
+  background-color: #f0f0f0;
+  flex-shrink: 0;
+  margin-right: 20rpx;
+}
+
+.course-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.course-title {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 44rpx;
+}
+
+.course-desc {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 8rpx;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.course-meta {
+  display: flex;
+  margin-top: 12rpx;
+}
+
+.course-teacher {
+  font-size: 24rpx;
+  color: #666;
+  margin-right: 20rpx;
+}
+
+.course-sales {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.course-bottom {
+  display: flex;
+  align-items: baseline;
+  margin-top: 12rpx;
+}
+
+.course-price {
+  font-size: 32rpx;
+  color: #ff4d4f;
+  font-weight: 600;
+}
+
+.course-original {
+  font-size: 24rpx;
+  color: #999;
+  text-decoration: line-through;
+  margin-left: 12rpx;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40rpx 0;
+}
+
+.loading-text {
+  font-size: 26rpx;
+  color: #999;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 0;
+}
+
+.empty-icon {
+  width: 200rpx;
+  height: 200rpx;
+  margin-bottom: 30rpx;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* 加载更多 */
+.load-more {
+  text-align: center;
+  padding: 30rpx 0;
+}
+
+.load-more-text {
+  font-size: 24rpx;
+  color: #999;
+}

@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: zhixue-auth
+  cloud:
+    nacos:
+      server-addr: 192.168.211.175:8848
+      discovery:
+        namespace: 64c04068-aa6b-4a44-adbb-640173bc9cc9
+        group: DEFAULT_GROUP
+        enabled: true
+        # 指定注册到 Nacos 的 IP 地址，避免使用虚拟网卡 IP
+        # ip: 127.0.0.1  # Removed to allow auto-detection of LAN IP for remote Nacos connectivity
+        # 或者使用 prefer-ip-address 配置
+        prefer-ip-address: true
