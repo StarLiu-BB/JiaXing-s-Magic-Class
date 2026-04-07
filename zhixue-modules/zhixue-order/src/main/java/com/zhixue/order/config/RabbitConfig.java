@@ -33,6 +33,9 @@ public class RabbitConfig {
     @Value("${order.timeout-routing-key:order.timeout}")
     private String timeoutRoutingKey;
 
+    @Value("${zhixue.integration.order-mq.mode:${ZHIXUE_ORDER_MQ_MODE:sandbox}}")
+    private String orderMqMode;
+
     // ==================== 支付结果配置 ====================
 
     @Bean
@@ -60,7 +63,10 @@ public class RabbitConfig {
     }
 
     @Bean
-    public CustomExchange timeoutExchange() {
+    public Exchange timeoutExchange() {
+        if (!"real".equalsIgnoreCase(orderMqMode)) {
+            return new DirectExchange(timeoutExchange);
+        }
         Map<String, Object> args = new HashMap<>();
         args.put("x-delayed-type", "direct");
         return new CustomExchange(timeoutExchange, "x-delayed-message", true, false, args);

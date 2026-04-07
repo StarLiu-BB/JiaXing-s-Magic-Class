@@ -12,7 +12,7 @@ compose ps
 compose exec -T mysql mysqladmin ping -h127.0.0.1 -uroot "-p${ZHIXUE_DB_PASSWORD}" >/dev/null
 echo "[ok] MySQL ping"
 
-compose exec -T redis redis-cli ping | grep -q PONG
+compose exec -T redis redis-cli -a "${ZHIXUE_REDIS_PASSWORD}" ping | grep -q PONG
 echo "[ok] Redis ping"
 
 wait_for_http "http://${ZHIXUE_NACOS_HOST}:${ZHIXUE_NACOS_PORT}/nacos/" "Nacos"

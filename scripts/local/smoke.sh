@@ -70,7 +70,7 @@ login_and_fetch_info() {
   local captcha_json uuid code login_json token info_json
   captcha_json="$(curl -fsS "${GATEWAY_URL}/auth/captcha")"
   uuid="$(printf '%s' "$captcha_json" | extract_json_field data.uuid)"
-  code="$(compose exec -T redis redis-cli GET "zhixue:auth:captcha:${uuid}" | tr -d '\r')"
+  code="$(compose exec -T redis redis-cli -a "${ZHIXUE_REDIS_PASSWORD}" GET "zhixue:auth:captcha:${uuid}" | tr -d '\r')"
 
   login_json="$(curl -fsS "${GATEWAY_URL}/auth/login" \
     -H 'Content-Type: application/json' \

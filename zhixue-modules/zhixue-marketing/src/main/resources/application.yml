@@ -7,10 +7,11 @@ spring:
     url: jdbc:mysql://${ZHIXUE_DB_HOST:127.0.0.1}:${ZHIXUE_DB_PORT:3306}/zhixue_marketing?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
     username: ${ZHIXUE_DB_USERNAME:root}
     password: ${ZHIXUE_DB_PASSWORD:}
-  redis:
-    host: ${ZHIXUE_REDIS_HOST:127.0.0.1}
-    port: ${ZHIXUE_REDIS_PORT:6379}
-    password: ${ZHIXUE_REDIS_PASSWORD:}
+  data:
+    redis:
+      host: ${ZHIXUE_REDIS_HOST:127.0.0.1}
+      port: ${ZHIXUE_REDIS_PORT:6379}
+      password: ${ZHIXUE_REDIS_PASSWORD:}
 
 mybatis-flex:
   mapper-locations: classpath*:mapper/*Mapper.xml

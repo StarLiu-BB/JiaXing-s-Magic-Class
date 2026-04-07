@@ -31,6 +31,8 @@ load_env() {
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
+  : "${ZHIXUE_REDIS_PASSWORD:=zhixue-local-redis}"
+  export ZHIXUE_REDIS_PASSWORD
 }
 
 compose() {

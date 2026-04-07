@@ -36,6 +36,11 @@ logging:
   level:
     com.zhixue: INFO
 
+management:
+  health:
+    redis:
+      enabled: false
+
 zhixue:
   integration:
     ai:

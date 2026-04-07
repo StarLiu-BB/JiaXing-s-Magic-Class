@@ -3,7 +3,6 @@ package com.zhixue.media.config;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
-import io.minio.MinioProperties;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -15,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
  * MinIO 客户端配置。
  */
 @Configuration
-@EnableConfigurationProperties(MinioProperties.class)
+@EnableConfigurationProperties(MinioConfig.MinioProperties.class)
 @RequiredArgsConstructor
 public class MinioConfig {
 
@@ -82,4 +81,3 @@ public class MinioConfig {
         }
     }
 }
-

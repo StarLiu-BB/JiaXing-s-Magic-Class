@@ -46,6 +46,9 @@ public class OrderServiceImpl implements OrderService {
     @Value("${order.timeout-delay-ms:1800000}")
     private int timeoutDelayMs;
 
+    @Value("${zhixue.integration.order-mq.mode:${ZHIXUE_ORDER_MQ_MODE:sandbox}}")
+    private String orderMqMode;
+
     @Override
     @GlobalTransactional(rollbackFor = Exception.class)
     public Order createOrder(CreateOrderDTO dto) {
@@ -56,6 +59,10 @@ public class OrderServiceImpl implements OrderService {
         }
 
         try {
+            if (!"real".equalsIgnoreCase(orderMqMode)) {
+                log.info("sandbox 模式跳过订单超时延时消息 orderNo={}", order.getOrderNo());
+                return order;
+            }
             rabbitTemplate.convertAndSend(timeoutExchange, timeoutRoutingKey, order.getOrderNo(), msg -> {
                 msg.getMessageProperties().setDelay(timeoutDelayMs);
                 return msg;
