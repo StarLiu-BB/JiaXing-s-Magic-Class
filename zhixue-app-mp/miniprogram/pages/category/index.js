@@ -1,100 +1,29 @@
 // pages/category/index.js
+const { getCategoryList, getCoursePage } = require('../../api/course')
+
 Page({
   /**
    * 页面的初始数据
    */
   data: {
-    // 分类列表
-    categoryList: [
-      { id: 1, name: '全部' },
-      { id: 2, name: '编程开发' },
-      { id: 3, name: '人工智能' },
-      { id: 4, name: '前端开发' },
-      { id: 5, name: '后端开发' },
-      { id: 6, name: '移动开发' },
-      { id: 7, name: '数据库' },
-      { id: 8, name: '云计算' },
-      { id: 9, name: '大数据' },
-      { id: 10, name: '网络安全' }
-    ],
-    // 当前选中分类
+    categoryList: [{ id: 0, name: '全部' }],
     currentCategory: 0,
-    // 子分类列表
-    subCategoryList: [
-      { id: 101, name: '全部' },
-      { id: 102, name: 'Java' },
-      { id: 103, name: 'Python' },
-      { id: 104, name: 'Go' },
-      { id: 105, name: 'C++' }
-    ],
-    // 当前选中子分类
+    subCategoryList: [{ id: 0, name: '全部' }],
     currentSubCategory: 0,
-    // 排序类型
     sortType: 'default',
-    // 价格排序方向
     priceSort: 'asc',
-    // 课程列表
-    courseList: [
-      {
-        id: 1,
-        title: 'Java 从入门到精通',
-        description: '零基础学习Java编程，从入门到实战',
-        cover: '',
-        teacher: '张老师',
-        price: 199,
-        originalPrice: 299,
-        sales: 1250
-      },
-      {
-        id: 2,
-        title: 'Spring Boot 实战教程',
-        description: '企业级应用开发实战',
-        cover: '',
-        teacher: '李老师',
-        price: 299,
-        originalPrice: 399,
-        sales: 890
-      },
-      {
-        id: 3,
-        title: 'Python 数据分析',
-        description: '数据科学与机器学习入门',
-        cover: '',
-        teacher: '王老师',
-        price: 249,
-        originalPrice: 349,
-        sales: 2100
-      },
-      {
-        id: 4,
-        title: 'Vue.js 前端开发',
-        description: '现代化前端框架实战',
-        cover: '',
-        teacher: '刘老师',
-        price: 159,
-        originalPrice: 259,
-        sales: 1560
-      },
-      {
-        id: 5,
-        title: 'React 进阶教程',
-        description: '深入理解React原理',
-        cover: '',
-        teacher: '陈老师',
-        price: 279,
-        originalPrice: 379,
-        sales: 780
-      }
-    ],
+    courseList: [],
+    rawCourseList: [],
+    allCategories: [],
     loading: false,
-    hasMore: true
+    hasMore: false
   },
 
   /**
    * 生命周期函数--监听页面加载
    */
   onLoad(options) {
-
+    this.loadInitialData()
   },
 
   /**
@@ -108,9 +37,8 @@ Page({
    * 点击搜索
    */
   onSearchTap() {
-    wx.showToast({
-      title: '搜索功能',
-      icon: 'none'
+    wx.navigateTo({
+      url: '/pages/search/index'
     })
   },
 
@@ -123,6 +51,7 @@ Page({
       currentCategory: index,
       currentSubCategory: 0
     })
+    this.updateSubCategories(index)
     this.loadCourseList()
   },
 
@@ -160,10 +89,110 @@ Page({
    */
   loadCourseList() {
     this.setData({ loading: true })
-    // 模拟加载
-    setTimeout(() => {
+    getCoursePage({ pageNum: 1, pageSize: 50 })
+      .then((res) => {
+        const records = Array.isArray(res.data?.records) ? res.data.records : []
+        const filtered = this.filterCourses(records)
+        this.setData({
+          rawCourseList: filtered,
+          courseList: this.sortCourses(filtered),
+          hasMore: false
+        })
+      })
+      .catch((error) => {
+        console.error('加载课程列表失败:', error)
+        wx.showToast({
+          title: '加载失败',
+          icon: 'none'
+        })
+        this.setData({
+          rawCourseList: [],
+          courseList: []
+        })
+      })
+      .finally(() => {
+        this.setData({ loading: false })
+      })
+  },
+
+  async loadInitialData() {
+    this.setData({ loading: true })
+    try {
+      const res = await getCategoryList()
+      const categories = Array.isArray(res.data) ? res.data : []
+      const topCategories = categories.filter(item => !item.parentId || item.parentId === 0)
+      this.setData({
+        allCategories: categories,
+        categoryList: [{ id: 0, name: '全部' }, ...topCategories]
+      })
+      this.updateSubCategories(0)
+      await this.loadCourseList()
+    } catch (error) {
+      console.error('加载分类失败:', error)
+      wx.showToast({
+        title: '分类加载失败',
+        icon: 'none'
+      })
+    } finally {
       this.setData({ loading: false })
-    }, 500)
+    }
+  },
+
+  updateSubCategories(categoryIndex) {
+    if (categoryIndex === 0) {
+      this.setData({
+        subCategoryList: [{ id: 0, name: '全部' }]
+      })
+      return
+    }
+
+    const selected = this.data.categoryList[categoryIndex]
+    const children = this.data.allCategories.filter(item => item.parentId === selected.id)
+    this.setData({
+      subCategoryList: [{ id: 0, name: '全部' }, ...children]
+    })
+  },
+
+  filterCourses(records) {
+    const { currentCategory, currentSubCategory, categoryList, subCategoryList, allCategories } = this.data
+    if (currentCategory === 0) {
+      return records
+    }
+
+    const category = categoryList[currentCategory]
+    const subCategory = subCategoryList[currentSubCategory]
+    if (subCategory && subCategory.id) {
+      return records.filter(item => item.categoryId === subCategory.id)
+    }
+
+    const childIds = allCategories
+      .filter(item => item.parentId === category.id)
+      .map(item => item.id)
+
+    if (childIds.length === 0) {
+      return records.filter(item => item.categoryId === category.id)
+    }
+
+    return records.filter(item => childIds.includes(item.categoryId))
+  },
+
+  sortCourses(records) {
+    const list = [...records]
+    const { sortType, priceSort } = this.data
+    if (sortType === 'price') {
+      return list.sort((a, b) => {
+        const left = Number(a.price || 0)
+        const right = Number(b.price || 0)
+        return priceSort === 'asc' ? left - right : right - left
+      })
+    }
+    if (sortType === 'sales') {
+      return list.sort((a, b) => Number(b.sales || 0) - Number(a.sales || 0))
+    }
+    if (sortType === 'new') {
+      return list.sort((a, b) => new Date(b.createTime || 0) - new Date(a.createTime || 0))
+    }
+    return list
   },
 
   /**

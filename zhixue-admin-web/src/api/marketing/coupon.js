@@ -3,6 +3,24 @@
  */
 import request from '@/utils/request'
 
+function asPagedResult(response, pageNum = 1, pageSize = 10) {
+  const payload = response?.data ?? response ?? {}
+  if (Array.isArray(payload)) {
+    return {
+      list: payload,
+      total: payload.length,
+      pageNum,
+      pageSize
+    }
+  }
+  return {
+    list: payload.list || payload.records || [],
+    total: payload.total || 0,
+    pageNum: payload.pageNum || pageNum,
+    pageSize: payload.pageSize || pageSize
+  }
+}
+
 /**
  * 优惠券列表（分页）
  * @param {Object} query 查询参数
@@ -17,6 +35,30 @@ export function listCoupon(query) {
     url: '/marketing/coupon/list',
     method: 'get',
     params: query
+  }).then((res) => asPagedResult(res, query?.pageNum, query?.pageSize))
+    .catch(() =>
+      request({
+        url: '/marketing/coupon/available',
+        method: 'get'
+      }).then((res) => asPagedResult(res, query?.pageNum, query?.pageSize))
+    )
+}
+
+function getCouponId(coupon) {
+  return coupon?.id || coupon?.couponId
+}
+
+export async function getCouponByIdFromList(couponId) {
+  const res = await listCoupon({ pageNum: 1, pageSize: 200 })
+  const row = (res.list || []).find((item) => String(getCouponId(item)) === String(couponId))
+  return row || null
+}
+
+function postCreate(data) {
+  return request({
+    url: '/marketing/coupon/create',
+    method: 'post',
+    data
   })
 }
 
@@ -28,6 +70,9 @@ export function getCoupon(couponId) {
   return request({
     url: `/marketing/coupon/${couponId}`,
     method: 'get'
+  }).catch(async () => {
+    const row = await getCouponByIdFromList(couponId)
+    return { data: row }
   })
 }
 
@@ -51,7 +96,7 @@ export function addCoupon(data) {
     url: '/marketing/coupon',
     method: 'post',
     data
-  })
+  }).catch(() => postCreate(data))
 }
 
 /**
@@ -112,6 +157,23 @@ export function issueCoupon(couponId, userIds = []) {
     url: `/marketing/coupon/${couponId}/issue`,
     method: 'post',
     data: { userIds }
+  }).catch(() =>
+    request({
+      url: '/marketing/coupon/claim',
+      method: 'post',
+      data: {
+        couponId,
+        userId: userIds?.[0]
+      }
+    })
+  )
+}
+
+export function claimCoupon(couponId, userId) {
+  return request({
+    url: '/marketing/coupon/claim',
+    method: 'post',
+    data: { couponId, userId }
   })
 }
 
@@ -125,4 +187,3 @@ export function getCouponStatistics(couponId) {
     method: 'get'
   })
 }
-

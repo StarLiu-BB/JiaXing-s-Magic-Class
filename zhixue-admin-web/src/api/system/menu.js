@@ -23,7 +23,7 @@ export function listMenu(query) {
  */
 export function getMenu(menuId) {
   return request({
-    url: `/system/menu/${menuId}`,
+    url: `/system/menu/info/${menuId}`,
     method: 'get'
   })
 }
@@ -83,4 +83,3 @@ export function deleteMenu(menuId) {
     method: 'delete'
   })
 }
-

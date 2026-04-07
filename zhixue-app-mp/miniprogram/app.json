@@ -3,7 +3,11 @@
     "pages/index/index",
     "pages/category/index",
     "pages/study/index",
-    "pages/my/index"
+    "pages/my/index",
+    "pages/search/index",
+    "pages/my/list/index",
+    "pages/course/detail/index",
+    "pages/course/player/index"
   ],
   "window": {
     "navigationBarTitleText": "智学云",

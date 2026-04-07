@@ -16,7 +16,7 @@ export default {
       name: 'Question',
       component: () => import('@/views/interaction/question/index.vue'),
       meta: {
-        title: '问答管理',
+        title: '待审队列',
         icon: 'QuestionFilled',
         keepAlive: true
       }
@@ -26,7 +26,7 @@ export default {
       name: 'Comment',
       component: () => import('@/views/interaction/comment/index.vue'),
       meta: {
-        title: '评论管理',
+        title: '弹幕管理',
         icon: 'Comment',
         keepAlive: true
       }

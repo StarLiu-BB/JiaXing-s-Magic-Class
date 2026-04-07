@@ -71,8 +71,7 @@ const toggleSideBar = () => {
 
 // 打开设置
 const openSettings = () => {
-  // TODO: 打开设置面板
-  ElMessage.info('设置功能开发中')
+  ElMessage.warning('当前版本暂不提供页面设置')
 }
 
 // 退出登录
@@ -81,8 +80,8 @@ const logout = () => {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    userStore.logout()
+  }).then(async () => {
+    await userStore.logout()
     router.push('/login')
     ElMessage.success('退出登录成功')
   }).catch(() => {})
@@ -178,4 +177,3 @@ const logout = () => {
   }
 }
 </style>
-

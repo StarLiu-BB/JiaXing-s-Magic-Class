@@ -59,9 +59,15 @@ zhixue-app-mp/
 在微信开发者工具中配置你的小程序 AppID。
 
 ### 2. 配置后端地址
-修改 `api/request.js` 中的 `BASE_URL`：
+开发环境默认读取本机网关地址，也可以通过 Storage 覆盖：
 ```javascript
-const BASE_URL = 'http://192.168.211.175:9000'
+const BASE_URL = wx.getStorageSync('BASE_URL') || 'http://127.0.0.1:19001'
+```
+
+如需改成其他环境，可在微信开发者工具控制台执行：
+```javascript
+wx.setStorageSync('BASE_URL', 'http://你的网关地址:19001')
+wx.setStorageSync('WS_URL', 'ws://你的互动服务地址:9999/ws/danmaku')
 ```
 
 ### 3. 添加 TabBar 图标
@@ -127,4 +133,3 @@ if (app.globalData.isLogin) {
 2. Token 相关操作统一使用 `utils/auth.js`
 3. 页面样式优先使用 `app.wxss` 中的全局样式类
 4. 遵循小程序开发规范，注意性能优化
-

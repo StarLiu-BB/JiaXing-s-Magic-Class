@@ -36,7 +36,7 @@ function getLatestCourseList(params = {}) {
  * @param {number} courseId 课程ID
  */
 function getCourseDetail(courseId) {
-  return get(`/course/${courseId}`)
+  return get(`/course/detail/${courseId}`)
 }
 
 /**
@@ -45,6 +45,14 @@ function getCourseDetail(courseId) {
  */
 function getCourseChapters(courseId) {
   return get(`/course/${courseId}/chapters`)
+}
+
+/**
+ * 获取公开课程分页
+ * @param {object} params 查询参数
+ */
+function getCoursePage(params = {}) {
+  return get('/course/list', params)
 }
 
 /**
@@ -79,10 +87,10 @@ module.exports = {
   getCategoryList,
   getHotCourseList,
   getLatestCourseList,
+  getCoursePage,
   getCourseDetail,
   getCourseChapters,
   getCourseReviews,
   favoriteCourse,
   unfavoriteCourse
 }
-

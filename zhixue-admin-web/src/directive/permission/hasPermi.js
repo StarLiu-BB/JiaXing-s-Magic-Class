@@ -8,52 +8,24 @@ import { useUserStore } from '@/stores/modules/user'
  */
 export default {
   mounted(el, binding) {
-    // TODO: 临时跳过权限检查，用于测试
-    return
-    const { value } = binding
-    const userStore = useUserStore()
-    const permissions = userStore.permissions || []
-
-    if (value) {
-      // 将权限值转换为数组
-      const permissionValues = Array.isArray(value) ? value : [value]
-      
-      // 检查是否有权限
-      const hasPermission = permissionValues.some(permission => {
-        return permissions.includes(permission)
-      })
-
-      if (!hasPermission) {
-        // 无权限则移除元素
-        el.parentNode && el.parentNode.removeChild(el)
-      }
-    } else {
-      // 如果没有传入权限值，默认移除元素
-      console.warn('v-hasPermi: 需要传入权限值')
-      el.parentNode && el.parentNode.removeChild(el)
-    }
+    updatePermissionDisplay(el, binding.value)
   },
   updated(el, binding) {
-    // TODO: 临时跳过权限检查，用于测试
-    return
-    const { value } = binding
-    const userStore = useUserStore()
-    const permissions = userStore.permissions || []
-
-    if (value) {
-      // 将权限值转换为数组
-      const permissionValues = Array.isArray(value) ? value : [value]
-      
-      // 检查是否有权限
-      const hasPermission = permissionValues.some(permission => {
-        return permissions.includes(permission)
-      })
-
-      if (!hasPermission) {
-        // 无权限则移除元素
-        el.parentNode && el.parentNode.removeChild(el)
-      }
-    }
+    updatePermissionDisplay(el, binding.value)
   }
 }
 
+function updatePermissionDisplay(el, value) {
+  const userStore = useUserStore()
+  const permissions = userStore.permissions || []
+
+  if (!value) {
+    console.warn('v-hasPermi: 需要传入权限值')
+    el.style.display = 'none'
+    return
+  }
+
+  const permissionValues = Array.isArray(value) ? value : [value]
+  const allowed = permissionValues.some(permission => permissions.includes(permission))
+  el.style.display = allowed ? '' : 'none'
+}

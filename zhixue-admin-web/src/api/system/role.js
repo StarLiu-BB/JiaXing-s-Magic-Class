@@ -26,7 +26,7 @@ export function listRole(query) {
  */
 export function getRole(roleId) {
   return request({
-    url: `/system/role/${roleId}`,
+    url: `/system/role/info/${roleId}`,
     method: 'get'
   })
 }
@@ -95,4 +95,3 @@ export function changeRoleStatus(roleId, status) {
     data
   })
 }
-

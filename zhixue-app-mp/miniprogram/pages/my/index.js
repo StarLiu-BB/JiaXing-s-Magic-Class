@@ -1,24 +1,26 @@
 // pages/my/index.js
+const app = getApp()
+const { getOrderList } = require('../../api/order')
+const { getFavoriteList, getStudyRecords } = require('../../api/user')
+const { getAvailableCouponList } = require('../../api/marketing')
+
 Page({
   /**
    * 页面的初始数据
    */
   data: {
-    isLogin: true,
-    userInfo: {
-      id: '10001',
-      nickname: '智学云用户',
-      avatar: ''
-    },
+    isLogin: false,
+    userInfo: {},
     stats: {
-      studyHours: 128,
-      courseCount: 12,
-      orderCount: 5,
-      collectCount: 8
+      studyHours: 0,
+      courseCount: 0,
+      orderCount: 0,
+      collectCount: 0
     },
     orderStats: {
-      unpaid: 2
-    }
+      unpaid: 0
+    },
+    couponCount: 0
   },
 
   /**
@@ -32,7 +34,7 @@ Page({
    * 生命周期函数--监听页面显示
    */
   onShow() {
-
+    this.syncUserState()
   },
 
   /**
@@ -40,10 +42,9 @@ Page({
    */
   onLoginTap() {
     if (!this.data.isLogin) {
-      wx.showToast({
-        title: '跳转登录页面',
-        icon: 'none'
-      })
+      app.login()
+        .then(() => this.syncUserState())
+        .catch(() => {})
     }
   },
 
@@ -79,9 +80,11 @@ Page({
    * 点击我的订单
    */
   onOrderTap() {
-    wx.showToast({
-      title: '查看全部订单',
-      icon: 'none'
+    if (!this.checkLogin()) {
+      return
+    }
+    wx.navigateTo({
+      url: '/pages/my/list/index?mode=orders'
     })
   },
 
@@ -89,9 +92,11 @@ Page({
    * 点击我的收藏
    */
   onCollectTap() {
-    wx.showToast({
-      title: '查看收藏',
-      icon: 'none'
+    if (!this.checkLogin()) {
+      return
+    }
+    wx.navigateTo({
+      url: '/pages/my/list/index?mode=favorites'
     })
   },
 
@@ -107,14 +112,11 @@ Page({
    */
   onOrderStatusTap(e) {
     const status = e.currentTarget.dataset.status
-    const statusMap = {
-      '0': '待付款',
-      '1': '已付款',
-      '2': '已完成'
+    if (!this.checkLogin()) {
+      return
     }
-    wx.showToast({
-      title: statusMap[status] || '订单',
-      icon: 'none'
+    wx.navigateTo({
+      url: `/pages/my/list/index?mode=orders&status=${status}`
     })
   },
 
@@ -132,8 +134,11 @@ Page({
    * 点击学习记录
    */
   onStudyRecordTap() {
-    wx.switchTab({
-      url: '/pages/study/index'
+    if (!this.checkLogin()) {
+      return
+    }
+    wx.navigateTo({
+      url: '/pages/my/list/index?mode=history'
     })
   },
 
@@ -157,9 +162,11 @@ Page({
    * 点击优惠券
    */
   onCouponTap() {
-    wx.showToast({
-      title: '我的优惠券',
-      icon: 'none'
+    if (!this.checkLogin()) {
+      return
+    }
+    wx.navigateTo({
+      url: '/pages/my/list/index?mode=coupons'
     })
   },
 
@@ -212,16 +219,96 @@ Page({
       content: '确定要退出登录吗？',
       success: (res) => {
         if (res.confirm) {
-          this.setData({
-            isLogin: false,
-            userInfo: {}
-          })
-          wx.showToast({
-            title: '已退出登录',
-            icon: 'success'
-          })
+          app.logout()
+          this.syncUserState()
         }
       }
     })
+  },
+
+  syncUserState() {
+    const userInfo = app.globalData.userInfo || {}
+    const isLogin = !!app.globalData.isLogin
+    this.setData({
+      isLogin,
+      userInfo: {
+        id: userInfo.userId || '',
+        nickname: userInfo.nickname || userInfo.username || '智学云用户',
+        avatar: userInfo.avatar || ''
+      }
+    })
+    if (isLogin) {
+      this.loadDashboardData()
+    } else {
+      this.setData({
+        stats: {
+          studyHours: 0,
+          courseCount: 0,
+          orderCount: 0,
+          collectCount: 0
+        },
+        orderStats: {
+          unpaid: 0
+        },
+        couponCount: 0
+      })
+    }
+  },
+
+  checkLogin() {
+    if (this.data.isLogin) {
+      return true
+    }
+    wx.showModal({
+      title: '提示',
+      content: '请先登录后再查看',
+      confirmText: '去登录',
+      success: (res) => {
+        if (res.confirm) {
+          app.login()
+            .then(() => this.syncUserState())
+            .catch(() => {})
+        }
+      }
+    })
+    return false
+  },
+
+  async loadDashboardData() {
+    try {
+      const [orderRes, favoriteRes, studyRes, couponRes] = await Promise.all([
+        getOrderList({ pageNum: 1, pageSize: 100 }).catch(() => ({ code: 200, data: [] })),
+        getFavoriteList({ pageNum: 1, pageSize: 100 }).catch(() => ({ code: 200, data: [] })),
+        getStudyRecords({ pageNum: 1, pageSize: 100 }).catch(() => ({ code: 200, data: [] })),
+        getAvailableCouponList().catch(() => ({ code: 200, data: [] }))
+      ])
+
+      const orders = orderRes.data?.list || orderRes.data?.records || orderRes.data || []
+      const favorites = favoriteRes.data?.list || favoriteRes.data?.records || favoriteRes.data || []
+      const studies = studyRes.data?.list || studyRes.data?.records || studyRes.data || []
+      const coupons = couponRes.data || []
+
+      const totalStudySeconds = studies.reduce((sum, item) => sum + Number(item.studyDuration || item.duration || 0), 0)
+      const uniqueCourses = new Set(
+        studies
+          .map((item) => item.courseId || item.id)
+          .filter(Boolean)
+      )
+
+      this.setData({
+        stats: {
+          studyHours: Math.round((totalStudySeconds / 3600) * 10) / 10,
+          courseCount: uniqueCourses.size,
+          orderCount: orders.length,
+          collectCount: favorites.length
+        },
+        orderStats: {
+          unpaid: orders.filter((item) => Number(item.status) === 0).length
+        },
+        couponCount: coupons.length
+      })
+    } catch (error) {
+      console.error('加载我的页统计失败:', error)
+    }
   }
 })

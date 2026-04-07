@@ -4,131 +4,121 @@ import { getToken, setToken, removeToken } from '@/utils/auth'
 import { login as loginApi, getInfo as getInfoApi, logout as logoutApi } from '@/api/auth'
 
 export const useUserStore = defineStore('user', () => {
-  // State
   const token = ref(getToken() || '')
   const userInfo = ref({})
   const roles = ref([])
   const permissions = ref([])
+  const infoLoaded = ref(false)
+  const routesLoaded = ref(false)
 
-  // Getters
   const hasToken = computed(() => !!token.value)
+  const name = computed(() => userInfo.value.username || userInfo.value.name || '')
+  const avatar = computed(() => userInfo.value.avatar || '')
 
-  // Actions
-  /**
-   * 登录
-   */
   async function login(loginForm) {
-    try {
-      const response = await loginApi(
-        loginForm.username,
-        loginForm.password,
-        loginForm.code,
-        loginForm.uuid
-      )
-      // 后端返回格式: { code: 200, data: { token: "...", user: {...} } }
-      const data = response.data || response
-      const accessToken = data.token
-      token.value = accessToken
-      setToken(accessToken)
-      
-      // 如果返回了用户信息，也保存
-      if (data.user) {
-        userInfo.value = data.user
-        if (data.user.roles) {
-          roles.value = data.user.roles
-        }
-      }
-      
-      return Promise.resolve(response)
-    } catch (error) {
-      return Promise.reject(error)
+    const response = await loginApi(
+      loginForm.username,
+      loginForm.password,
+      loginForm.code,
+      loginForm.uuid
+    )
+    const payload = response?.data || response || {}
+    const accessToken = payload.token
+    if (!accessToken) {
+      throw new Error('登录响应缺少 token')
     }
+    token.value = accessToken
+    setToken(accessToken)
+    infoLoaded.value = false
+    routesLoaded.value = false
+
+    const loginUser = payload.user || {}
+    if (Object.keys(loginUser).length > 0) {
+      setProfile({
+        ...loginUser,
+        roles: loginUser.roles || [],
+        permissions: loginUser.permissions || []
+      })
+    }
+    return response
   }
 
-  /**
-   * 获取用户信息
-   */
   async function getInfo() {
-    try {
-      const response = await getInfoApi()
-      const { roles: userRoles, permissions: userPermissions, ...info } = response
-      
-      // 验证返回的 roles 是否为数组
-      if (!userRoles || userRoles.length === 0) {
-        throw new Error('getInfo: roles must be a non-null array!')
-      }
-      
-      roles.value = userRoles
-      permissions.value = userPermissions || []
-      userInfo.value = info
-      
-      return Promise.resolve(response)
-    } catch (error) {
-      return Promise.reject(error)
+    const response = await getInfoApi()
+    const payload = response?.data || response || {}
+    const userPayload = payload.user || payload
+
+    const userRoles = payload.roles || userPayload.roles || []
+    if (!Array.isArray(userRoles) || userRoles.length === 0) {
+      throw new Error('用户角色为空，无法完成鉴权')
     }
+
+    const userPermissions = payload.permissions || userPayload.permissions || []
+    setProfile({
+      ...userPayload,
+      roles: userRoles,
+      permissions: Array.isArray(userPermissions) ? userPermissions : []
+    })
+    infoLoaded.value = true
+    return userInfo.value
   }
 
-  /**
-   * 退出登录
-   */
   async function logout() {
     try {
       await logoutApi()
-      resetToken()
-      return Promise.resolve()
     } catch (error) {
+      // Always clear local auth state even if server logout fails.
+      console.error('登出接口调用失败，已清理本地状态', error)
+    } finally {
       resetToken()
-      return Promise.reject(error)
     }
   }
 
-  /**
-   * 重置 Token
-   */
   function resetToken() {
     token.value = ''
     userInfo.value = {}
     roles.value = []
     permissions.value = []
+    infoLoaded.value = false
+    routesLoaded.value = false
     removeToken()
   }
 
-  /**
-   * 设置 Token
-   */
   function setTokenValue(newToken) {
     token.value = newToken
     setToken(newToken)
+    infoLoaded.value = false
+    routesLoaded.value = false
   }
 
-  /**
-   * 设置用户信息
-   */
-  function setUserInfoValue(info) {
-    userInfo.value = info
-    if (info.roles) {
-      roles.value = info.roles
-    }
-    if (info.permissions) {
-      permissions.value = info.permissions
-    }
+  function setProfile(info) {
+    const { roles: roleList = [], permissions: permList = [], ...profile } = info || {}
+    userInfo.value = profile
+    roles.value = Array.isArray(roleList) ? roleList : []
+    permissions.value = Array.isArray(permList) ? permList : []
+    infoLoaded.value = true
+  }
+
+  function markRoutesLoaded(loaded) {
+    routesLoaded.value = !!loaded
   }
 
   return {
-    // State
     token,
     userInfo,
     roles,
     permissions,
-    // Getters
+    infoLoaded,
+    routesLoaded,
     hasToken,
-    // Actions
+    name,
+    avatar,
     login,
     getInfo,
     logout,
     resetToken,
     setToken: setTokenValue,
-    setUserInfo: setUserInfoValue
+    setProfile,
+    markRoutesLoaded
   }
 })
-

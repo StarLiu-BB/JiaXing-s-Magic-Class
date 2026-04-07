@@ -3,6 +3,24 @@
  */
 import request from '@/utils/request'
 
+function asPagedResult(response, pageNum = 1, pageSize = 10) {
+  const payload = response?.data ?? response ?? {}
+  if (Array.isArray(payload)) {
+    return {
+      list: payload,
+      total: payload.length,
+      pageNum,
+      pageSize
+    }
+  }
+  return {
+    list: payload.list || payload.records || [],
+    total: payload.total || 0,
+    pageNum: payload.pageNum || pageNum,
+    pageSize: payload.pageSize || pageSize
+  }
+}
+
 /**
  * 秒杀活动列表（分页）
  * @param {Object} query 查询参数
@@ -16,7 +34,7 @@ export function listSeckill(query) {
     url: '/marketing/seckill/list',
     method: 'get',
     params: query
-  })
+  }).then((res) => asPagedResult(res, query?.pageNum, query?.pageSize))
 }
 
 /**
@@ -27,6 +45,10 @@ export function getSeckill(seckillId) {
   return request({
     url: `/marketing/seckill/${seckillId}`,
     method: 'get'
+  }).catch(async () => {
+    const listRes = await listSeckill({ pageNum: 1, pageSize: 200 })
+    const row = (listRes.list || []).find((item) => String(item?.id || item?.activityId) === String(seckillId))
+    return { data: row || null }
   })
 }
 
@@ -46,6 +68,30 @@ export function addSeckill(data) {
     url: '/marketing/seckill',
     method: 'post',
     data
+  }).catch(() =>
+    request({
+      url: '/marketing/seckill/preload',
+      method: 'post',
+      params: {
+        activityId: data?.id || data?.activityId
+      }
+    })
+  )
+}
+
+export function doSeckill(data) {
+  return request({
+    url: '/marketing/seckill/do',
+    method: 'post',
+    data
+  })
+}
+
+export function preloadSeckill(activityId) {
+  return request({
+    url: '/marketing/seckill/preload',
+    method: 'post',
+    params: { activityId }
   })
 }
 
@@ -103,4 +149,3 @@ export function getSeckillStatistics(seckillId) {
     method: 'get'
   })
 }
-

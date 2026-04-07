@@ -1,0 +1,82 @@
+<view class="container">
+  <view class="filter-bar" wx:if="{{mode === 'orders'}}">
+    <view class="filter-item {{status === '' ? 'active' : ''}}" data-status="" bindtap="onOrderFilterTap">全部</view>
+    <view class="filter-item {{status === '0' ? 'active' : ''}}" data-status="0" bindtap="onOrderFilterTap">待支付</view>
+    <view class="filter-item {{status === '1' ? 'active' : ''}}" data-status="1" bindtap="onOrderFilterTap">已支付</view>
+    <view class="filter-item {{status === '2' ? 'active' : ''}}" data-status="2" bindtap="onOrderFilterTap">已取消</view>
+    <view class="filter-item {{status === '3' ? 'active' : ''}}" data-status="3" bindtap="onOrderFilterTap">已退款</view>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && list.length === 0}}">
+    <text>暂无数据</text>
+  </view>
+
+  <view class="list">
+    <view class="card {{item.isHighlight ? 'highlight' : ''}}" wx:for="{{list}}" wx:key="index">
+      <block wx:if="{{mode === 'orders'}}">
+        <view class="row">
+          <text class="title">订单号</text>
+          <text class="value">{{item.orderNo || item.id || item.orderId}}</text>
+        </view>
+        <view class="row">
+          <text class="title">商品ID</text>
+          <text class="value">{{item.productId || item.courseId || '-'}}</text>
+        </view>
+        <view class="row">
+          <text class="title">金额</text>
+          <text class="value price">¥{{item.amount || item.price || 0}}</text>
+        </view>
+        <view class="row">
+          <text class="title">状态</text>
+          <text class="value">{{item.status === 0 ? '待支付' : item.status === 1 ? '已支付' : item.status === 2 ? '已取消' : item.status === 3 ? '已退款' : '未知'}}</text>
+        </view>
+      </block>
+
+      <block wx:if="{{mode === 'favorites'}}">
+        <view class="course-card" data-id="{{item.courseId || item.id}}" bindtap="onCourseTap">
+          <image class="course-cover" src="{{item.cover || item.coverUrl || '/images/course-default.png'}}" mode="aspectFill" />
+          <view class="course-meta">
+            <text class="course-title">{{item.title || item.courseName || '课程'}}</text>
+            <text class="course-price">¥{{item.price || 0}}</text>
+          </view>
+        </view>
+      </block>
+
+      <block wx:if="{{mode === 'coupons'}}">
+        <view class="row">
+          <text class="title">{{item.name || item.couponName || '优惠券'}}</text>
+          <text class="value price" wx:if="{{item.discountAmount}}">¥{{item.discountAmount}}</text>
+          <text class="value price" wx:if="{{item.discountRate && !item.discountAmount}}">{{item.discountRate}}折</text>
+        </view>
+        <view class="row">
+          <text class="title">使用门槛</text>
+          <text class="value">满{{item.minAmount || 0}}可用</text>
+        </view>
+        <view class="row">
+          <text class="title">状态</text>
+          <text class="value">{{item.claimed ? '已领取' : '可领取'}}</text>
+        </view>
+        <button class="claim-btn" wx:if="{{!item.claimed}}" data-id="{{item.id || item.couponId}}" bindtap="onClaimCoupon">领取</button>
+      </block>
+
+      <block wx:if="{{mode === 'history'}}">
+        <view class="row">
+          <text class="title">{{item.courseTitle || item.title || '课程学习记录'}}</text>
+          <text class="value">{{item.progress || 0}}%</text>
+        </view>
+        <view class="row">
+          <text class="title">学习时长</text>
+          <text class="value">{{item.studyDuration || item.duration || 0}} 秒</text>
+        </view>
+        <view class="row">
+          <text class="title">最近学习</text>
+          <text class="value">{{item.updateTime || item.lastStudyTime || '-'}}</text>
+        </view>
+      </block>
+    </view>
+  </view>
+</view>

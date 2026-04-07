@@ -27,7 +27,7 @@ export function listCourse(query) {
  */
 export function getCourse(courseId) {
   return request({
-    url: `/course/${courseId}`,
+    url: `/course/info/${courseId}`,
     method: 'get'
   })
 }
@@ -94,8 +94,8 @@ export function deleteCourse(courseIds) {
  */
 export function publishCourse(courseId) {
   return request({
-    url: `/course/${courseId}/publish`,
-    method: 'put'
+    url: `/course/publish/${courseId}`,
+    method: 'post'
   })
 }
 
@@ -105,8 +105,11 @@ export function publishCourse(courseId) {
  */
 export function offlineCourse(courseId) {
   return request({
-    url: `/course/${courseId}/offline`,
-    method: 'put'
+    url: `/course/shelf/${courseId}`,
+    method: 'post',
+    params: {
+      shelfStatus: 0
+    }
   })
 }
 
@@ -119,4 +122,3 @@ export function getCategoryList() {
     method: 'get'
   })
 }
-

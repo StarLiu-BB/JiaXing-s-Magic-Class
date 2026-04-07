@@ -27,8 +27,8 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAppStore } from '@/stores/app'
-import { useUserStore } from '@/stores/user'
+import { useAppStore } from '@/stores/modules/app'
+import { useUserStore } from '@/stores/modules/user'
 import Logo from './Logo.vue'
 import SidebarItem from './SidebarItem.vue'
 
@@ -45,88 +45,53 @@ const variables = {
 
 const showLogo = computed(() => true)
 const isCollapse = computed(() => appStore.isCollapse)
+const userPermissions = computed(() => userStore.permissions || [])
+const userRoles = computed(() => userStore.roles || [])
 
-// 获取用户角色
-const userRoles = computed(() => userStore.roles || ['ADMIN'])
-
-// 检查是否有角色权限
-const hasRole = (roles) => {
-  if (!roles || roles.length === 0) return true
-  return roles.some(role => userRoles.value.includes(role))
+const hasRole = (route) => {
+  if (!route.meta?.roles || route.meta.roles.length === 0) return true
+  return route.meta.roles.some(role => userRoles.value.includes(role))
 }
 
-// 完整菜单配置（带角色权限）
-const allMenus = [
-  // 首页 - 所有角色可见
-  {
-    path: '/dashboard',
-    meta: { title: '首页', icon: 'HomeFilled' }
-  },
-  // AI 助手 - 所有角色可见
-  {
-    path: '/ai',
-    meta: { title: 'AI 助手', icon: 'MagicStick' },
-    children: [
-      { path: 'chat', meta: { title: '智能对话', icon: 'ChatDotRound' } }
-    ]
-  },
-  // 课程管理 - 管理员和教师可见
-  {
-    path: '/course',
-    meta: { title: '课程管理', icon: 'VideoPlay', roles: ['ADMIN', 'TEACHER'] },
-    children: [
-      { path: 'list', meta: { title: '课程列表', icon: 'List' } },
-      { path: 'category', meta: { title: '分类管理', icon: 'Grid', roles: ['ADMIN'] } },
-      { path: 'chapter', meta: { title: '章节管理', icon: 'Folder' } }
-    ]
-  },
-  // 学生互动 - 教师可见
-  {
-    path: '/interaction',
-    meta: { title: '学生互动', icon: 'ChatLineSquare', roles: ['ADMIN', 'TEACHER'] },
-    children: [
-      { path: 'question', meta: { title: '问答管理', icon: 'QuestionFilled' } },
-      { path: 'comment', meta: { title: '评论管理', icon: 'Comment' } }
-    ]
-  },
-  // 营销管理 - 仅管理员可见
-  {
-    path: '/marketing',
-    meta: { title: '营销中心', icon: 'TrendCharts', roles: ['ADMIN'] },
-    children: [
-      { path: 'seckill', meta: { title: '秒杀活动', icon: 'Timer' } },
-      { path: 'coupon', meta: { title: '优惠券', icon: 'Ticket' } }
-    ]
-  },
-  // 系统管理 - 仅管理员可见
-  {
-    path: '/system',
-    meta: { title: '系统设置', icon: 'Setting', roles: ['ADMIN'] },
-    children: [
-      { path: 'user', meta: { title: '用户管理', icon: 'User' } },
-      { path: 'role', meta: { title: '角色管理', icon: 'Avatar' } },
-      { path: 'menu', meta: { title: '菜单管理', icon: 'Menu' } },
-      { path: 'dict', meta: { title: '字典管理', icon: 'Collection' } }
-    ]
-  }
-]
+const hasPermission = (route) => {
+  if (!route.meta?.permission) return true
+  const required = Array.isArray(route.meta.permission)
+    ? route.meta.permission
+    : [route.meta.permission]
+  return required.some(item => userPermissions.value.includes(item))
+}
 
-// 根据角色过滤菜单
-const filterMenusByRole = (menus) => {
-  return menus.filter(menu => {
-    // 检查菜单本身的角色权限
-    if (!hasRole(menu.meta?.roles)) return false
-    // 过滤子菜单
-    if (menu.children) {
-      menu.children = menu.children.filter(child => hasRole(child.meta?.roles))
+const canAccess = (route) => hasRole(route) && hasPermission(route)
+
+const buildMenus = (routes) => routes
+  .filter(route => !route.meta?.hidden && canAccess(route))
+  .map(route => {
+    const menu = {
+      path: route.path,
+      meta: route.meta ? { ...route.meta } : {},
+      children: route.children ? [...route.children] : undefined
     }
-    return true
+    if (menu.children?.length) {
+      menu.children = buildMenus(menu.children)
+    }
+    return menu
   })
-}
+  .filter(route => !route.children || route.children.length > 0)
 
-// 根据角色过滤后的菜单
+const moduleRoutes = (() => {
+  const modules = import.meta.glob('/src/router/modules/*.js', { eager: true })
+  return Object.values(modules)
+    .map(m => m.default)
+    .filter(Boolean)
+})()
+
+const baseMenus = [{
+  path: '/dashboard',
+  meta: { title: '首页', icon: 'HomeFilled' }
+}, ...moduleRoutes]
+
 const menuRoutes = computed(() => {
-  return filterMenusByRole(JSON.parse(JSON.stringify(allMenus)))
+  return buildMenus(baseMenus)
 })
 
 // 当前激活的菜单
@@ -177,4 +142,3 @@ const activeMenu = computed(() => {
   }
 }
 </style>
-

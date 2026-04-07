@@ -8,7 +8,10 @@ const { get, post } = require('./request')
  * @param {string} code 微信登录code
  */
 function wxLogin(code) {
-  return post('/auth/wx/login', { code })
+  return post('/auth/login', {
+    loginType: 'wechat',
+    wechatCode: code
+  })
 }
 
 /**
@@ -38,4 +41,3 @@ module.exports = {
   logout,
   refreshToken
 }
-

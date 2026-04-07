@@ -395,7 +395,7 @@ const getCategoryName = (categoryId) => {
 const getCategoryOptions = async () => {
   try {
     const response = await getCategoryList()
-    categoryOptions.value = response || []
+    categoryOptions.value = response?.data || response || []
   } catch (error) {
     console.error('获取分类列表失败:', error)
   }
@@ -460,7 +460,7 @@ const beforeCoverUpload = (file) => {
 
 const handleCoverSuccess = (response) => {
   if (response.code === 200 || response.data) {
-    form.cover = response.data || response.url || response.img
+    form.cover = response.data?.url || response.data || response.url || response.img
     ElMessage.success('封面上传成功')
   } else {
     ElMessage.error('封面上传失败')
@@ -599,13 +599,14 @@ const submitNodeForm = async () => {
         if (nodeForm.lessonId) {
           // 保存课时
           const lessonData = {
+            courseId: courseId.value,
             chapterId: nodeForm.chapterId,
             title: nodeForm.title,
             videoUrl: nodeForm.videoUrl,
             duration: nodeForm.duration,
             isFree: nodeForm.isFree,
             description: nodeForm.description,
-            sortOrder: nodeForm.sortOrder || 0
+            orderNum: nodeForm.sortOrder || 0
           }
 
           if (nodeForm.id) {
@@ -642,7 +643,7 @@ const submitNodeForm = async () => {
           const chapterData = {
             courseId: courseId.value,
             title: nodeForm.title,
-            sortOrder: nodeForm.sortOrder || 0
+            orderNum: nodeForm.sortOrder || 0
           }
 
           if (nodeForm.id) {
@@ -738,22 +739,13 @@ const handleSaveDraft = async () => {
 }
 
 const saveCourse = async () => {
-  // 保存课程基本信息
   const courseData = {
     title: form.title,
     categoryId: form.categoryId,
-    cover: form.cover,
+    coverUrl: form.cover,
     price: form.price,
-    originalPrice: form.originalPrice || 0,
     description: form.description,
-    objectives: form.objectives,
-    suitable: form.suitable,
-    content: form.content,
-    validityType: form.validityType,
-    validityDays: form.validityType === 1 ? form.validityDays : undefined,
-    allowPreview: form.allowPreview,
-    previewLessons: form.allowPreview ? form.previewLessons : undefined,
-    studyMode: form.studyMode,
+    teacherId: form.teacherId || undefined,
     status: form.status
   }
 
@@ -783,16 +775,16 @@ const saveChaptersAndLessons = async () => {
       const chapterData = {
         courseId: courseId.value,
         title: chapter.title,
-        sortOrder: i + 1
+        orderNum: i + 1
       }
       const chapterResponse = await addChapter(chapterData)
-      chapterId = chapterResponse.id || chapterResponse.data?.id
+      chapterId = chapterResponse?.data?.id || chapterResponse?.id
       chapter.id = chapterId
     } else {
       await updateChapter({
         id: chapterId,
         title: chapter.title,
-        sortOrder: i + 1
+        orderNum: i + 1
       })
     }
 
@@ -801,13 +793,14 @@ const saveChaptersAndLessons = async () => {
       for (let j = 0; j < chapter.lessons.length; j++) {
         const lesson = chapter.lessons[j]
         const lessonData = {
+          courseId: courseId.value,
           chapterId: chapterId,
           title: lesson.title,
           videoUrl: lesson.videoUrl,
           duration: lesson.duration,
           isFree: lesson.isFree,
           description: lesson.description,
-          sortOrder: j + 1
+          orderNum: j + 1
         }
 
         if (lesson.id && lesson.id !== 'lesson') {
@@ -815,7 +808,7 @@ const saveChaptersAndLessons = async () => {
           await updateLesson(lessonData)
         } else {
           const lessonResponse = await addLesson(lessonData)
-          lesson.id = lessonResponse.id || lessonResponse.data?.id
+          lesson.id = lessonResponse?.data?.id || lessonResponse?.id
         }
       }
     }
@@ -833,52 +826,51 @@ const loadCourseData = async () => {
     courseId.value = parseInt(id)
     try {
       const response = await getCourse(courseId.value)
-      Object.assign(form, response)
-      objectivesInput.value = (response.objectives || []).join('\n')
-      suitableInput.value = (response.suitable || []).join('\n')
+      const courseData = response?.data || response || {}
+      Object.assign(form, {
+        ...courseData,
+        cover: courseData.coverUrl || courseData.cover || ''
+      })
+      objectivesInput.value = (courseData.objectives || []).join('\n')
+      suitableInput.value = (courseData.suitable || []).join('\n')
       
       // 加载章节数据
       try {
         const chaptersResponse = await listChapter(courseId.value)
-        if (chaptersResponse && chaptersResponse.length > 0) {
-          chapterTree.value = chaptersResponse.map(chapter => ({
-            id: chapter.id,
-            title: chapter.title,
-            sortOrder: chapter.sortOrder || 0,
-            lessons: (chapter.lessons || []).map(lesson => ({
-              id: lesson.id,
+        const chapterList = chaptersResponse?.data || chaptersResponse || []
+        if (Array.isArray(chapterList) && chapterList.length > 0) {
+          const sectionList = await Promise.all(chapterList.map(async (chapter) => {
+            const sectionResponse = await listLesson(chapter.id)
+            return {
               chapterId: chapter.id,
-              lessonId: 'lesson',
-              title: lesson.title,
-              videoUrl: lesson.videoUrl || '',
-              duration: lesson.duration || 0,
-              isFree: lesson.isFree || false,
-              description: lesson.description || '',
-              sortOrder: lesson.sortOrder || 0
-            }))
+              rows: sectionResponse?.data || sectionResponse || []
+            }
           }))
+
+          chapterTree.value = chapterList.map(chapter => {
+            const current = sectionList.find(item => item.chapterId === chapter.id)
+            const lessons = Array.isArray(current?.rows) ? current.rows : []
+            return {
+              id: chapter.id,
+              title: chapter.title,
+              sortOrder: chapter.orderNum || 0,
+              lessons: lessons.map(lesson => ({
+                id: lesson.id,
+                chapterId: chapter.id,
+                lessonId: lesson.id,
+                title: lesson.title,
+                videoUrl: lesson.videoUrl || '',
+                duration: lesson.duration || 0,
+                isFree: lesson.isFree || false,
+                description: lesson.description || '',
+                sortOrder: lesson.orderNum || 0,
+                status: lesson.status || 0
+              }))
+            }
+          })
         }
       } catch (chapterError) {
         console.error('加载章节数据失败:', chapterError)
-        // 如果章节API失败，尝试从课程响应中获取
-        if (response.chapters) {
-          chapterTree.value = response.chapters.map(chapter => ({
-            id: chapter.id,
-            title: chapter.title,
-            sortOrder: chapter.sortOrder || 0,
-            lessons: (chapter.lessons || []).map(lesson => ({
-              id: lesson.id,
-              chapterId: chapter.id,
-              lessonId: 'lesson',
-              title: lesson.title,
-              videoUrl: lesson.videoUrl || '',
-              duration: lesson.duration || 0,
-              isFree: lesson.isFree || false,
-              description: lesson.description || '',
-              sortOrder: lesson.sortOrder || 0
-            }))
-          }))
-        }
       }
     } catch (error) {
       console.error('加载课程数据失败:', error)
@@ -999,4 +991,3 @@ onUnmounted(() => {
   border-top: 1px solid #e8e8e8;
 }
 </style>
-

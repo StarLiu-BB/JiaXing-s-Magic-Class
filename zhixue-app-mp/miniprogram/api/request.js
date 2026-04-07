@@ -3,8 +3,8 @@
  */
 import { getToken, removeToken } from '../utils/auth'
 
-// 基础URL
-const BASE_URL = 'http://192.168.211.175:9000'
+// 基础URL，可通过 Storage 中的 BASE_URL 覆盖
+const BASE_URL = wx.getStorageSync('BASE_URL') || 'http://127.0.0.1:19001'
 
 // 请求队列（用于防止重复请求）
 const requestQueue = new Map()
@@ -276,4 +276,3 @@ module.exports = {
   del,
   BASE_URL
 }
-

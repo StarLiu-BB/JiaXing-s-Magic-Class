@@ -1,0 +1,35 @@
+<view class="container">
+  <view class="search-bar">
+    <input
+      class="search-input"
+      value="{{keyword}}"
+      placeholder="输入课程名或讲师名"
+      confirm-type="search"
+      bindinput="onKeywordInput"
+      bindconfirm="onSearchConfirm"
+    />
+    <button class="search-btn" bindtap="onSearchConfirm">搜索</button>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">
+    <text>搜索中...</text>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && resultList.length === 0}}">
+    <text>暂无匹配课程</text>
+  </view>
+
+  <view class="list">
+    <view class="item" wx:for="{{resultList}}" wx:key="id" data-id="{{item.id}}" bindtap="onCourseTap">
+      <image class="cover" src="{{item.cover || item.coverUrl || '/images/course-default.png'}}" mode="aspectFill" />
+      <view class="meta">
+        <text class="title">{{item.title}}</text>
+        <text class="desc" wx:if="{{item.description}}">{{item.description}}</text>
+        <view class="bottom">
+          <text class="teacher">{{item.teacher || item.teacherName || '智学讲师'}}</text>
+          <text class="price">¥{{item.price || 0}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

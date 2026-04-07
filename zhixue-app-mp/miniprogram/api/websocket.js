@@ -1,7 +1,7 @@
 /**
  * WebSocket 封装（用于弹幕）
  */
-const WS_URL = 'ws://192.168.211.175:9999/ws/danmaku'
+const WS_URL = wx.getStorageSync('WS_URL') || 'ws://127.0.0.1:9999/ws/danmaku'
 
 class WebSocketManager {
   constructor() {
@@ -197,4 +197,3 @@ class WebSocketManager {
 }
 
 module.exports = WebSocketManager
-

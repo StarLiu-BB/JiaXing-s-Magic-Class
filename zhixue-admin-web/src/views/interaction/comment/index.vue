@@ -3,60 +3,61 @@
     <el-card shadow="never">
       <template #header>
         <div class="card-header">
-          <span>评论管理</span>
-          <el-button type="primary" :icon="Refresh" @click="handleRefresh">刷新</el-button>
+          <span>弹幕管理</span>
+          <el-button type="primary" :icon="Refresh" @click="fetchList">刷新</el-button>
         </div>
       </template>
-      
-      <!-- 搜索区域 -->
+
+      <el-alert
+        title="当前后端尚未开放弹幕审核写接口，页面已改为真实数据只读管理。"
+        type="info"
+        :closable="false"
+        class="tip"
+      />
+
       <el-form :model="queryParams" :inline="true" class="search-form">
-        <el-form-item label="课程">
-          <el-input v-model="queryParams.courseName" placeholder="请输入课程名称" clearable />
+        <el-form-item label="房间ID">
+          <el-input v-model="queryParams.roomId" placeholder="请输入课程房间ID" clearable />
         </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
+        <el-form-item label="审核状态">
+          <el-select v-model="queryParams.auditStatus" clearable placeholder="全部状态">
             <el-option label="待审核" :value="0" />
             <el-option label="已通过" :value="1" />
             <el-option label="已拒绝" :value="2" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
-          <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+          <el-button type="primary" :icon="Search" @click="fetchList">搜索</el-button>
+          <el-button :icon="Refresh" @click="resetQuery">重置</el-button>
         </el-form-item>
       </el-form>
-      
-      <!-- 评论列表 -->
+
       <el-table :data="commentList" v-loading="loading" stripe>
-        <el-table-column label="学生" prop="studentName" width="100" />
-        <el-table-column label="课程" prop="courseName" width="150" show-overflow-tooltip />
-        <el-table-column label="评论内容" prop="content" min-width="250" show-overflow-tooltip />
-        <el-table-column label="评分" width="150" align="center">
+        <el-table-column label="ID" prop="id" width="90" />
+        <el-table-column label="房间ID" prop="roomId" width="110" />
+        <el-table-column label="用户ID" prop="userId" width="110" />
+        <el-table-column label="弹幕内容" prop="content" min-width="260" show-overflow-tooltip />
+        <el-table-column label="发送时间" prop="createTime" width="180" />
+        <el-table-column label="状态" width="120" align="center">
           <template #default="{ row }">
-            <el-rate v-model="row.rating" disabled />
-          </template>
-        </el-table-column>
-        <el-table-column label="评论时间" prop="createTime" width="160" />
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">
-              {{ getStatusText(row.status) }}
+            <el-tag :type="getStatusType(row.auditStatus)">
+              {{ getStatusText(row.auditStatus) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center">
+        <el-table-column label="操作" width="220" align="center">
           <template #default="{ row }">
-            <template v-if="row.status === 0">
-              <el-button type="success" link @click="handleApprove(row)">通过</el-button>
-              <el-button type="danger" link @click="handleReject(row)">拒绝</el-button>
-            </template>
             <el-button type="primary" link @click="handleView(row)">查看</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <el-tooltip content="后端未开放审核写接口">
+              <el-button type="success" link disabled>通过</el-button>
+            </el-tooltip>
+            <el-tooltip content="后端未开放审核写接口">
+              <el-button type="danger" link disabled>拒绝</el-button>
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
-      
-      <!-- 分页 -->
+
       <div class="pagination-container">
         <el-pagination
           v-model:current-page="queryParams.pageNum"
@@ -64,26 +65,22 @@
           :page-sizes="[10, 20, 50]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSearch"
-          @current-change="handleSearch"
+          @size-change="fetchList"
+          @current-change="fetchList"
         />
       </div>
     </el-card>
-    
-    <!-- 查看对话框 -->
-    <el-dialog v-model="dialogVisible" title="评论详情" width="500px">
+
+    <el-dialog v-model="dialogVisible" title="弹幕详情" width="560px">
       <div class="comment-detail">
-        <div class="comment-info">
-          <p><strong>学生：</strong>{{ currentComment.studentName }}</p>
-          <p><strong>课程：</strong>{{ currentComment.courseName }}</p>
-          <p><strong>评论时间：</strong>{{ currentComment.createTime }}</p>
-          <p><strong>评分：</strong><el-rate v-model="currentComment.rating" disabled /></p>
-        </div>
+        <p><strong>ID：</strong>{{ currentComment.id }}</p>
+        <p><strong>房间ID：</strong>{{ currentComment.roomId }}</p>
+        <p><strong>用户ID：</strong>{{ currentComment.userId }}</p>
+        <p><strong>发送时间：</strong>{{ currentComment.createTime }}</p>
+        <p><strong>审核状态：</strong>{{ getStatusText(currentComment.auditStatus) }}</p>
         <el-divider />
-        <div class="comment-content">
-          <p><strong>评论内容：</strong></p>
-          <p>{{ currentComment.content }}</p>
-        </div>
+        <p><strong>内容：</strong></p>
+        <p class="content">{{ currentComment.content }}</p>
       </div>
       <template #footer>
         <el-button @click="dialogVisible = false">关闭</el-button>
@@ -93,103 +90,80 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { Search, Refresh } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { listDanmakuPage } from '@/api/interaction/danmaku'
 
 const loading = ref(false)
 const dialogVisible = ref(false)
 const currentComment = ref({})
 const total = ref(0)
+const commentList = ref([])
 
 const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
-  courseName: '',
-  status: undefined
+  roomId: '',
+  auditStatus: undefined
 })
 
-// 模拟评论数据
-const commentList = ref([
-  { id: 1, studentName: '张三', courseName: 'Java 基础入门', content: '老师讲得很清楚，非常适合初学者！', rating: 5, createTime: '2024-12-29 10:30:00', status: 1 },
-  { id: 2, studentName: '李四', courseName: 'Spring Boot 实战', content: '内容很实用，学到了很多东西。', rating: 4, createTime: '2024-12-29 09:15:00', status: 0 },
-  { id: 3, studentName: '王五', courseName: 'MySQL 数据库', content: '希望能多一些实战案例。', rating: 3, createTime: '2024-12-28 16:45:00', status: 0 },
-  { id: 4, studentName: '赵六', courseName: 'Vue 3 开发', content: '课程质量很高，推荐！', rating: 5, createTime: '2024-12-28 14:20:00', status: 1 },
-  { id: 5, studentName: '钱七', courseName: 'Java 基础入门', content: '垃圾课程', rating: 1, createTime: '2024-12-27 11:00:00', status: 2 }
-])
-
-const getStatusType = (status) => {
-  const types = { 0: 'warning', 1: 'success', 2: 'danger' }
-  return types[status] || 'info'
+function getStatusType(status) {
+  const map = { 0: 'warning', 1: 'success', 2: 'danger' }
+  return map[status] || 'info'
 }
 
-const getStatusText = (status) => {
-  const texts = { 0: '待审核', 1: '已通过', 2: '已拒绝' }
-  return texts[status] || '未知'
+function getStatusText(status) {
+  const map = { 0: '待审核', 1: '已通过', 2: '已拒绝' }
+  return map[status] || '未知'
 }
 
-const handleSearch = () => {
+function normalizeRow(row) {
+  return {
+    ...row,
+    auditStatus: Number(row.auditStatus ?? 0),
+    content: row.content || row.text || ''
+  }
+}
+
+async function fetchList() {
   loading.value = true
-  setTimeout(() => {
+  try {
+    const params = {
+      pageNum: queryParams.pageNum,
+      pageSize: queryParams.pageSize
+    }
+    if (queryParams.roomId) {
+      params.roomId = Number(queryParams.roomId)
+    }
+    if (queryParams.auditStatus !== undefined) {
+      params.auditStatus = queryParams.auditStatus
+    }
+    const res = await listDanmakuPage(params)
+    commentList.value = (res.list || []).map(normalizeRow)
+    total.value = res.total || commentList.value.length
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('加载弹幕数据失败')
+  } finally {
     loading.value = false
-    total.value = commentList.value.length
-  }, 500)
+  }
 }
 
-const handleReset = () => {
-  queryParams.courseName = ''
-  queryParams.status = undefined
-  handleSearch()
+function resetQuery() {
+  queryParams.pageNum = 1
+  queryParams.pageSize = 10
+  queryParams.roomId = ''
+  queryParams.auditStatus = undefined
+  fetchList()
 }
 
-const handleRefresh = () => {
-  handleSearch()
-  ElMessage.success('刷新成功')
-}
-
-const handleView = (row) => {
+function handleView(row) {
   currentComment.value = { ...row }
   dialogVisible.value = true
 }
 
-const handleApprove = (row) => {
-  ElMessageBox.confirm('确定要通过这条评论吗？', '提示', {
-    type: 'info'
-  }).then(() => {
-    const index = commentList.value.findIndex(c => c.id === row.id)
-    if (index !== -1) {
-      commentList.value[index].status = 1
-    }
-    ElMessage.success('审核通过')
-  }).catch(() => {})
-}
-
-const handleReject = (row) => {
-  ElMessageBox.confirm('确定要拒绝这条评论吗？', '提示', {
-    type: 'warning'
-  }).then(() => {
-    const index = commentList.value.findIndex(c => c.id === row.id)
-    if (index !== -1) {
-      commentList.value[index].status = 2
-    }
-    ElMessage.success('已拒绝')
-  }).catch(() => {})
-}
-
-const handleDelete = (row) => {
-  ElMessageBox.confirm('确定要删除这条评论吗？', '提示', {
-    type: 'warning'
-  }).then(() => {
-    const index = commentList.value.findIndex(c => c.id === row.id)
-    if (index !== -1) {
-      commentList.value.splice(index, 1)
-    }
-    ElMessage.success('删除成功')
-  }).catch(() => {})
-}
-
-// 初始化
-handleSearch()
+fetchList()
 </script>
 
 <style lang="scss" scoped>
@@ -203,6 +177,10 @@ handleSearch()
   align-items: center;
 }
 
+.tip {
+  margin-bottom: 16px;
+}
+
 .search-form {
   margin-bottom: 20px;
 }
@@ -214,28 +192,14 @@ handleSearch()
 }
 
 .comment-detail {
-  .comment-info {
-    background: #f5f7fa;
-    padding: 15px;
-    border-radius: 4px;
-    
-    p {
-      margin: 8px 0;
-      color: #606266;
-      display: flex;
-      align-items: center;
-      
-      strong {
-        min-width: 80px;
-      }
-    }
+  p {
+    margin: 8px 0;
   }
-  
-  .comment-content {
-    p {
-      margin: 5px 0;
-      line-height: 1.6;
-    }
+
+  .content {
+    line-height: 1.6;
+    white-space: pre-wrap;
+    color: #333;
   }
 }
 </style>

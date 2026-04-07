@@ -9,7 +9,7 @@ import request from '@/utils/request'
  */
 export function listChapter(courseId) {
   return request({
-    url: `/course/${courseId}/chapters`,
+    url: `/course/chapter/list/${courseId}`,
     method: 'get'
   })
 }
@@ -20,7 +20,7 @@ export function listChapter(courseId) {
  */
 export function getChapter(chapterId) {
   return request({
-    url: `/course/chapter/${chapterId}`,
+    url: `/course/chapter/info/${chapterId}`,
     method: 'get'
   })
 }
@@ -72,7 +72,7 @@ export function deleteChapter(chapterId) {
  */
 export function listLesson(chapterId) {
   return request({
-    url: `/course/chapter/${chapterId}/lessons`,
+    url: `/course/section/list/${chapterId}`,
     method: 'get'
   })
 }
@@ -83,7 +83,7 @@ export function listLesson(chapterId) {
  */
 export function getLesson(lessonId) {
   return request({
-    url: `/course/lesson/${lessonId}`,
+    url: `/course/section/info/${lessonId}`,
     method: 'get'
   })
 }
@@ -101,7 +101,7 @@ export function getLesson(lessonId) {
  */
 export function addLesson(data) {
   return request({
-    url: '/course/lesson',
+    url: '/course/section',
     method: 'post',
     data
   })
@@ -120,7 +120,7 @@ export function addLesson(data) {
  */
 export function updateLesson(data) {
   return request({
-    url: '/course/lesson',
+    url: '/course/section',
     method: 'put',
     data
   })
@@ -132,8 +132,7 @@ export function updateLesson(data) {
  */
 export function deleteLesson(lessonId) {
   return request({
-    url: `/course/lesson/${lessonId}`,
+    url: `/course/section/${lessonId}`,
     method: 'delete'
   })
 }
-

@@ -4,9 +4,8 @@
     <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="status-tabs">
       <el-tab-pane label="全部" name="all" />
       <el-tab-pane label="草稿" name="0" />
-      <el-tab-pane label="待审核" name="2" />
       <el-tab-pane label="已发布" name="1" />
-      <el-tab-pane label="已下架" name="3" />
+      <el-tab-pane label="已下架" name="offline" />
     </el-tabs>
 
     <!-- 搜索区域 -->
@@ -94,8 +93,8 @@
       <el-table-column label="封面" width="120" align="center">
         <template #default="scope">
           <el-image
-            :src="scope.row.cover"
-            :preview-src-list="[scope.row.cover]"
+            :src="scope.row.coverUrl || scope.row.cover"
+            :preview-src-list="[scope.row.coverUrl || scope.row.cover]"
             fit="cover"
             style="width: 80px; height: 60px; border-radius: 4px"
             :preview-teleported="true"
@@ -216,16 +215,16 @@ const queryParams = reactive({
   title: '',
   categoryId: undefined,
   teacherName: '',
-  status: undefined
+  status: undefined,
+  shelfStatus: undefined
 })
 
 // 获取状态类型
 const getStatusType = (status) => {
   const statusMap = {
-    0: 'info',    // 草稿
-    1: 'success', // 已发布
-    2: 'warning', // 待审核
-    3: 'danger'   // 已下架
+    0: 'info',
+    1: 'success',
+    3: 'danger'
   }
   return statusMap[status] || 'info'
 }
@@ -235,7 +234,6 @@ const getStatusText = (status) => {
   const statusMap = {
     0: '草稿',
     1: '已发布',
-    2: '待审核',
     3: '已下架'
   }
   return statusMap[status] || '未知'
@@ -251,9 +249,15 @@ const getList = async () => {
       ...queryParams
     }
     const response = await listCourse(params)
-    // 后端返回格式: { code: 200, data: { records: [], total: 0 } }
-    const data = response.data || response
-    courseList.value = data.records || []
+    const data = response.data || response || {}
+    const list = data.list || data.records || []
+    courseList.value = list.map(item => {
+      const down = item.status === 1 && item.shelfStatus === 0
+      return {
+        ...item,
+        status: down ? 3 : item.status
+      }
+    })
     total.value = data.total || 0
   } catch (error) {
     console.error('获取课程列表失败:', error)
@@ -278,10 +282,17 @@ const getCategoryOptions = async () => {
 
 // 标签页切换
 const handleTabChange = (tabName) => {
+  queryParams.shelfStatus = undefined
   if (tabName === 'all') {
     queryParams.status = undefined
+  } else if (tabName === 'offline') {
+    queryParams.status = 1
+    queryParams.shelfStatus = 0
   } else {
     queryParams.status = parseInt(tabName)
+    if (queryParams.status === 1) {
+      queryParams.shelfStatus = 1
+    }
   }
   pageNum.value = 1
   getList()
@@ -298,6 +309,9 @@ const handleReset = () => {
   queryParams.title = ''
   queryParams.categoryId = undefined
   queryParams.teacherName = ''
+  queryParams.status = undefined
+  queryParams.shelfStatus = undefined
+  activeTab.value = 'all'
   handleSearch()
 }
 
@@ -308,7 +322,7 @@ const handleAdd = () => {
 
 // 查看
 const handleView = (row) => {
-  router.push(`/course/detail?id=${row.id}`)
+  router.push(`/course/publish?id=${row.id}`)
 }
 
 // 编辑
@@ -360,8 +374,7 @@ const handleDelete = async (row) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    const ids = Array.isArray(row.id) ? row.id : [row.id]
-    await deleteCourse(ids.length === 1 ? ids[0] : ids)
+    await deleteCourse(row.id)
     ElMessage.success('删除成功')
     getList()
   } catch (error) {
@@ -389,7 +402,7 @@ const handleBatchDelete = async () => {
       }
     )
     const ids = selectedRows.value.map(row => row.id)
-    await deleteCourse(ids.length === 1 ? ids[0] : ids)
+    await Promise.all(ids.map(id => deleteCourse(id)))
     ElMessage.success('删除成功')
     selectedRows.value = []
     getList()
@@ -460,4 +473,3 @@ onMounted(() => {
   margin-left: 8px;
 }
 </style>
-

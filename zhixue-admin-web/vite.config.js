@@ -5,6 +5,8 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
+const proxyTarget = process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:19001'
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
@@ -28,7 +30,7 @@ export default defineConfig({
     cors: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:9001',
+        target: proxyTarget,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
@@ -40,6 +42,24 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return
+          }
+          if (id.includes('element-plus')) {
+            return 'element-plus'
+          }
+          if (id.includes('echarts') || id.includes('zrender')) {
+            return 'charts'
+          }
+          if (id.includes('@wangeditor')) {
+            return 'editor'
+          }
+          if (id.includes('vue-router') || id.includes('pinia') || id.includes('/vue/')) {
+            return 'vue-core'
+          }
+          return 'vendor'
+        },
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
@@ -47,4 +67,3 @@ export default defineConfig({
     }
   }
 })
-

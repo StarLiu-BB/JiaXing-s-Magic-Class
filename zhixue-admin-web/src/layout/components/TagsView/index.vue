@@ -68,14 +68,14 @@ const openMenu = (tag, e) => {
   const offsetLeft = scrollPaneRef.value.$el.getBoundingClientRect().left // container margin left
   const offsetWidth = scrollPaneRef.value.$el.offsetWidth // container width
   const maxLeft = offsetWidth - menuMinWidth // left boundary
-  const left = e.clientX - offsetLeft + 15 // 15: margin right
+  let menuLeft = e.clientX - offsetLeft + 15 // 15: margin right
 
-  if (left > maxLeft) {
-    left = maxLeft
+  if (menuLeft > maxLeft) {
+    menuLeft = maxLeft
   }
 
   top.value = e.clientY
-  left.value = left
+  left.value = menuLeft
   visible.value = true
   selectedTag.value = tag
 }
@@ -268,4 +268,3 @@ addView()
   }
 }
 </style>
-

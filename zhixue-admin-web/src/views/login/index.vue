@@ -96,9 +96,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Key, View, Hide } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/modules/user'
-import { getCaptcha as getCaptchaApi, login as loginApi } from '@/api/auth'
+import { getCaptcha as getCaptchaApi } from '@/api/auth'
 import { validUsername } from '@/utils/validate'
-import { getToken, setToken, removeToken } from '@/utils/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -237,6 +236,7 @@ const handleLogin = () => {
           code: loginForm.code,
           uuid: loginForm.uuid
         })
+        await userStore.getInfo()
         
         ElMessage.success('登录成功')
         
@@ -448,4 +448,3 @@ onMounted(() => {
   }
 }
 </style>
-

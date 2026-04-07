@@ -4,9 +4,15 @@
       <template #header>
         <div class="card-header">
           <span>字典管理</span>
-          <el-button type="primary" @click="handleAdd">新增字典</el-button>
+          <el-button type="primary" disabled>新增字典</el-button>
         </div>
       </template>
+      <el-alert
+        title="当前版本未启用字典管理写操作，本页以只读方式展示基础字典。"
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 16px"
+      />
       <el-table :data="tableData" v-loading="loading" border>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="dictName" label="字典名称" />
@@ -21,9 +27,9 @@
         <el-table-column prop="remark" label="备注" />
         <el-table-column label="操作" width="200">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="warning" link @click="handleData(row)">字典数据</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <el-button type="primary" link disabled @click="handleReadonlyNotice">编辑</el-button>
+            <el-button type="warning" link disabled @click="handleReadonlyNotice">字典数据</el-button>
+            <el-button type="danger" link disabled @click="handleReadonlyNotice">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -33,7 +39,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
 const loading = ref(false)
 const tableData = ref([
@@ -41,14 +47,7 @@ const tableData = ref([
   { id: 2, dictName: '通用状态', dictType: 'sys_normal_status', status: 1, remark: '通用状态列表' }
 ])
 
-const handleAdd = () => ElMessage.info('新增字典功能开发中')
-const handleEdit = (row) => ElMessage.info('编辑字典功能开发中')
-const handleData = (row) => ElMessage.info('字典数据功能开发中')
-const handleDelete = (row) => {
-  ElMessageBox.confirm('确定删除该字典吗？', '提示', { type: 'warning' })
-    .then(() => ElMessage.success('删除成功'))
-    .catch(() => {})
-}
+const handleReadonlyNotice = () => ElMessage.warning('当前版本未开放字典写操作')
 </script>
 
 <style scoped>

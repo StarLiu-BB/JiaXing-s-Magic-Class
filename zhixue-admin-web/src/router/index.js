@@ -67,13 +67,23 @@ export const constantRoutes = [
   }
 ]
 
-// 动态路由（需要权限验证）
-export const asyncRoutes = []
+// 业务路由静态注册，通过前置守卫做权限拦截，避免刷新动态页时出现无匹配告警。
+export const asyncRoutes = Object.values(import.meta.glob('./modules/*.js', { eager: true }))
+  .map(module => module.default)
+  .filter(Boolean)
 
 // 创建路由实例
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes: constantRoutes,
+  routes: [
+    ...constantRoutes,
+    ...asyncRoutes,
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/404',
+      hidden: true
+    }
+  ],
   scrollBehavior: () => ({ left: 0, top: 0 })
 })
 
@@ -82,70 +92,39 @@ const whiteList = ['/login', '/404', '/401']
 
 // 路由守卫 - 前置守卫
 router.beforeEach(async (to, from, next) => {
-  // 开始进度条
   NProgress.start()
 
   const userStore = useUserStore()
-  const tagsViewStore = useTagsViewStore()
 
-  // 判断是否有 token
   if (userStore.token) {
-    // 已登录
     if (to.path === '/login') {
-      // 如果已登录，跳转到首页
       next({ path: '/dashboard' })
       NProgress.done()
     } else {
-      // 检查是否已获取用户信息（通过 roles 判断）
-      if (userStore.roles && userStore.roles.length > 0) {
-        // 已有用户信息，直接放行
+      try {
+        if (!userStore.infoLoaded) {
+          await userStore.getInfo()
+        }
+        if (!userStore.routesLoaded) {
+          userStore.markRoutesLoaded(true)
+        }
+
         if (hasPermission(to, userStore.permissions)) {
           next()
         } else {
           next({ path: '/401', replace: true })
           NProgress.done()
         }
-      } else {
-        // 没有用户信息，设置默认权限后放行
-        try {
-          // 临时设置权限（实际应该从后端获取）
-          if (userStore.permissions.length === 0) {
-            userStore.permissions = [
-              'system:user:list',
-              'system:role:list',
-              'system:menu:list',
-              'system:dict:list',
-              'course:list',
-              'course:category:list',
-              'course:chapter:list',
-              'marketing:seckill:list',
-              'marketing:coupon:list'
-            ]
-          }
-          // 设置默认角色
-          if (!userStore.roles || userStore.roles.length === 0) {
-            userStore.roles = ['ADMIN']
-          }
-          
-          // 根据用户权限动态加载路由
-          await loadAsyncRoutes(userStore.permissions)
-          // 确保 addRoutes 完成，设置 replace: true
-          next({ ...to, replace: true })
-        } catch (error) {
-          // 获取用户信息失败，清除 token，跳转到登录页
-          userStore.resetToken()
-          next(`/login?redirect=${to.path}`)
-          NProgress.done()
-        }
+      } catch (error) {
+        userStore.resetToken()
+        next(`/login?redirect=${to.path}`)
+        NProgress.done()
       }
     }
   } else {
-    // 未登录
     if (whiteList.indexOf(to.path) !== -1) {
-      // 在白名单中，直接访问
       next()
     } else {
-      // 不在白名单中，跳转到登录页
       next(`/login?redirect=${to.path}`)
       NProgress.done()
     }
@@ -165,59 +144,6 @@ router.afterEach((to) => {
     tagsViewStore.addCachedView(to)
   }
 })
-
-// 动态加载路由
-function loadAsyncRoutes(permissions) {
-  return new Promise((resolve) => {
-    // 导入所有模块路由
-    const modules = import.meta.glob('./modules/*.js', { eager: true })
-    
-    // 过滤有权限的路由
-    const accessedRoutes = []
-    
-    Object.keys(modules).forEach((key) => {
-      const route = modules[key].default
-      if (hasPermission(route, permissions)) {
-        // 递归处理子路由
-        if (route.children) {
-          route.children = filterAsyncRoutes(route.children, permissions)
-        }
-        accessedRoutes.push(route)
-      }
-    })
-    
-    // 添加动态路由（添加到根路由）
-    accessedRoutes.forEach(route => {
-      router.addRoute(route)
-    })
-    
-    // 添加 404 路由（必须放在最后）
-    router.addRoute({
-      path: '/:pathMatch(.*)*',
-      redirect: '/404',
-      hidden: true
-    })
-    
-    resolve(accessedRoutes)
-  })
-}
-
-// 过滤异步路由
-function filterAsyncRoutes(routes, permissions) {
-  const res = []
-  
-  routes.forEach(route => {
-    const tmp = { ...route }
-    if (hasPermission(tmp, permissions)) {
-      if (tmp.children) {
-        tmp.children = filterAsyncRoutes(tmp.children, permissions)
-      }
-      res.push(tmp)
-    }
-  })
-  
-  return res
-}
 
 // 检查是否有权限
 function hasPermission(route, permissions) {

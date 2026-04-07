@@ -23,7 +23,8 @@ Page({
     duration: 0,
     currentTime: 0,
     videoContext: null,
-    wsManager: null
+    wsManager: null,
+    isPurchased: false
   },
 
   /**
@@ -103,9 +104,11 @@ Page({
 
       if (detailRes.code === 200) {
         const chapters = chaptersRes.data || []
+        const detail = detailRes.data || {}
         this.setData({
-          courseInfo: detailRes.data,
-          chapters
+          courseInfo: detail,
+          chapters,
+          isPurchased: !!(detail.isPurchased || detail.canStudy || Number(detail.price || 0) === 0)
         })
 
         // 设置当前章节和课时
@@ -138,6 +141,14 @@ Page({
     }
 
     if (targetLesson) {
+      if (!this.canPlayLesson(targetLesson)) {
+        const playableLesson = (targetChapter.lessons || []).find((lesson) => this.canPlayLesson(lesson))
+        if (!playableLesson) {
+          this.promptPurchase()
+          return
+        }
+        targetLesson = playableLesson
+      }
       this.setData({
         currentChapter: targetChapter,
         currentLesson: targetLesson,
@@ -283,6 +294,10 @@ Page({
     }
 
     if (nextLesson) {
+      if (!this.canPlayLesson(nextLesson)) {
+        this.promptPurchase()
+        return
+      }
       this.setData({
         currentChapter: nextChapter,
         currentLesson: nextLesson,
@@ -323,6 +338,10 @@ Page({
    */
   onSelectChapter(e) {
     const { chapter, lesson } = e.currentTarget.dataset
+    if (!this.canPlayLesson(lesson)) {
+      this.promptPurchase()
+      return
+    }
     
     this.setData({
       currentChapter: chapter,
@@ -334,6 +353,31 @@ Page({
     // 重新加载视频
     this.data.videoContext.seek(0)
     this.data.videoContext.play()
+  },
+
+  canPlayLesson(lesson) {
+    if (!lesson) {
+      return false
+    }
+    if (this.data.isPurchased) {
+      return true
+    }
+    return !!(lesson.isFree || lesson.preview)
+  },
+
+  promptPurchase() {
+    wx.showModal({
+      title: '试看已结束',
+      content: '购买后可学习完整课程内容。',
+      confirmText: '去购买',
+      success: (res) => {
+        if (res.confirm) {
+          wx.navigateTo({
+            url: `/pages/course/detail/index?id=${this.data.courseId}`
+          })
+        }
+      }
+    })
   },
 
   /**
@@ -370,4 +414,3 @@ Page({
     }
   }
 })
-

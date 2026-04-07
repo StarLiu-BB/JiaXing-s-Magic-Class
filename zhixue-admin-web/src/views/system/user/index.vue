@@ -92,15 +92,16 @@
         </el-button>
       </el-col>
       <el-col :span="1.5">
-        <el-button
-          type="warning"
-          plain
-          icon="Download"
-          v-hasPermi="['system:user:export']"
-          @click="handleExport"
-        >
-          导出
-        </el-button>
+        <el-tooltip content="第一阶段暂不开放导出能力">
+          <el-button
+            type="warning"
+            plain
+            icon="Download"
+            disabled
+          >
+            导出
+          </el-button>
+        </el-tooltip>
       </el-col>
     </el-row>
 
@@ -412,13 +413,27 @@ const resetPwdRules = reactive({
   ]
 })
 
+const normalizeList = (response) => {
+  const payload = response?.data || response || {}
+  if (Array.isArray(payload.list)) return payload.list
+  if (Array.isArray(payload.records)) return payload.records
+  if (Array.isArray(payload)) return payload
+  return []
+}
+
+const normalizeTotal = (response) => {
+  const payload = response?.data || response || {}
+  return payload.total || 0
+}
+
 // 获取角色列表
 const getRoleList = async () => {
   try {
-    const response = await listRole({ pageNum: 1, pageSize: 1000 })
-    roleOptions.value = response.data?.records || response.data || response.records || []
+    const response = await listRole({})
+    roleOptions.value = normalizeList(response)
   } catch (error) {
     console.error('获取角色列表失败:', error)
+    roleOptions.value = []
   }
 }
 
@@ -437,10 +452,12 @@ const getList = async () => {
       params.endTime = dateRange.value[1]
     }
     const response = await listUser(params)
-    userList.value = response.data?.records || response.records || response.data || []
-    total.value = response.data?.total || response.total || 0
+    userList.value = normalizeList(response)
+    total.value = normalizeTotal(response)
   } catch (error) {
     console.error('获取用户列表失败:', error)
+    userList.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -478,8 +495,9 @@ const handleUpdate = async (row) => {
 
   try {
     const response = await getUser(userId)
-    Object.assign(form, response)
-    form.roleIds = response.roleIds || []
+    const data = response?.data || response || {}
+    Object.assign(form, data)
+    form.roleIds = data.roleIds || []
     dialogTitle.value = '修改用户'
     dialogVisible.value = true
   } catch (error) {
@@ -523,7 +541,7 @@ const handleBatchDelete = async () => {
       }
     )
     const ids = selectedRows.value.map(row => row.id)
-    await deleteUser(ids)
+    await Promise.all(ids.map(id => deleteUser(id)))
     ElMessage.success('删除成功')
     selectedRows.value = []
     getList()
@@ -567,11 +585,6 @@ const submitResetPwd = async () => {
       }
     }
   })
-}
-
-// 导出
-const handleExport = () => {
-  ElMessage.info('导出功能开发中')
 }
 
 // 提交表单
@@ -651,4 +664,3 @@ onMounted(() => {
   text-align: right;
 }
 </style>
-

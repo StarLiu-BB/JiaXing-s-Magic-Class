@@ -1,5 +1,5 @@
 // app.js
-import { getToken, setToken, removeToken } from './utils/auth'
+import { getToken, setToken, removeToken, setUserInfo, removeUserInfo } from './utils/auth'
 import { wxLogin, getUserInfo } from './api/auth'
 
 App({
@@ -63,10 +63,14 @@ App({
               const loginRes = await wxLogin(res.code)
               
               if (loginRes.code === 200 && loginRes.data) {
-                const { token, userInfo } = loginRes.data
+                const { token } = loginRes.data
+                const userInfo = loginRes.data.userInfo || loginRes.data.user || null
                 
                 // 保存token
                 setToken(token)
+                if (userInfo) {
+                  setUserInfo(userInfo)
+                }
                 this.globalData.token = token
                 this.globalData.isLogin = true
                 this.globalData.userInfo = userInfo
@@ -103,6 +107,7 @@ App({
       const res = await getUserInfo()
       if (res.code === 200 && res.data) {
         this.globalData.userInfo = res.data
+        setUserInfo(res.data)
         return res.data
       }
     } catch (error) {
@@ -133,6 +138,7 @@ App({
    */
   logout() {
     removeToken()
+    removeUserInfo()
     this.globalData.token = ''
     this.globalData.isLogin = false
     this.globalData.userInfo = null
@@ -176,4 +182,3 @@ App({
     }
   }
 })
-

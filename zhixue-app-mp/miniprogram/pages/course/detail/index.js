@@ -8,6 +8,7 @@ const {
   unfavoriteCourse
 } = require('../../../api/course')
 const { createOrder } = require('../../../api/order')
+const { upsertFavoriteCache, removeFavoriteCache } = require('../../../api/user')
 
 Page({
   /**
@@ -56,10 +57,11 @@ Page({
       ])
 
       if (detailRes.code === 200) {
+        const detail = detailRes.data || {}
         this.setData({
-          courseInfo: detailRes.data,
+          courseInfo: detail,
           chapters: chaptersRes.data || [],
-          isFavorite: detailRes.data.isFavorite || false
+          isFavorite: detail.isFavorite || false
         })
       }
     } catch (error) {
@@ -128,6 +130,7 @@ Page({
     try {
       if (this.data.isFavorite) {
         await unfavoriteCourse(this.data.courseId)
+        removeFavoriteCache(this.data.courseId)
         this.setData({ isFavorite: false })
         wx.showToast({
           title: '已取消收藏',
@@ -135,6 +138,13 @@ Page({
         })
       } else {
         await favoriteCourse(this.data.courseId)
+        upsertFavoriteCache({
+          id: this.data.courseId,
+          courseId: this.data.courseId,
+          title: this.data.courseInfo?.title,
+          cover: this.data.courseInfo?.cover || this.data.courseInfo?.coverUrl,
+          price: this.data.courseInfo?.price
+        })
         this.setData({ isFavorite: true })
         wx.showToast({
           title: '收藏成功',
@@ -167,23 +177,40 @@ Page({
 
     try {
       wx.showLoading({ title: '创建订单中...' })
+      const userInfo = app.globalData.userInfo || {}
+      const userId = userInfo.userId || userInfo.id
+      if (!userId) {
+        throw new Error('用户信息不完整，请重新登录')
+      }
+      const price = Number(this.data.courseInfo?.price || 0)
       
       const res = await createOrder({
-        courseId: this.data.courseId,
-        courseName: this.data.courseInfo.title,
-        price: this.data.courseInfo.price
+        userId,
+        productId: Number(this.data.courseId),
+        productType: 1,
+        amount: price
       })
 
       wx.hideLoading()
 
       if (res.code === 200) {
+        const order = res.data || {}
+        const highlight = order.orderNo || order.id || order.orderId || ''
+        wx.showToast({
+          title: '订单创建成功',
+          icon: 'success'
+        })
         wx.navigateTo({
-          url: `/pages/order/confirm/index?orderId=${res.data.orderId}`
+          url: `/pages/my/list/index?mode=orders&highlight=${highlight}`
         })
       }
     } catch (error) {
       wx.hideLoading()
       console.error('创建订单失败:', error)
+      wx.showToast({
+        title: error.message || '创建订单失败',
+        icon: 'none'
+      })
     }
   },
 
@@ -206,6 +233,31 @@ Page({
       return
     }
 
+    const canStudy = !!(
+      this.data.courseInfo?.isPurchased ||
+      this.data.courseInfo?.canStudy ||
+      Number(this.data.courseInfo?.price || 0) === 0
+    )
+    if (!canStudy) {
+      wx.showModal({
+        title: '提示',
+        content: '该课程尚未购买，可先试看或立即购买。',
+        confirmText: '立即购买',
+        cancelText: '试看首节',
+        success: (res) => {
+          if (res.confirm) {
+            this.onBuyTap()
+          } else {
+            const firstChapter = (this.data.chapters || [])[0]
+            if (firstChapter) {
+              this.onChapterTap({ currentTarget: { dataset: { chapter: firstChapter } } })
+            }
+          }
+        }
+      })
+      return
+    }
+
     // 跳转到播放页
     wx.navigateTo({
       url: `/pages/course/player/index?courseId=${this.data.courseId}`
@@ -222,4 +274,3 @@ Page({
     })
   }
 })
-

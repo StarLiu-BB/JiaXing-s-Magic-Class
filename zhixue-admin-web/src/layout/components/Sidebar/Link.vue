@@ -1,7 +1,15 @@
 <template>
-  <component :is="linkComponent" v-bind="linkAttrs">
+  <a
+    v-if="isExternalLink"
+    :href="to"
+    target="_blank"
+    rel="noopener"
+  >
     <slot />
-  </component>
+  </a>
+  <router-link v-else :to="to">
+    <slot />
+  </router-link>
 </template>
 
 <script setup>
@@ -15,24 +23,5 @@ const props = defineProps({
   }
 })
 
-const linkComponent = computed(() => {
-  if (isExternal(props.to)) {
-    return 'a'
-  }
-  return 'router-link'
-})
-
-const linkAttrs = computed(() => {
-  if (isExternal(props.to)) {
-    return {
-      href: props.to,
-      target: '_blank',
-      rel: 'noopener'
-    }
-  }
-  return {
-    to: props.to
-  }
-})
+const isExternalLink = computed(() => isExternal(props.to))
 </script>
-

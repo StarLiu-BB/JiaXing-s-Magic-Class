@@ -26,7 +26,7 @@ export function listUser(query) {
  */
 export function getUser(userId) {
   return request({
-    url: `/system/user/${userId}`,
+    url: `/system/user/info/${userId}`,
     method: 'get'
   })
 }
@@ -113,4 +113,3 @@ export function changeUserStatus(userId, status) {
     data
   })
 }
-

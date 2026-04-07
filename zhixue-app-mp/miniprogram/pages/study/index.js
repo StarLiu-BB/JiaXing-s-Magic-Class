@@ -4,68 +4,18 @@ Page({
    * 页面的初始数据
    */
   data: {
-    // 学习统计
     studyStats: {
-      totalHours: 128,
-      totalCourses: 12,
-      todayHours: 2.5,
-      continuousDays: 7,
-      completedCourses: 5
+      totalHours: 0,
+      totalCourses: 0,
+      todayHours: 0,
+      continuousDays: 0,
+      completedCourses: 0
     },
-    // 星期
     weekDays: ['日', '一', '二', '三', '四', '五', '六'],
-    // 日历天数
     calendarDays: [],
-    // 最近学习
-    recentCourses: [
-      {
-        id: 1,
-        title: 'Java 从入门到精通',
-        cover: '',
-        currentChapter: '第5章 面向对象编程',
-        progress: 45,
-        lastStudyTime: '今天'
-      },
-      {
-        id: 2,
-        title: 'Spring Boot 实战',
-        cover: '',
-        currentChapter: '第3章 数据库操作',
-        progress: 30,
-        lastStudyTime: '昨天'
-      },
-      {
-        id: 3,
-        title: 'Vue.js 前端开发',
-        cover: '',
-        currentChapter: '第2章 组件化开发',
-        progress: 20,
-        lastStudyTime: '2天前'
-      }
-    ],
-    // 学习计划
-    studyPlans: [
-      {
-        id: 1,
-        title: '完成 Java 基础课程',
-        description: '每天学习2小时，预计7天完成',
-        status: 'ongoing'
-      },
-      {
-        id: 2,
-        title: 'Spring Boot 项目实战',
-        description: '完成一个完整的项目',
-        status: 'completed'
-      }
-    ],
-    // 排行榜
-    rankList: [
-      { id: 1, nickname: '学霸小明', avatar: '', studyHours: 256 },
-      { id: 2, nickname: '努力的小红', avatar: '', studyHours: 198 },
-      { id: 3, nickname: '编程达人', avatar: '', studyHours: 175 },
-      { id: 4, nickname: '学习狂人', avatar: '', studyHours: 142 },
-      { id: 5, nickname: '代码工匠', avatar: '', studyHours: 128 }
-    ],
+    recentCourses: [],
+    studyPlans: [],
+    rankList: [],
     loading: false
   },
 
@@ -117,7 +67,7 @@ Page({
         day: i,
         isCurrentMonth: true,
         isToday: i === currentDay,
-        hasStudy: Math.random() > 0.5, // 模拟学习记录
+        hasStudy: false,
         date: `${currentYear}-${currentMonth + 1}-${i}`
       })
     }
@@ -175,7 +125,7 @@ Page({
     e.stopPropagation()
     const id = e.currentTarget.dataset.id
     wx.navigateTo({
-      url: `/pages/course/player/index?id=${id}`
+      url: `/pages/course/player/index?courseId=${id}`
     })
   },
 
