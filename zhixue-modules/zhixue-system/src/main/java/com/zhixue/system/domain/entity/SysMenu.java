@@ -23,5 +23,20 @@ public class SysMenu extends BaseEntity {
     private Integer orderNum;
     private Integer visible;
     private Integer status;
-}
 
+    public String getPermission() {
+        return perms;
+    }
+
+    public void setPermission(String permission) {
+        this.perms = permission;
+    }
+
+    public Integer getMenuSort() {
+        return orderNum;
+    }
+
+    public void setMenuSort(Integer menuSort) {
+        this.orderNum = menuSort;
+    }
+}

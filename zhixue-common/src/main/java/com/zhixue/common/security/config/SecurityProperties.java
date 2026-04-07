@@ -17,6 +17,8 @@ public class SecurityProperties {
     private String jwtSecret;
     // 登录凭证的有效期，默认是7200秒（2小时）
     private long jwtExpiration = 7200;
+    // 网关与内部服务调用校验口令
+    private String internalToken;
     // 加密相关的配置
     private Encryption encryption = new Encryption();
     // 数据库相关的配置
@@ -46,6 +48,14 @@ public class SecurityProperties {
     // 设置登录凭证有效期
     public void setJwtExpiration(long jwtExpiration) {
         this.jwtExpiration = jwtExpiration;
+    }
+
+    public String getInternalToken() {
+        return internalToken;
+    }
+
+    public void setInternalToken(String internalToken) {
+        this.internalToken = internalToken;
     }
     
     // 获取加密配置

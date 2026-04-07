@@ -6,21 +6,24 @@ spring:
     allow-bean-definition-overriding: true
   data:
     redis:
-      host: 192.168.211.175
-      port: 6379
-      # Password should be configured in Nacos encrypted configuration
-      # password: ${zhixue.security.redis.password:}
+      host: ${ZHIXUE_REDIS_HOST:127.0.0.1}
+      port: ${ZHIXUE_REDIS_PORT:6379}
+      password: ${ZHIXUE_REDIS_PASSWORD:}
 
 # Security configuration should be stored in Nacos with encryption
 # See .kiro/specs/security-hardening/CONFIGURATION.md for setup instructions
 zhixue:
   security:
-    # Encryption key for decrypting secrets (store in Nacos)
-    # encryption:
-    #   key: YOUR_BASE64_ENCRYPTION_KEY
-    # JWT secret (Base64 encoded, minimum 256 bits)
-    jwt-secret: emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n
-    jwt-expiration: 7200
+    jwt-secret: ${ZHIXUE_JWT_SECRET:emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n}
+    jwt-expiration: ${ZHIXUE_JWT_EXPIRATION:7200}
+    internal-token: ${ZHIXUE_INTERNAL_TOKEN:local-dev-internal-token-change-before-prod}
+  auth:
+    sms:
+      mode: ${ZHIXUE_AUTH_SMS_MODE:sandbox}
+      sandbox-code: ${ZHIXUE_AUTH_SMS_SANDBOX_CODE:123456}
+    wechat:
+      mode: ${ZHIXUE_AUTH_WECHAT_MODE:sandbox}
+      sandbox-username: ${ZHIXUE_AUTH_WECHAT_SANDBOX_USERNAME:student}
 
 security:
   whitelist:
@@ -30,6 +33,10 @@ security:
 
 logging:
   level:
-    com.zhixue: DEBUG
-    org.springframework.data.redis: DEBUG
+    com.zhixue: INFO
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

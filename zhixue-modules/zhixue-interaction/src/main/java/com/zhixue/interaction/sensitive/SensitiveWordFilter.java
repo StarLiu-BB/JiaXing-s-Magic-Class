@@ -1,8 +1,11 @@
 package com.zhixue.interaction.sensitive;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,15 +16,20 @@ import java.util.Map;
 @Component
 public class SensitiveWordFilter {
 
+    @Value("${interaction.sensitive-words:傻逼,垃圾,色情,赌博,欺诈}")
+    private String sensitiveWords;
+
     /**
      * 敏感词字典树根节点。
      */
     private final Node root = new Node();
 
-    public SensitiveWordFilter() {
-        // TODO: 实际项目可以从数据库/配置中心加载敏感词
-        addWord("傻逼");
-        addWord("垃圾");
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        Arrays.stream(sensitiveWords.split(","))
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .forEach(this::addWord);
     }
 
     /**
@@ -77,5 +85,4 @@ public class SensitiveWordFilter {
         boolean end;
     }
 }
-
 

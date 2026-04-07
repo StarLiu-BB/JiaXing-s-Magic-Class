@@ -20,5 +20,12 @@ public class Section extends BaseEntity {
     private Integer duration; // 秒
     private Integer orderNum;
     private Integer status; // 0未发布 1已发布
-}
 
+    public Integer getSortOrder() {
+        return orderNum;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.orderNum = sortOrder;
+    }
+}

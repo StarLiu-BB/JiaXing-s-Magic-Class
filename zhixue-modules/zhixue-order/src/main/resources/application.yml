@@ -4,34 +4,31 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.211.175:3306/zhixue_order?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: rootpassword
+    url: jdbc:mysql://${ZHIXUE_DB_HOST:127.0.0.1}:${ZHIXUE_DB_PORT:3306}/zhixue_order?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${ZHIXUE_DB_USERNAME:root}
+    password: ${ZHIXUE_DB_PASSWORD:}
   data:
     redis:
-      host: 192.168.211.175
-      port: 6379
-      # Password should be configured in Nacos encrypted configuration
-      # password: ${zhixue.security.redis.password:}
-
-mybatis-flex:
-  mapper-locations: classpath*:mapper/*Mapper.xml
-  configuration:
-    map-underscore-to-camel-case: true
-
-spring:
+      host: ${ZHIXUE_REDIS_HOST:127.0.0.1}
+      port: ${ZHIXUE_REDIS_PORT:6379}
+      password: ${ZHIXUE_REDIS_PASSWORD:}
   rabbitmq:
-    host: 192.168.211.175
-    port: 5672
-    username: admin
-    password: Rabbit@123456789
-    virtual-host: /
+    host: ${ZHIXUE_RABBITMQ_HOST:127.0.0.1}
+    port: ${ZHIXUE_RABBITMQ_PORT:5672}
+    username: ${ZHIXUE_RABBITMQ_USERNAME:guest}
+    password: ${ZHIXUE_RABBITMQ_PASSWORD:guest}
+    virtual-host: ${ZHIXUE_RABBITMQ_VHOST:/}
     listener:
       simple:
         acknowledge-mode: auto
         retry:
           enabled: true
           max-attempts: 3
+
+mybatis-flex:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
 
 seata:
   enabled: true
@@ -41,7 +38,7 @@ seata:
     vgroup-mapping:
       order_tx_group: default
     grouplist:
-      default: 192.168.211.175:8091
+      default: ${ZHIXUE_SEATA_ADDR:127.0.0.1:8091}
 
 order:
   pay-result-queue: queue_order_pay_result
@@ -51,12 +48,18 @@ order:
   timeout-exchange: exchange_order_delay
   timeout-routing-key: order.timeout
   pay-callback-url: http://localhost:9206/pay/callback
-
-# Security configuration should be stored in Nacos with encryption
-# See .kiro/specs/security-hardening/CONFIGURATION.md for setup instructions
+  pay:
+    sandbox-base-url: ${ZHIXUE_ORDER_PAY_SANDBOX_BASE_URL:https://sandbox-pay.zhixue.local}
+    alipay-gateway-url: ${ZHIXUE_ALIPAY_GATEWAY_URL:}
+    wechat-gateway-url: ${ZHIXUE_WECHAT_PAY_GATEWAY_URL:}
 
 logging:
   level:
     com.zhixue: INFO
 
-
+zhixue:
+  integration:
+    order-mq:
+      mode: ${ZHIXUE_ORDER_MQ_MODE:sandbox}
+    order-pay:
+      mode: ${ZHIXUE_ORDER_PAY_MODE:sandbox}

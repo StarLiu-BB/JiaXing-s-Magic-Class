@@ -4,12 +4,13 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.211.175:3306/zhixue_marketing?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: rootpassword
+    url: jdbc:mysql://${ZHIXUE_DB_HOST:127.0.0.1}:${ZHIXUE_DB_PORT:3306}/zhixue_marketing?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${ZHIXUE_DB_USERNAME:root}
+    password: ${ZHIXUE_DB_PASSWORD:}
   redis:
-    host: 192.168.211.175
-    port: 6379
+    host: ${ZHIXUE_REDIS_HOST:127.0.0.1}
+    port: ${ZHIXUE_REDIS_PORT:6379}
+    password: ${ZHIXUE_REDIS_PASSWORD:}
 
 mybatis-flex:
   mapper-locations: classpath*:mapper/*Mapper.xml
@@ -19,7 +20,7 @@ mybatis-flex:
 xxl:
   job:
     admin:
-      addresses: http://192.168.211.175:8180/xxl-job-admin
+      addresses: ${ZHIXUE_XXL_JOB_ADDR:http://127.0.0.1:8180/xxl-job-admin}
     accessToken:
     executor:
       appname: zhixue-marketing-executor
@@ -33,9 +34,13 @@ marketing:
   seckill:
     stock-key-prefix: "seckill:stock:"
     user-key-prefix: "seckill:users:"
+    token-key-prefix: "seckill:token:"
 
 logging:
   level:
     com.zhixue: INFO
 
-
+zhixue:
+  integration:
+    marketing:
+      mode: ${ZHIXUE_MARKETING_MODE:sandbox}

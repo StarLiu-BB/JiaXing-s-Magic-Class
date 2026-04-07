@@ -1,0 +1,418 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: zhixue-local-mysql
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      MYSQL_ROOT_PASSWORD: ${ZHIXUE_DB_PASSWORD}
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+    ports:
+      - "${ZHIXUE_DB_PORT:-13306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../../:/workspace:ro
+      - ./mysql/init:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: zhixue-local-redis
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+    ports:
+      - "${ZHIXUE_REDIS_PORT:-16379}:6379"
+    volumes:
+      - redis_data:/data
+
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    platform: linux/amd64
+    container_name: zhixue-local-nacos
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      MODE: standalone
+      PREFER_HOST_MODE: hostname
+      NACOS_AUTH_ENABLE: "false"
+      JVM_XMS: 256m
+      JVM_XMX: 256m
+      JVM_XMN: 128m
+    ports:
+      - "${ZHIXUE_NACOS_PORT:-18848}:8848"
+      - "${ZHIXUE_NACOS_GRPC_PORT:-19848}:9848"
+    volumes:
+      - nacos_logs:/home/nacos/logs
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: zhixue-local-rabbitmq
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      RABBITMQ_DEFAULT_USER: ${ZHIXUE_RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${ZHIXUE_RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${ZHIXUE_RABBITMQ_VHOST}
+    ports:
+      - "${ZHIXUE_RABBITMQ_PORT:-15673}:5672"
+      - "${ZHIXUE_RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    container_name: zhixue-local-minio
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      MINIO_ROOT_USER: ${ZHIXUE_MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${ZHIXUE_MINIO_SECRET_KEY}
+    ports:
+      - "${ZHIXUE_MINIO_PORT:-19000}:9000"
+      - "${ZHIXUE_MINIO_CONSOLE_PORT:-19090}:9090"
+    volumes:
+      - minio_data:/data
+    command: ["server", "/data", "--console-address", ":9090"]
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.5
+    container_name: zhixue-local-elasticsearch
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "${ZHIXUE_ES_PORT:-19200}:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  seata:
+    image: seataio/seata-server:2.0.0
+    platform: linux/amd64
+    container_name: zhixue-local-seata
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      SEATA_PORT: 8091
+      STORE_MODE: file
+    ports:
+      - "${ZHIXUE_SEATA_PORT:-18091}:8091"
+
+  auth:
+    image: eclipse-temurin:17-jre
+    container_name: zhixue-local-auth
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ZHIXUE_DB_HOST: mysql
+      ZHIXUE_DB_PORT: 3306
+      ZHIXUE_DB_USERNAME: ${ZHIXUE_DB_USERNAME}
+      ZHIXUE_DB_PASSWORD: ${ZHIXUE_DB_PASSWORD}
+      ZHIXUE_REDIS_HOST: redis
+      ZHIXUE_REDIS_PORT: 6379
+      ZHIXUE_REDIS_PASSWORD: ${ZHIXUE_REDIS_PASSWORD}
+      ZHIXUE_NACOS_HOST: nacos
+      ZHIXUE_NACOS_PORT: 8848
+      ZHIXUE_NACOS_GRPC_PORT: 9848
+      ZHIXUE_NACOS_ADDR: nacos:8848
+      ZHIXUE_NACOS_NAMESPACE: ${ZHIXUE_NACOS_NAMESPACE}
+      ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
+      ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
+      ZHIXUE_JWT_SECRET: ${ZHIXUE_JWT_SECRET}
+      ZHIXUE_JWT_EXPIRATION: ${ZHIXUE_JWT_EXPIRATION}
+      ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
+      JAVA_OPTS: -Xms256m -Xmx256m
+    ports:
+      - "${ZHIXUE_AUTH_PORT:-19100}:9100"
+    volumes:
+      - ../../zhixue-auth/target/zhixue-auth-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
+
+  system:
+    image: eclipse-temurin:17-jre
+    container_name: zhixue-local-system
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ZHIXUE_DB_HOST: mysql
+      ZHIXUE_DB_PORT: 3306
+      ZHIXUE_DB_USERNAME: ${ZHIXUE_DB_USERNAME}
+      ZHIXUE_DB_PASSWORD: ${ZHIXUE_DB_PASSWORD}
+      ZHIXUE_REDIS_HOST: redis
+      ZHIXUE_REDIS_PORT: 6379
+      ZHIXUE_REDIS_PASSWORD: ${ZHIXUE_REDIS_PASSWORD}
+      ZHIXUE_NACOS_HOST: nacos
+      ZHIXUE_NACOS_PORT: 8848
+      ZHIXUE_NACOS_GRPC_PORT: 9848
+      ZHIXUE_NACOS_ADDR: nacos:8848
+      ZHIXUE_NACOS_NAMESPACE: ${ZHIXUE_NACOS_NAMESPACE}
+      ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
+      ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
+      ZHIXUE_JWT_SECRET: ${ZHIXUE_JWT_SECRET}
+      ZHIXUE_JWT_EXPIRATION: ${ZHIXUE_JWT_EXPIRATION}
+      ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
+      JAVA_OPTS: -Xms256m -Xmx256m
+    ports:
+      - "${ZHIXUE_SYSTEM_PORT:-19201}:9201"
+    volumes:
+      - ../../zhixue-modules/zhixue-system/target/zhixue-system-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
+
+  course:
+    image: eclipse-temurin:17-jre
+    container_name: zhixue-local-course
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ZHIXUE_DB_HOST: mysql
+      ZHIXUE_DB_PORT: 3306
+      ZHIXUE_DB_USERNAME: ${ZHIXUE_DB_USERNAME}
+      ZHIXUE_DB_PASSWORD: ${ZHIXUE_DB_PASSWORD}
+      ZHIXUE_REDIS_HOST: redis
+      ZHIXUE_REDIS_PORT: 6379
+      ZHIXUE_REDIS_PASSWORD: ${ZHIXUE_REDIS_PASSWORD}
+      ZHIXUE_NACOS_HOST: nacos
+      ZHIXUE_NACOS_PORT: 8848
+      ZHIXUE_NACOS_GRPC_PORT: 9848
+      ZHIXUE_NACOS_ADDR: nacos:8848
+      ZHIXUE_NACOS_NAMESPACE: ${ZHIXUE_NACOS_NAMESPACE}
+      ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
+      ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
+      ZHIXUE_ES_URIS: ${ZHIXUE_ES_URIS}
+      ZHIXUE_ES_HEALTH_ENABLED: ${ZHIXUE_ES_HEALTH_ENABLED}
+      ZHIXUE_SEARCH_MODE: ${ZHIXUE_SEARCH_MODE}
+      ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
+      JAVA_OPTS: -Xms256m -Xmx256m
+    ports:
+      - "${ZHIXUE_COURSE_PORT:-19202}:9202"
+    volumes:
+      - ../../zhixue-modules/zhixue-course/target/zhixue-course-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
+
+  media:
+    image: eclipse-temurin:17-jre
+    container_name: zhixue-local-media
+    depends_on:
+      - mysql
+      - nacos
+      - minio
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ZHIXUE_DB_HOST: mysql
+      ZHIXUE_DB_PORT: 3306
+      ZHIXUE_DB_USERNAME: ${ZHIXUE_DB_USERNAME}
+      ZHIXUE_DB_PASSWORD: ${ZHIXUE_DB_PASSWORD}
+      ZHIXUE_NACOS_HOST: nacos
+      ZHIXUE_NACOS_PORT: 8848
+      ZHIXUE_NACOS_GRPC_PORT: 9848
+      ZHIXUE_NACOS_ADDR: nacos:8848
+      ZHIXUE_NACOS_NAMESPACE: ${ZHIXUE_NACOS_NAMESPACE}
+      ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
+      ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
+      ZHIXUE_MINIO_ENDPOINT: http://minio:9000
+      ZHIXUE_MINIO_EXTERNAL_URL: http://127.0.0.1:${ZHIXUE_MINIO_PORT:-19000}
+      ZHIXUE_MINIO_ACCESS_KEY: ${ZHIXUE_MINIO_ACCESS_KEY}
+      ZHIXUE_MINIO_SECRET_KEY: ${ZHIXUE_MINIO_SECRET_KEY}
+      ZHIXUE_MINIO_BUCKET: ${ZHIXUE_MINIO_BUCKET}
+      ZHIXUE_MEDIA_STORAGE_MODE: ${ZHIXUE_MEDIA_STORAGE_MODE}
+      JAVA_OPTS: -Xms256m -Xmx256m
+    ports:
+      - "${ZHIXUE_MEDIA_PORT:-19203}:9203"
+    volumes:
+      - ../../zhixue-modules/zhixue-media/target/zhixue-media-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
+
+  interaction:
+    image: eclipse-temurin:17-jre
+    container_name: zhixue-local-interaction
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+      - rabbitmq
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ZHIXUE_DB_HOST: mysql
+      ZHIXUE_DB_PORT: 3306
+      ZHIXUE_DB_USERNAME: ${ZHIXUE_DB_USERNAME}
+      ZHIXUE_DB_PASSWORD: ${ZHIXUE_DB_PASSWORD}
+      ZHIXUE_REDIS_HOST: redis
+      ZHIXUE_REDIS_PORT: 6379
+      ZHIXUE_REDIS_PASSWORD: ${ZHIXUE_REDIS_PASSWORD}
+      ZHIXUE_NACOS_HOST: nacos
+      ZHIXUE_NACOS_PORT: 8848
+      ZHIXUE_NACOS_GRPC_PORT: 9848
+      ZHIXUE_NACOS_ADDR: nacos:8848
+      ZHIXUE_NACOS_NAMESPACE: ${ZHIXUE_NACOS_NAMESPACE}
+      ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
+      ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
+      ZHIXUE_RABBITMQ_HOST: rabbitmq
+      ZHIXUE_RABBITMQ_PORT: 5672
+      ZHIXUE_RABBITMQ_USERNAME: ${ZHIXUE_RABBITMQ_USERNAME}
+      ZHIXUE_RABBITMQ_PASSWORD: ${ZHIXUE_RABBITMQ_PASSWORD}
+      ZHIXUE_RABBITMQ_VHOST: ${ZHIXUE_RABBITMQ_VHOST}
+      ZHIXUE_JWT_SECRET: ${ZHIXUE_JWT_SECRET}
+      ZHIXUE_JWT_EXPIRATION: ${ZHIXUE_JWT_EXPIRATION}
+      ZHIXUE_INTERACTION_MQ_MODE: ${ZHIXUE_INTERACTION_MQ_MODE}
+      JAVA_OPTS: -Xms256m -Xmx256m
+    ports:
+      - "${ZHIXUE_INTERACTION_PORT:-19205}:9205"
+      - "${ZHIXUE_INTERACTION_WS_PORT:-19999}:9999"
+    volumes:
+      - ../../zhixue-modules/zhixue-interaction/target/zhixue-interaction-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
+
+  order:
+    image: eclipse-temurin:17-jre
+    container_name: zhixue-local-order
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+      - rabbitmq
+      - seata
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ZHIXUE_DB_HOST: mysql
+      ZHIXUE_DB_PORT: 3306
+      ZHIXUE_DB_USERNAME: ${ZHIXUE_DB_USERNAME}
+      ZHIXUE_DB_PASSWORD: ${ZHIXUE_DB_PASSWORD}
+      ZHIXUE_REDIS_HOST: redis
+      ZHIXUE_REDIS_PORT: 6379
+      ZHIXUE_REDIS_PASSWORD: ${ZHIXUE_REDIS_PASSWORD}
+      ZHIXUE_NACOS_HOST: nacos
+      ZHIXUE_NACOS_PORT: 8848
+      ZHIXUE_NACOS_GRPC_PORT: 9848
+      ZHIXUE_NACOS_ADDR: nacos:8848
+      ZHIXUE_NACOS_NAMESPACE: ${ZHIXUE_NACOS_NAMESPACE}
+      ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
+      ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
+      ZHIXUE_RABBITMQ_HOST: rabbitmq
+      ZHIXUE_RABBITMQ_PORT: 5672
+      ZHIXUE_RABBITMQ_USERNAME: ${ZHIXUE_RABBITMQ_USERNAME}
+      ZHIXUE_RABBITMQ_PASSWORD: ${ZHIXUE_RABBITMQ_PASSWORD}
+      ZHIXUE_RABBITMQ_VHOST: ${ZHIXUE_RABBITMQ_VHOST}
+      ZHIXUE_SEATA_ADDR: seata:8091
+      ZHIXUE_ORDER_MQ_MODE: ${ZHIXUE_ORDER_MQ_MODE}
+      ORDER_PAY_CALLBACK_URL: http://127.0.0.1:${ZHIXUE_GATEWAY_PORT:-19001}/order/pay/callback
+      JAVA_OPTS: -Xms256m -Xmx256m
+    ports:
+      - "${ZHIXUE_ORDER_PORT:-19206}:9206"
+    volumes:
+      - ../../zhixue-modules/zhixue-order/target/zhixue-order-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
+
+  marketing:
+    image: eclipse-temurin:17-jre
+    container_name: zhixue-local-marketing
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ZHIXUE_DB_HOST: mysql
+      ZHIXUE_DB_PORT: 3306
+      ZHIXUE_DB_USERNAME: ${ZHIXUE_DB_USERNAME}
+      ZHIXUE_DB_PASSWORD: ${ZHIXUE_DB_PASSWORD}
+      ZHIXUE_REDIS_HOST: redis
+      ZHIXUE_REDIS_PORT: 6379
+      ZHIXUE_REDIS_PASSWORD: ${ZHIXUE_REDIS_PASSWORD}
+      ZHIXUE_NACOS_HOST: nacos
+      ZHIXUE_NACOS_PORT: 8848
+      ZHIXUE_NACOS_GRPC_PORT: 9848
+      ZHIXUE_NACOS_ADDR: nacos:8848
+      ZHIXUE_NACOS_NAMESPACE: ${ZHIXUE_NACOS_NAMESPACE}
+      ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
+      ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
+      ZHIXUE_MARKETING_MODE: ${ZHIXUE_MARKETING_MODE}
+      JAVA_OPTS: -Xms256m -Xmx256m
+    ports:
+      - "${ZHIXUE_MARKETING_PORT:-19207}:9207"
+    volumes:
+      - ../../zhixue-modules/zhixue-marketing/target/zhixue-marketing-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
+
+  ai:
+    image: eclipse-temurin:17-jre
+    container_name: zhixue-local-ai
+    depends_on:
+      - mysql
+      - nacos
+      - elasticsearch
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ZHIXUE_DB_HOST: mysql
+      ZHIXUE_DB_PORT: 3306
+      ZHIXUE_DB_USERNAME: ${ZHIXUE_DB_USERNAME}
+      ZHIXUE_DB_PASSWORD: ${ZHIXUE_DB_PASSWORD}
+      ZHIXUE_NACOS_HOST: nacos
+      ZHIXUE_NACOS_PORT: 8848
+      ZHIXUE_NACOS_GRPC_PORT: 9848
+      ZHIXUE_NACOS_ADDR: nacos:8848
+      ZHIXUE_NACOS_NAMESPACE: ${ZHIXUE_NACOS_NAMESPACE}
+      ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
+      ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
+      ZHIXUE_ES_URIS: http://elasticsearch:9200
+      ZHIXUE_AI_MODE: ${ZHIXUE_AI_MODE}
+      JAVA_OPTS: -Xms256m -Xmx256m
+    ports:
+      - "${ZHIXUE_AI_PORT:-19208}:9208"
+    volumes:
+      - ../../zhixue-modules/zhixue-ai/target/zhixue-ai-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
+
+  gateway:
+    image: eclipse-temurin:17-jre
+    container_name: zhixue-local-gateway
+    depends_on:
+      - auth
+      - system
+      - course
+      - media
+      - interaction
+      - order
+      - marketing
+      - ai
+      - redis
+      - nacos
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      SPRING_PROFILES_ACTIVE: local
+      ZHIXUE_REDIS_HOST: redis
+      ZHIXUE_REDIS_PORT: 6379
+      ZHIXUE_REDIS_PASSWORD: ${ZHIXUE_REDIS_PASSWORD}
+      ZHIXUE_NACOS_HOST: nacos
+      ZHIXUE_NACOS_PORT: 8848
+      ZHIXUE_NACOS_GRPC_PORT: 9848
+      ZHIXUE_NACOS_ADDR: nacos:8848
+      ZHIXUE_NACOS_NAMESPACE: ${ZHIXUE_NACOS_NAMESPACE}
+      ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
+      ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
+      ZHIXUE_JWT_SECRET: ${ZHIXUE_JWT_SECRET}
+      ZHIXUE_JWT_EXPIRATION: ${ZHIXUE_JWT_EXPIRATION}
+      ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
+      ZHIXUE_GATEWAY_PORT: ${ZHIXUE_GATEWAY_PORT}
+      JAVA_OPTS: -Xms256m -Xmx256m
+    ports:
+      - "${ZHIXUE_GATEWAY_PORT:-19001}:${ZHIXUE_GATEWAY_PORT:-19001}"
+    volumes:
+      - ../../zhixue-gateway/target/zhixue-gateway-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app/app.jar"]
+
+volumes:
+  mysql_data:
+  redis_data:
+  nacos_logs:
+  rabbitmq_data:
+  minio_data:
+  es_data:

@@ -9,7 +9,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
  * 课程中心的启动类。
  * 这个类是整个课程服务模块的入口，负责启动 Spring Boot 应用程序。
  */
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.zhixue.course", "com.zhixue.common"})
 @EnableDiscoveryClient
 @MapperScan("com.zhixue.course.mapper")
 public class CourseApplication {
@@ -23,4 +23,3 @@ public class CourseApplication {
         System.out.println("===course模块启动成功===");
     }
 }
-

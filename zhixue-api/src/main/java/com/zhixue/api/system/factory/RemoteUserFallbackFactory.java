@@ -22,15 +22,14 @@ public class RemoteUserFallbackFactory implements FallbackFactory<RemoteUserServ
         log.error("调用系统服务失败: {}", cause.getMessage());
         return new RemoteUserService() {
             @Override
-            public R<LoginUser> getUserInfo(String username, String innerHeader) {
+            public R<LoginUser> getUserInfo(String username, String innerHeader, String internalToken) {
                 return R.fail(HttpStatus.SERVICE_UNAVAILABLE, "系统服务不可用");
             }
 
             @Override
-            public R<LoginUser> login(LoginUser loginUser, String innerHeader) {
+            public R<LoginUser> getUserInfoByPhone(String phone, String innerHeader, String internalToken) {
                 return R.fail(HttpStatus.SERVICE_UNAVAILABLE, "系统服务不可用");
             }
         };
     }
 }
-

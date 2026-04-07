@@ -11,8 +11,7 @@ public interface VideoProcessService {
      * 按策略转码视频。
      *
      * @param mediaFile 待处理文件
-     * @return 转码后对象名；无可用策略时返回 null
+     * @return 转码后对象名；无可用策略时返回原对象名
      */
     String transcode(MediaFile mediaFile);
 }
-

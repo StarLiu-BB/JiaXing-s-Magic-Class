@@ -9,9 +9,11 @@ import com.zhixue.order.service.PayService;
 import com.zhixue.order.strategy.PayStrategy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.util.CollectionUtils;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 支付服务实现类。
@@ -44,11 +46,9 @@ public class PayServiceImpl implements PayService {
         if (order.getStatus() != 0) {
             throw new ServiceException("订单状态不可支付");
         }
-        PayStrategy strategy = chooseStrategy(dto.getPayChannel());
-        if (strategy == null) {
-            throw new ServiceException("不支持的支付渠道");
-        }
-        order.setPayChannel(dto.getPayChannel());
+        String payChannel = dto.getPayChannel().toLowerCase(Locale.ROOT);
+        PayStrategy strategy = chooseStrategy(payChannel);
+        order.setPayChannel(payChannel);
         return strategy.pay(order);
     }
 
@@ -59,13 +59,15 @@ public class PayServiceImpl implements PayService {
      */
     private PayStrategy chooseStrategy(String channel) {
         if (CollectionUtils.isEmpty(payStrategies)) {
-            return null;
+            throw new ServiceException("支付策略未初始化");
+        }
+        if (!StringUtils.hasText(channel)) {
+            throw new ServiceException("支付渠道不能为空");
         }
         return payStrategies.stream()
                 .filter(s -> s.supports(channel))
                 .findFirst()
-                .orElse(null);
+                .orElseThrow(() -> new ServiceException("不支持的支付渠道: " + channel));
     }
 }
-
 

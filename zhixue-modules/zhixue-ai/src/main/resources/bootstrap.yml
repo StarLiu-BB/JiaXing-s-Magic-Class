@@ -4,6 +4,7 @@ spring:
   cloud:
     nacos:
       discovery:
-        server-addr: 192.168.211.175:8848
-      # 明确指定gRPC端口，避免客户端尝试连接默认的localhost:9848
-      grpc-port: 9848
+        server-addr: ${ZHIXUE_NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${ZHIXUE_NACOS_NAMESPACE:public}
+        group: ${ZHIXUE_NACOS_GROUP:DEFAULT_GROUP}
+      grpc-port: ${ZHIXUE_NACOS_GRPC_PORT:9848}

@@ -22,5 +22,8 @@ public interface SysRoleService {
     boolean removeRole(Long id);
 
     boolean assignMenus(Long roleId, List<Long> menuIds);
-}
 
+    boolean changeStatus(Long roleId, Integer status);
+
+    List<Long> listMenuIds(Long roleId);
+}

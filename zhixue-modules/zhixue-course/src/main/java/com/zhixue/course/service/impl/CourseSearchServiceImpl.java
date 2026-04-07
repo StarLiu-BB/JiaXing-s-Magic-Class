@@ -3,6 +3,7 @@ package com.zhixue.course.service.impl;
 import com.zhixue.course.domain.doc.CourseDoc;
 import com.zhixue.course.service.CourseSearchService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "zhixue.integration.search.mode", havingValue = "real")
 public class CourseSearchServiceImpl implements CourseSearchService {
 
     private final ElasticsearchOperations elasticsearchOperations;
@@ -44,4 +46,3 @@ public class CourseSearchServiceImpl implements CourseSearchService {
         return (Page<CourseDoc>) SearchHitSupport.unwrapSearchHits(searchPage);
     }
 }
-

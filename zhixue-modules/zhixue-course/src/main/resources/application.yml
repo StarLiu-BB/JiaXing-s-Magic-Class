@@ -4,16 +4,19 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.211.175:3306/zhixue_course?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: rootpassword
+    url: jdbc:mysql://${ZHIXUE_DB_HOST:127.0.0.1}:${ZHIXUE_DB_PORT:3306}/zhixue_course?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${ZHIXUE_DB_USERNAME:root}
+    password: ${ZHIXUE_DB_PASSWORD:}
   data:
+    redis:
+      host: ${ZHIXUE_REDIS_HOST:127.0.0.1}
+      port: ${ZHIXUE_REDIS_PORT:6379}
+      password: ${ZHIXUE_REDIS_PASSWORD:}
     elasticsearch:
       repositories:
-        enabled: true
-      client:
-        rest:
-          uris: http://192.168.211.175:9200
+        enabled: ${ZHIXUE_ES_REPOSITORIES_ENABLED:false}
+  elasticsearch:
+    uris: ${ZHIXUE_ES_URIS:http://127.0.0.1:9200}
   main:
     allow-bean-definition-overriding: true
 
@@ -24,7 +27,7 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
-      id-type: auto
+      id-type: assign_id
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
@@ -33,3 +36,20 @@ logging:
   level:
     com.zhixue: INFO
 
+zhixue:
+  security:
+    jwt-secret: ${ZHIXUE_JWT_SECRET:emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n}
+    jwt-expiration: ${ZHIXUE_JWT_EXPIRATION:7200}
+    internal-token: ${ZHIXUE_INTERNAL_TOKEN:local-dev-internal-token-change-before-prod}
+  integration:
+    search:
+      mode: ${ZHIXUE_SEARCH_MODE:stub}
+
+management:
+  health:
+    elasticsearch:
+      enabled: ${ZHIXUE_ES_HEALTH_ENABLED:false}
+  endpoints:
+    web:
+      exposure:
+        include: health,info

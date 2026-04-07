@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -36,8 +38,10 @@ public class TokenServiceImpl implements TokenService {
         claims.put("userId", loginUser.getUserId());
         claims.put("username", loginUser.getUsername());
         claims.put("roles", loginUser.getRoles());
+        claims.put("permissions", extractPermissions(loginUser));
+        Duration expiration = resolveTokenExpiration();
         String token = JwtUtils.generateToken(String.valueOf(loginUser.getUserId()), claims, securityProperties.getJwtSecret(),
-                CacheConstants.TOKEN_EXPIRE.toSeconds());
+                expiration.toSeconds());
         cacheToken(token, loginUser);
         log.info("用户登录成功，userId={}, username={}", loginUser.getUserId(), loginUser.getUsername());
         return token;
@@ -49,14 +53,14 @@ public class TokenServiceImpl implements TokenService {
         if (loginUser == null) {
             return null;
         }
-        cacheToken(token, loginUser);
-        return token;
+        logout(token);
+        return createToken(loginUser);
     }
 
     @Override
     public void logout(String token) {
         redisService.delete(CacheConstants.LOGIN_TOKEN_KEY + token);
-        log.info("用户登出，token={}", token);
+        log.info("用户登出，tokenPrefix={}", token == null ? "" : token.substring(0, Math.min(token.length(), 12)));
     }
 
     @Override
@@ -65,7 +69,25 @@ public class TokenServiceImpl implements TokenService {
     }
 
     private void cacheToken(String token, LoginUser loginUser) {
-        redisService.set(CacheConstants.LOGIN_TOKEN_KEY + token, loginUser, CacheConstants.TOKEN_EXPIRE);
+        redisService.set(CacheConstants.LOGIN_TOKEN_KEY + token, loginUser, resolveTokenExpiration());
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> extractPermissions(LoginUser loginUser) {
+        if (loginUser.getExtra() == null) {
+            return java.util.Collections.emptyList();
+        }
+        Object permissions = loginUser.getExtra().get("permissions");
+        if (permissions instanceof List<?> list) {
+            return list.stream().map(String::valueOf).toList();
+        }
+        return java.util.Collections.emptyList();
+    }
+
+    private Duration resolveTokenExpiration() {
+        long expirationSeconds = securityProperties.getJwtExpiration() > 0
+                ? securityProperties.getJwtExpiration()
+                : CacheConstants.TOKEN_EXPIRE.toSeconds();
+        return Duration.ofSeconds(expirationSeconds);
     }
 }
-

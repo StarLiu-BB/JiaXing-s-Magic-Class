@@ -1,12 +1,12 @@
 server:
-  port: 9001
+  port: ${ZHIXUE_GATEWAY_PORT:19001}
 
 spring:
   data:
     redis:
-      host: 192.168.211.175
-      port: 6379
-      # password: your_password  # 如果有密码则取消注释
+      host: ${ZHIXUE_REDIS_HOST:127.0.0.1}
+      port: ${ZHIXUE_REDIS_PORT:6379}
+      password: ${ZHIXUE_REDIS_PASSWORD:}
   main:
     web-application-type: reactive
     allow-bean-definition-overriding: true
@@ -63,10 +63,28 @@ spring:
             - Path=/ai/**
           filters:
             - StripPrefix=1
+        - id: zhixue-marketing
+          uri: lb://zhixue-marketing
+          predicates:
+            - Path=/marketing/**
+          filters:
+            - StripPrefix=1
+        - id: zhixue-order
+          uri: lb://zhixue-order
+          predicates:
+            - Path=/order/**,/pay/**
+        - id: zhixue-media
+          uri: lb://zhixue-media
+          predicates:
+            - Path=/media/**
+        - id: zhixue-interaction
+          uri: lb://zhixue-interaction
+          predicates:
+            - Path=/course/interaction/**,/danmaku/**
     sentinel:
       transport:
-        dashboard: 192.168.211.175:8858
-        port: 8719
+        dashboard: ${ZHIXUE_SENTINEL_DASHBOARD:127.0.0.1:8858}
+        port: ${ZHIXUE_SENTINEL_PORT:8719}
 
 management:
   endpoints:
@@ -77,9 +95,9 @@ management:
 
 zhixue:
   security:
-    # JWT secret (Base64 encoded, minimum 256 bits)
-    jwt-secret: emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n
-    jwt-expiration: 7200
+    jwt-secret: ${ZHIXUE_JWT_SECRET:emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n}
+    jwt-expiration: ${ZHIXUE_JWT_EXPIRATION:7200}
+    internal-token: ${ZHIXUE_INTERNAL_TOKEN:local-dev-internal-token-change-before-prod}
 
 security:
   whitelist:
@@ -87,12 +105,15 @@ security:
     - /auth/register
     - /auth/captcha
     - /course/list
+    - /course/banner/list
+    - /course/hot/list
+    - /course/latest/list
     - /course/category/list
     - /course/detail/**
+    - /course/info/*
+    - /course/*/chapters
+    - /course/*/reviews
 
 logging:
   level:
-    com.zhixue: DEBUG
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.cloud.loadbalancer: DEBUG
-    reactor.netty.http.client: DEBUG
+    com.zhixue: INFO

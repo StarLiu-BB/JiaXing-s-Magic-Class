@@ -1,6 +1,7 @@
 package com.zhixue.course.controller;
 
 import com.zhixue.common.core.domain.R;
+import com.zhixue.common.security.annotation.RequirePermission;
 import com.zhixue.course.domain.entity.Chapter;
 import com.zhixue.course.service.ChapterService;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +15,7 @@ import java.util.List;
  * 章节是课程内容的组织单元，一个课程包含多个章节，每个章节包含多个小节。
  */
 @RestController
-@RequestMapping("/course/chapter")
+@RequestMapping
 @RequiredArgsConstructor
 public class ChapterController {
 
@@ -25,7 +26,7 @@ public class ChapterController {
      * @param courseId 课程编号
      * @return 章节列表数据
      */
-    @GetMapping("/list/{courseId}")
+    @GetMapping({"/chapter/list/{courseId}", "/{courseId}/chapters"})
     public R<List<Chapter>> list(@PathVariable Long courseId) {
         return R.ok(chapterService.listByCourse(courseId));
     }
@@ -35,7 +36,7 @@ public class ChapterController {
      * @param id 章节编号
      * @return 章节详情数据
      */
-    @GetMapping("/info/{id}")
+    @GetMapping({"/chapter/info/{id}", "/chapter/{id}"})
     public R<Chapter> info(@PathVariable Long id) {
         return R.ok(chapterService.getById(id));
     }
@@ -45,7 +46,8 @@ public class ChapterController {
      * @param chapter 章节信息
      * @return 操作结果
      */
-    @PostMapping
+    @PostMapping("/chapter")
+    @RequirePermission("course:edit")
     public R<Void> create(@RequestBody Chapter chapter) {
         return chapterService.saveChapter(chapter) ? R.ok() : R.fail("新增失败");
     }
@@ -55,7 +57,8 @@ public class ChapterController {
      * @param chapter 章节信息
      * @return 操作结果
      */
-    @PutMapping
+    @PutMapping("/chapter")
+    @RequirePermission("course:edit")
     public R<Void> update(@RequestBody Chapter chapter) {
         return chapterService.updateChapter(chapter) ? R.ok() : R.fail("更新失败");
     }
@@ -65,9 +68,9 @@ public class ChapterController {
      * @param id 章节编号
      * @return 操作结果
      */
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/chapter/{id}")
+    @RequirePermission("course:edit")
     public R<Void> delete(@PathVariable Long id) {
         return chapterService.removeChapter(id) ? R.ok() : R.fail("删除失败");
     }
 }
-

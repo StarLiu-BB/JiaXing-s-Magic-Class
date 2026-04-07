@@ -16,9 +16,6 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 public class SystemApplication {
 
     public static void main(String[] args) {
-        // 设置Nacos系统属性，确保连接到正确的服务器
-        System.setProperty("nacos.server-addr", "192.168.211.175:8848");
-        System.setProperty("nacos.grpc.port", "9848");
         SpringApplication.run(SystemApplication.class, args);
     }
 }

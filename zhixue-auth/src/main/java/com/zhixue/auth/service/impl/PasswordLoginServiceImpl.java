@@ -1,17 +1,19 @@
 package com.zhixue.auth.service.impl;
 
+import com.zhixue.api.system.RemoteUserService;
+import com.zhixue.common.core.domain.R;
 import com.zhixue.auth.form.LoginForm;
 import com.zhixue.auth.service.LoginService;
 import com.zhixue.common.core.exception.ServiceException;
 import com.zhixue.common.core.utils.StringUtils;
+import com.zhixue.common.security.config.SecurityProperties;
 import com.zhixue.common.security.model.LoginUser;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -22,60 +24,49 @@ import java.util.Map;
  */
 @Slf4j
 @Service("passwordLoginService")
+@RequiredArgsConstructor
 public class PasswordLoginServiceImpl implements LoginService {
 
-    // 模拟用户数据（实际应从数据库获取）
-    private static final Map<String, UserInfo> MOCK_USERS = new HashMap<>();
-    
-    static {
-        // 管理员账号
-        MOCK_USERS.put("admin", new UserInfo(1L, "admin", "123456", Arrays.asList("ADMIN")));
-        // 教师账号
-        MOCK_USERS.put("teacher", new UserInfo(2L, "teacher", "123456", Arrays.asList("TEACHER")));
-        MOCK_USERS.put("teacher1", new UserInfo(3L, "teacher1", "123456", Arrays.asList("TEACHER")));
-        MOCK_USERS.put("teacher2", new UserInfo(4L, "teacher2", "123456", Arrays.asList("TEACHER")));
-        // 普通用户
-        MOCK_USERS.put("user", new UserInfo(5L, "user", "123456", Arrays.asList("USER")));
-    }
+    private static final String INNER_CALL_HEADER = "true";
+
+    private final RemoteUserService remoteUserService;
+    private final PasswordEncoder passwordEncoder;
+    private final SecurityProperties securityProperties;
 
     @Override
     public LoginUser login(LoginForm form) {
         if (StringUtils.isBlank(form.getUsername()) || StringUtils.isBlank(form.getPassword())) {
             throw new ServiceException("用户名或密码不能为空");
         }
-        
-        // 查找用户
-        UserInfo userInfo = MOCK_USERS.get(form.getUsername());
-        if (userInfo == null) {
+
+        R<com.zhixue.api.system.domain.LoginUser> response =
+                remoteUserService.getUserInfo(form.getUsername(), INNER_CALL_HEADER, securityProperties.getInternalToken());
+        if (response == null || !response.isSuccess() || response.getData() == null) {
             throw new ServiceException("用户不存在");
         }
-        
-        // 验证密码
-        if (!userInfo.password.equals(form.getPassword())) {
+
+        com.zhixue.api.system.domain.LoginUser remoteUser = response.getData();
+        if (remoteUser.getSysUser() == null || remoteUser.getSysUser().getStatus() == null
+                || remoteUser.getSysUser().getStatus() != 0) {
+            throw new ServiceException("账号已停用");
+        }
+
+        String encodedPassword = remoteUser.getSysUser().getPassword();
+        if (StringUtils.isBlank(encodedPassword) || !passwordEncoder.matches(form.getPassword(), encodedPassword)) {
             throw new ServiceException("密码错误");
         }
-        
-        log.info("密码登录校验通过，username={}, roles={}", form.getUsername(), userInfo.roles);
+
+        Map<String, Object> extra = new HashMap<>();
+        extra.put("permissions", remoteUser.getPermissions());
+        extra.put("nickname", remoteUser.getSysUser().getNickname());
+        extra.put("avatar", remoteUser.getSysUser().getAvatar());
+
+        log.info("密码登录校验通过，username={}, roles={}", form.getUsername(), remoteUser.getRoles());
         return LoginUser.builder()
-                .userId(userInfo.userId)
-                .username(userInfo.username)
-                .roles(userInfo.roles)
+                .userId(remoteUser.getUserId())
+                .username(remoteUser.getUsername())
+                .roles(remoteUser.getRoles())
+                .extra(extra)
                 .build();
     }
-    
-    // 内部类：模拟用户信息
-    private static class UserInfo {
-        Long userId;
-        String username;
-        String password;
-        List<String> roles;
-        
-        UserInfo(Long userId, String username, String password, List<String> roles) {
-            this.userId = userId;
-            this.username = username;
-            this.password = password;
-            this.roles = roles;
-        }
-    }
 }
-

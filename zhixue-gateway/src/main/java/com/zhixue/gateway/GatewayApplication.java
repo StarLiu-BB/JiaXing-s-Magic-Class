@@ -1,7 +1,6 @@
 package com.zhixue.gateway;
 
 import com.zhixue.common.mybatis.config.MybatisPlusConfig;
-import com.zhixue.common.redis.config.RedisConfig;
 import com.zhixue.common.security.config.SecurityProperties;
 import com.zhixue.gateway.config.WhiteListConfig;
 import org.springframework.boot.SpringApplication;
@@ -18,15 +17,13 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
  * 比如用户要访问用户服务、课程服务，请求都会先到网关，由网关决定怎么转发。
  */
 @SpringBootApplication(
-        scanBasePackages = {"com.zhixue.gateway", "com.zhixue.common.security"},
+        scanBasePackages = {"com.zhixue.gateway", "com.zhixue.common.security", "com.zhixue.common.redis"},
         exclude = {
                 DataSourceAutoConfiguration.class,
                 DataSourceTransactionManagerAutoConfiguration.class,
-                MybatisPlusConfig.class,
-                RedisConfig.class
+                MybatisPlusConfig.class
         }
 )
-// 临时注释掉EnableDiscoveryClient以排除Nacos连接问题
 @EnableDiscoveryClient
 @EnableConfigurationProperties({WhiteListConfig.class, SecurityProperties.class})
 public class GatewayApplication {

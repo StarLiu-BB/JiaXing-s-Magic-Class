@@ -4,26 +4,20 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.211.175:3306/zhixue_interaction?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: rootpassword
+    url: jdbc:mysql://${ZHIXUE_DB_HOST:127.0.0.1}:${ZHIXUE_DB_PORT:3306}/zhixue_interaction?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${ZHIXUE_DB_USERNAME:root}
+    password: ${ZHIXUE_DB_PASSWORD:}
   data:
     redis:
-      host: 192.168.211.175
-      port: 6379
-
-mybatis-flex:
-  mapper-locations: classpath*:mapper/*Mapper.xml
-  configuration:
-    map-underscore-to-camel-case: true
-
-spring:
+      host: ${ZHIXUE_REDIS_HOST:127.0.0.1}
+      port: ${ZHIXUE_REDIS_PORT:6379}
+      password: ${ZHIXUE_REDIS_PASSWORD:}
   rabbitmq:
-    host: 192.168.211.175
-    port: 5672
-    username: admin
-    password: Rabbit@123456789
-    virtual-host: /
+    host: ${ZHIXUE_RABBITMQ_HOST:127.0.0.1}
+    port: ${ZHIXUE_RABBITMQ_PORT:5672}
+    username: ${ZHIXUE_RABBITMQ_USERNAME:guest}
+    password: ${ZHIXUE_RABBITMQ_PASSWORD:guest}
+    virtual-host: ${ZHIXUE_RABBITMQ_VHOST:/}
     listener:
       simple:
         acknowledge-mode: auto
@@ -31,11 +25,17 @@ spring:
           enabled: true
           max-attempts: 3
 
+mybatis-flex:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
 interaction:
   websocket-port: 9999
   danmaku-queue: queue_danmaku
   danmaku-exchange: exchange_danmaku
   danmaku-routing-key: danmaku.broadcast
+  sensitive-words: ${ZHIXUE_SENSITIVE_WORDS:傻逼,垃圾,色情,赌博,欺诈}
 
 logging:
   level:
@@ -43,7 +43,8 @@ logging:
 
 zhixue:
   security:
-    jwt-secret: zhixue-cloud-jwt-secret-key-2024-must-be-at-least-256-bits-long
-    jwt-expiration: 7200
-
-
+    jwt-secret: ${ZHIXUE_JWT_SECRET:emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n}
+    jwt-expiration: ${ZHIXUE_JWT_EXPIRATION:7200}
+  integration:
+    interaction-mq:
+      mode: ${ZHIXUE_INTERACTION_MQ_MODE:sandbox}

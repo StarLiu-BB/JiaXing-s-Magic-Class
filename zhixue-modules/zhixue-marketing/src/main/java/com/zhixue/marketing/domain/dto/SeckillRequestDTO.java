@@ -24,6 +24,10 @@ public class SeckillRequestDTO {
      */
     @NotNull(message = "用户ID不能为空")
     private Long userId;
-}
 
+    /**
+     * 秒杀令牌（real 模式必填）
+     */
+    private String token;
+}
 

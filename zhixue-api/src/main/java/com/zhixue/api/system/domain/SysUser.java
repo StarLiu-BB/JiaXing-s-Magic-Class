@@ -14,10 +14,10 @@ import lombok.EqualsAndHashCode;
 public class SysUser extends BaseEntity {
 
     private String username;
+    private String password;
     private String nickname;
-    private String mobile;
+    private String phone;
     private String email;
     private String avatar;
     private Integer status;
 }
-

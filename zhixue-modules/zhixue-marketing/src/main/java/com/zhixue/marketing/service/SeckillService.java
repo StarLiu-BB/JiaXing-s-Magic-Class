@@ -1,9 +1,13 @@
 package com.zhixue.marketing.service;
 
+import com.zhixue.common.core.domain.PageQuery;
+import com.zhixue.common.core.domain.PageResult;
+import com.zhixue.marketing.domain.dto.SeckillActivityDTO;
 import com.zhixue.marketing.domain.dto.SeckillRequestDTO;
 import com.zhixue.marketing.domain.entity.SeckillActivity;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 秒杀服务接口
@@ -34,6 +38,45 @@ public interface SeckillService {
      * @return 在线秒杀活动列表
      */
     List<SeckillActivity> listOnline();
-}
 
+    /**
+     * 分页查询秒杀活动。
+     */
+    PageResult<SeckillActivity> pageActivities(PageQuery query, String title, Integer status);
+
+    /**
+     * 查询单个秒杀活动。
+     */
+    SeckillActivity getById(Long id);
+
+    /**
+     * 创建秒杀活动。
+     */
+    SeckillActivity create(SeckillActivityDTO dto);
+
+    /**
+     * 更新秒杀活动。
+     */
+    SeckillActivity update(SeckillActivityDTO dto);
+
+    /**
+     * 删除秒杀活动。
+     */
+    void deleteByIds(List<Long> ids);
+
+    /**
+     * 修改状态。
+     */
+    void changeStatus(Long id, Integer status);
+
+    /**
+     * 统计。
+     */
+    Map<String, Object> statistics(Long id);
+
+    /**
+     * 发放秒杀令牌。
+     */
+    String issueToken(Long activityId, Long userId);
+}
 

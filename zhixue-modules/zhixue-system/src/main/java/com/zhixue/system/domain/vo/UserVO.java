@@ -19,7 +19,8 @@ public class UserVO {
     private String phone;
     private String email;
     private Integer status;
+    private String remark;
+    private String avatar;
     private LocalDateTime createTime;
     private List<Long> roleIds;
 }
-

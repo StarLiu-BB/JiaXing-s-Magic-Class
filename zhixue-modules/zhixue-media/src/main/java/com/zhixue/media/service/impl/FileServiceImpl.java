@@ -19,6 +19,7 @@ import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -40,9 +41,14 @@ public class FileServiceImpl implements FileService {
     private final MinioProperties properties;
     private final MediaFileMapper mediaFileMapper;
     private final VideoProcessService videoProcessService;
+    @Value("${zhixue.integration.media-storage.mode:sandbox}")
+    private String storageMode;
 
     @Override
     public boolean uploadChunk(ChunkUploadDTO dto) {
+        if (isStubMode()) {
+            return dto.getChunkFile() != null && !dto.getChunkFile().isEmpty();
+        }
         String bucket = resolveBucket(dto.getBucket());
         String objectName = chunkObject(dto.getFileMd5(), dto.getChunkIndex());
         try {
@@ -63,6 +69,14 @@ public class FileServiceImpl implements FileService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MediaFile mergeChunks(MergeChunkDTO dto) {
+        if (isStubMode()) {
+            MediaFile mediaFile = upsertMediaRecord(resolveBucket(dto.getBucket()),
+                    "stub/" + mergedObject(dto.getFileMd5(), dto.getFileName()), dto);
+            mediaFile.setStatus(3);
+            mediaFile.setRemark("stub mode: skip chunk merge and transcode");
+            mediaFileMapper.updateById(mediaFile);
+            return mediaFile;
+        }
         String bucket = resolveBucket(dto.getBucket());
         String targetObject = mergedObject(dto.getFileMd5(), dto.getFileName());
 
@@ -199,5 +213,8 @@ public class FileServiceImpl implements FileService {
                 : properties.getEndpoint();
         return host + "/" + bucket + "/" + objectName;
     }
-}
 
+    private boolean isStubMode() {
+        return "stub".equalsIgnoreCase(storageMode);
+    }
+}

@@ -1,6 +1,7 @@
 package com.zhixue.course.controller;
 
 import com.zhixue.common.core.domain.R;
+import com.zhixue.common.security.annotation.RequirePermission;
 import com.zhixue.course.domain.entity.Category;
 import com.zhixue.course.service.CategoryService;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,7 @@ public class CategoryController {
      * @return 操作结果
      */
     @PostMapping
+    @RequirePermission("course:category:edit")
     public R<Void> save(@RequestBody Category category) {
         return categoryService.save(category) ? R.ok() : R.fail("新增失败");
     }
@@ -54,6 +56,7 @@ public class CategoryController {
      * @return 操作结果
      */
     @PutMapping
+    @RequirePermission("course:category:edit")
     public R<Void> update(@RequestBody Category category) {
         return categoryService.update(category) ? R.ok() : R.fail("更新失败");
     }
@@ -64,6 +67,7 @@ public class CategoryController {
      * @return 操作结果
      */
     @DeleteMapping("/{id}")
+    @RequirePermission("course:category:edit")
     public R<Void> remove(@PathVariable Long id) {
         return categoryService.remove(id) ? R.ok() : R.fail("删除失败");
     }

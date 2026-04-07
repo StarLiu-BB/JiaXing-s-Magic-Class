@@ -1,6 +1,5 @@
 package com.zhixue.auth.form;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
@@ -15,12 +14,15 @@ public class LoginForm {
     /**
      * 登录类型：password（密码登录） / sms（短信登录） / wechat（微信登录）
      */
-    @NotBlank(message = "登录类型不能为空")
     private String loginType;
 
     private String username;
 
     private String password;
+
+    private String code;
+
+    private String uuid;
 
     private String phone;
 
@@ -28,4 +30,3 @@ public class LoginForm {
 
     private String wechatCode;
 }
-

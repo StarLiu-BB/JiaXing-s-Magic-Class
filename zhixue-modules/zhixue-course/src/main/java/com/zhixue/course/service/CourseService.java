@@ -11,7 +11,13 @@ import com.zhixue.common.core.domain.PageResult;
  */
 public interface CourseService {
 
-    PageResult<Course> pageCourses(PageQuery query, Integer status, Integer shelfStatus);
+    PageResult<Course> pageCourses(PageQuery query, String title, Long categoryId, Integer status, Integer shelfStatus);
+
+    java.util.List<java.util.Map<String, Object>> listBanners(int limit);
+
+    java.util.List<Course> listHotCourses(int limit);
+
+    java.util.List<Course> listLatestCourses(int limit);
 
     Course getById(Long id);
 
@@ -25,4 +31,3 @@ public interface CourseService {
 
     boolean remove(Long id);
 }
-

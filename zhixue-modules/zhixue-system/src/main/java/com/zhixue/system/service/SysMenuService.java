@@ -23,5 +23,10 @@ public interface SysMenuService {
     boolean removeMenu(Long id);
 
     List<RouterVO> buildRouters(List<SysMenu> menus);
-}
 
+    List<SysMenu> listMenusByUserId(Long userId);
+
+    List<String> listPermissionsByUserId(Long userId);
+
+    List<Long> listMenuIdsByRoleId(Long roleId);
+}

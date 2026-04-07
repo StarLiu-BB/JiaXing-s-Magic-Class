@@ -1,11 +1,17 @@
 package com.zhixue.marketing.service;
 
+import com.zhixue.common.core.domain.PageQuery;
+import com.zhixue.common.core.domain.PageResult;
+import com.zhixue.marketing.domain.dto.CouponApplyDTO;
 import com.zhixue.marketing.domain.dto.CouponClaimDTO;
 import com.zhixue.marketing.domain.dto.CouponCreateDTO;
+import com.zhixue.marketing.domain.dto.CouponUpdateDTO;
 import com.zhixue.marketing.domain.entity.Coupon;
 import com.zhixue.marketing.domain.entity.CouponUser;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 优惠券服务接口
@@ -23,11 +29,26 @@ public interface CouponService {
     Coupon create(CouponCreateDTO dto);
 
     /**
+     * 更新优惠券。
+     */
+    Coupon update(CouponUpdateDTO dto);
+
+    /**
+     * 分页查询优惠券。
+     */
+    PageResult<Coupon> pageCoupons(PageQuery query, String name, Integer status);
+
+    /**
      * 查询可用优惠券列表
      * 作用：获取所有当前可用的优惠券，供用户查看和选择领取。
      * @return 可用优惠券列表
      */
     List<Coupon> listAvailable();
+
+    /**
+     * 查询单个优惠券。
+     */
+    Coupon getById(Long couponId);
 
     /**
      * 用户领取优惠券
@@ -36,6 +57,35 @@ public interface CouponService {
      * @return 用户领取的优惠券记录
      */
     CouponUser claim(CouponClaimDTO dto);
-}
 
+    /**
+     * 删除优惠券。
+     */
+    void deleteByIds(List<Long> couponIds);
+
+    /**
+     * 更新优惠券状态。
+     */
+    void changeStatus(Long couponId, Integer status);
+
+    /**
+     * 批量发券，返回发放成功数量。
+     */
+    int issue(Long couponId, List<Long> userIds);
+
+    /**
+     * 优惠券统计。
+     */
+    Map<String, Object> statistics(Long couponId);
+
+    /**
+     * 查询用户优惠券。
+     */
+    List<CouponUser> listUserCoupons(Long userId, Integer status);
+
+    /**
+     * 应用优惠券，返回可抵扣金额。
+     */
+    BigDecimal applyCoupon(CouponApplyDTO dto);
+}
 

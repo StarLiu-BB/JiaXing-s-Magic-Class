@@ -1,5 +1,6 @@
 package com.zhixue.system.service.impl;
 
+import com.zhixue.common.security.utils.SecurityUtils;
 import com.zhixue.system.service.SysPermissionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,9 +16,8 @@ public class SysPermissionServiceImpl implements SysPermissionService {
 
     @Override
     public boolean hasPerm(String perm) {
-        log.info("校验权限 perm={}", perm);
-        // TODO: 根据当前登录用户角色与菜单权限判定
-        return true;
+        boolean allowed = SecurityUtils.hasAnyPermission(perm);
+        log.info("校验权限 perm={}, allowed={}", perm, allowed);
+        return allowed;
     }
 }
-

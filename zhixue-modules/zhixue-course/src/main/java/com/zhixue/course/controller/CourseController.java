@@ -3,14 +3,23 @@ package com.zhixue.course.controller;
 import com.zhixue.common.core.domain.PageQuery;
 import com.zhixue.common.core.domain.PageResult;
 import com.zhixue.common.core.domain.R;
+import com.zhixue.common.security.annotation.RequirePermission;
+import com.zhixue.common.security.utils.SecurityUtils;
+import com.zhixue.course.domain.entity.Chapter;
 import com.zhixue.course.domain.entity.Course;
 import com.zhixue.course.domain.doc.CourseDoc;
+import com.zhixue.course.service.ChapterService;
 import com.zhixue.course.service.CourseSearchService;
 import com.zhixue.course.service.CourseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 课程管理接口。
@@ -23,6 +32,7 @@ public class CourseController {
 
     private final CourseService courseService;
     private final CourseSearchService courseSearchService;
+    private final ChapterService chapterService;
 
     /**
      * 分页查询课程列表。
@@ -33,9 +43,31 @@ public class CourseController {
      */
     @GetMapping("/list")
     public R<PageResult<Course>> list(PageQuery query,
+                                      @RequestParam(required = false) String title,
+                                      @RequestParam(required = false) Long categoryId,
                                       @RequestParam(required = false) Integer status,
                                       @RequestParam(required = false) Integer shelfStatus) {
-        return R.ok(courseService.pageCourses(query, status, shelfStatus));
+        boolean canManageCourses = SecurityUtils.hasAnyPermission("course:list", "course:edit", "course:publish");
+        if (!canManageCourses) {
+            status = 1;
+            shelfStatus = 1;
+        }
+        return R.ok(courseService.pageCourses(query, title, categoryId, status, shelfStatus));
+    }
+
+    @GetMapping("/banner/list")
+    public R<List<Map<String, Object>>> banners(@RequestParam(defaultValue = "3") int limit) {
+        return R.ok(courseService.listBanners(limit));
+    }
+
+    @GetMapping("/hot/list")
+    public R<List<Course>> hot(@RequestParam(defaultValue = "6") int limit) {
+        return R.ok(courseService.listHotCourses(limit));
+    }
+
+    @GetMapping("/latest/list")
+    public R<List<Course>> latest(@RequestParam(defaultValue = "10") int limit) {
+        return R.ok(courseService.listLatestCourses(limit));
     }
 
     /**
@@ -45,7 +77,38 @@ public class CourseController {
      */
     @GetMapping("/info/{id}")
     public R<Course> info(@PathVariable Long id) {
-        return R.ok(courseService.getById(id));
+        Course course = courseService.getById(id);
+        if (course == null) {
+            return R.fail("课程不存在");
+        }
+        return R.ok(course);
+    }
+
+    @GetMapping("/{id}")
+    public R<Course> detail(@PathVariable Long id) {
+        return info(id);
+    }
+
+    @GetMapping("/detail/{id}")
+    public R<Course> publicDetail(@PathVariable Long id) {
+        return info(id);
+    }
+
+    @GetMapping("/detail/{id}/aggregate")
+    public R<Map<String, Object>> aggregateDetail(@PathVariable Long id) {
+        Course course = courseService.getById(id);
+        List<Chapter> chapters = chapterService.listByCourse(id);
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("course", course);
+        result.put("chapters", chapters);
+        result.put("stats", Map.of("studyCount", 0, "favoriteCount", 0, "commentCount", 0));
+        result.put("interactionSummary", Map.of("danmakuEnabled", true, "commentEnabled", true));
+        return R.ok(result);
+    }
+
+    @GetMapping("/{id}/reviews")
+    public R<List<Map<String, Object>>> reviews(@PathVariable Long id) {
+        return R.ok(Collections.emptyList());
     }
 
     /**
@@ -54,6 +117,7 @@ public class CourseController {
      * @return 操作结果
      */
     @PostMapping
+    @RequirePermission("course:edit")
     public R<Void> create(@Valid @RequestBody Course course) {
         return courseService.saveCourse(course) ? R.ok() : R.fail("新增失败");
     }
@@ -64,6 +128,7 @@ public class CourseController {
      * @return 操作结果
      */
     @PutMapping
+    @RequirePermission("course:edit")
     public R<Void> update(@Valid @RequestBody Course course) {
         return courseService.updateCourse(course) ? R.ok() : R.fail("更新失败");
     }
@@ -75,8 +140,15 @@ public class CourseController {
      * @return 操作结果
      */
     @PostMapping("/publish/{id}")
+    @RequirePermission("course:publish")
     public R<Void> publish(@PathVariable Long id) {
         return courseService.publish(id) ? R.ok() : R.fail("发布失败");
+    }
+
+    @PutMapping("/{id}/publish")
+    @RequirePermission("course:publish")
+    public R<Void> publishWithPut(@PathVariable Long id) {
+        return publish(id);
     }
 
     /**
@@ -86,8 +158,21 @@ public class CourseController {
      * @return 操作结果
      */
     @PostMapping("/shelf/{id}")
+    @RequirePermission({"course:publish", "course:offline"})
     public R<Void> shelf(@PathVariable Long id, @RequestParam Integer shelfStatus) {
         return courseService.shelf(id, shelfStatus) ? R.ok() : R.fail("上下架失败");
+    }
+
+    @PutMapping("/{id}/shelf")
+    @RequirePermission({"course:publish", "course:offline"})
+    public R<Void> shelfWithPut(@PathVariable Long id, @RequestParam Integer shelfStatus) {
+        return shelf(id, shelfStatus);
+    }
+
+    @PutMapping("/{id}/offline")
+    @RequirePermission({"course:publish", "course:offline"})
+    public R<Void> offline(@PathVariable Long id) {
+        return shelf(id, 0);
     }
 
     /**
@@ -96,6 +181,7 @@ public class CourseController {
      * @return 操作结果
      */
     @DeleteMapping("/{id}")
+    @RequirePermission("course:delete")
     public R<Void> delete(@PathVariable Long id) {
         return courseService.remove(id) ? R.ok() : R.fail("删除失败");
     }
@@ -114,5 +200,5 @@ public class CourseController {
                                      @RequestParam(defaultValue = "10") int size) {
         return R.ok(courseSearchService.search(keyword, page, size));
     }
-}
 
+}

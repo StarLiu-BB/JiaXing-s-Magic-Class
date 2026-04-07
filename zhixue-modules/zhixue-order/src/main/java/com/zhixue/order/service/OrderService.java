@@ -1,7 +1,12 @@
 package com.zhixue.order.service;
 
+import com.zhixue.common.core.domain.PageQuery;
+import com.zhixue.common.core.domain.PageResult;
 import com.zhixue.order.domain.dto.CreateOrderDTO;
 import com.zhixue.order.domain.entity.Order;
+
+import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 订单服务接口。
@@ -16,6 +21,11 @@ public interface OrderService {
      * @return 创建成功的订单信息
      */
     Order createOrder(CreateOrderDTO dto);
+
+    /**
+     * 预览订单（不落库），用于前端确认价格与可购买性。
+     */
+    Order previewOrder(CreateOrderDTO dto);
 
     /**
      * 支付成功回调处理。
@@ -35,11 +45,35 @@ public interface OrderService {
     void cancelOrder(String orderNo, String reason);
 
     /**
+     * 按订单 ID 取消订单。
+     */
+    void cancelOrderById(Long id, String reason);
+
+    /**
      * 根据订单号查询订单信息。
      * @param orderNo 订单编号
      * @return 订单信息
      */
     Order findByOrderNo(String orderNo);
-}
 
+    /**
+     * 按主键查询订单。
+     */
+    Order findById(Long id);
+
+    /**
+     * 订单分页查询。
+     */
+    PageResult<Order> pageOrders(PageQuery query, String orderNo, Long userId, Integer status);
+
+    /**
+     * 订单退款。
+     */
+    void refundOrder(Long id, String reason);
+
+    /**
+     * 订单统计。
+     */
+    Map<String, Object> statistics(LocalDateTime startTime, LocalDateTime endTime);
+}
 

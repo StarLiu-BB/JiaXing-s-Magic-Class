@@ -4,9 +4,9 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.211.175:3306/zhixue_media?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: rootpassword
+    url: jdbc:mysql://${ZHIXUE_DB_HOST:127.0.0.1}:${ZHIXUE_DB_PORT:3306}/zhixue_media?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${ZHIXUE_DB_USERNAME:root}
+    password: ${ZHIXUE_DB_PASSWORD:}
   servlet:
     multipart:
       max-file-size: 512MB
@@ -18,21 +18,21 @@ mybatis-flex:
     map-underscore-to-camel-case: true
 
 minio:
-  endpoint: http://192.168.211.175:9000
-  external-url: http://192.168.211.175:9000
-  # Credentials should be configured in Nacos encrypted configuration
-  # access-key: ${zhixue.security.minio.access-key:}
-  # secret-key: ${zhixue.security.minio.secret-key:}
-  bucket: zhixue-media
-  chunk-path: chunks
+  endpoint: ${ZHIXUE_MINIO_ENDPOINT:http://127.0.0.1:9000}
+  external-url: ${ZHIXUE_MINIO_EXTERNAL_URL:http://127.0.0.1:9000}
+  access-key: ${ZHIXUE_MINIO_ACCESS_KEY:}
+  secret-key: ${ZHIXUE_MINIO_SECRET_KEY:}
+  bucket: ${ZHIXUE_MINIO_BUCKET:zhixue-media}
+  chunk-path: ${ZHIXUE_MINIO_CHUNK_PATH:chunks}
 
 media:
   ffmpeg-path: ffmpeg
-
-# Security configuration should be stored in Nacos with encryption
-# See .kiro/specs/security-hardening/CONFIGURATION.md for setup instructions
 
 logging:
   level:
     com.zhixue: INFO
 
+zhixue:
+  integration:
+    media-storage:
+      mode: ${ZHIXUE_MEDIA_STORAGE_MODE:sandbox}

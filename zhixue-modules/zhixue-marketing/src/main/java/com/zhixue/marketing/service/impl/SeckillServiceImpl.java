@@ -1,7 +1,12 @@
 package com.zhixue.marketing.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zhixue.common.core.constant.HttpStatus;
+import com.zhixue.common.core.domain.PageQuery;
+import com.zhixue.common.core.domain.PageResult;
 import com.zhixue.common.core.exception.ServiceException;
+import com.zhixue.marketing.domain.dto.SeckillActivityDTO;
 import com.zhixue.marketing.domain.dto.SeckillRequestDTO;
 import com.zhixue.marketing.domain.entity.SeckillActivity;
 import com.zhixue.marketing.domain.entity.SeckillOrder;
@@ -16,19 +21,23 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StreamUtils;
+import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * 秒杀服务实现类
- * 作用：处理秒杀活动相关的业务逻辑，比如预热库存、执行秒杀、查询在线活动等。
- * 它使用Redis和Lua脚本防止超卖，确保在高并发情况下库存数量的准确性。
+ * 秒杀服务实现类。
  */
 @Slf4j
 @Service
@@ -39,26 +48,23 @@ public class SeckillServiceImpl implements SeckillService {
     private final SeckillOrderMapper orderMapper;
     private final StringRedisTemplate redisTemplate;
 
-    // Redis中存储库存的键前缀
     @Value("${marketing.seckill.stock-key-prefix:seckill:stock:}")
     private String stockKeyPrefix;
 
-    // Redis中存储用户购买记录的键前缀
     @Value("${marketing.seckill.user-key-prefix:seckill:users:}")
     private String userKeyPrefix;
 
-    // 秒杀用的Lua脚本对象
+    @Value("${marketing.seckill.token-key-prefix:seckill:token:}")
+    private String tokenKeyPrefix;
+
+    @Value("${zhixue.integration.marketing.mode:sandbox}")
+    private String marketingMode;
+
     private DefaultRedisScript<Long> seckillScript;
 
-    /**
-     * 加载秒杀用的Lua脚本
-     * 作用：在服务启动时加载Redis执行的Lua脚本，用于秒杀时的原子操作，防止超卖。
-     * Lua脚本可以保证多个Redis命令的原子执行，避免并发问题。
-     */
-    @PostConstruct  // 这个注解表示方法在服务启动时自动执行
+    @PostConstruct
     public void loadLua() {
         try {
-            // 从classpath中读取Lua脚本文件
             ClassPathResource resource = new ClassPathResource("lua/seckill_stock.lua");
             String script = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
             seckillScript = new DefaultRedisScript<>(script, Long.class);
@@ -67,43 +73,20 @@ public class SeckillServiceImpl implements SeckillService {
         }
     }
 
-    /**
-     * 预热秒杀活动库存
-     * 作用：把秒杀活动的库存数量加载到Redis中，这样秒杀时不用每次都查数据库，提高性能。
-     * 只有未结束的活动才能预热库存。
-     */
     @Override
     public void preloadStock(Long activityId) {
-        // 查找秒杀活动信息
-        SeckillActivity activity = activityMapper.selectById(activityId);
-        if (activity == null) {
-            throw new ServiceException("活动不存在");
-        }
-        // 检查活动是否已结束
+        SeckillActivity activity = requireActivity(activityId);
         if (activity.getStatus() != null && activity.getStatus() == 2) {
             throw new ServiceException("活动已结束");
         }
-        // 生成Redis中存储库存的键名
-        String stockKey = stockKeyPrefix + activityId;
-        // 把库存数量存到Redis
-        redisTemplate.opsForValue().set(stockKey, String.valueOf(activity.getTotalStock()));
-        log.info("活动 {} 预热库存 {} 成功", activityId, activity.getTotalStock());
+        redisTemplate.opsForValue().set(stockKeyPrefix + activityId, String.valueOf(activity.getTotalStock()));
+        log.info("活动库存预热成功 activityId={}, stock={}", activityId, activity.getTotalStock());
     }
 
-    /**
-     * 执行秒杀操作
-     * 作用：处理用户的秒杀请求，检查秒杀条件，执行库存扣减，生成秒杀订单。
-     * 使用Redis和Lua脚本确保在高并发下不会超卖，也防止用户重复抢购。
-     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public String seckill(SeckillRequestDTO dto) {
-        // 1. 检查秒杀活动是否存在
-        SeckillActivity activity = activityMapper.selectById(dto.getActivityId());
-        if (activity == null) {
-            throw new ServiceException("活动不存在");
-        }
-        
-        // 2. 检查活动是否在有效期内
+        SeckillActivity activity = requireActivity(dto.getActivityId());
         LocalDateTime now = LocalDateTime.now();
         if (now.isBefore(activity.getStartTime())) {
             throw new ServiceException("活动未开始");
@@ -111,17 +94,11 @@ public class SeckillServiceImpl implements SeckillService {
         if (now.isAfter(activity.getEndTime())) {
             throw new ServiceException("活动已结束");
         }
+        validateToken(dto);
 
-        // 3. 生成Redis中存储库存和用户的键名
         String stockKey = stockKeyPrefix + dto.getActivityId();
         String userKey = userKeyPrefix + dto.getActivityId();
-        
-        // 4. 执行Lua脚本进行秒杀（原子操作，防止超卖和重复抢购）
-        Long result = redisTemplate.execute(seckillScript,
-                Collections.singletonList(stockKey),  // Lua脚本的键参数
-                userKey, String.valueOf(dto.getUserId()));  // Lua脚本的其他参数
-        
-        // 5. 处理秒杀结果
+        Long result = redisTemplate.execute(seckillScript, Collections.singletonList(stockKey), userKey, String.valueOf(dto.getUserId()));
         if (Objects.equals(result, 0L)) {
             throw new ServiceException("已售罄");
         }
@@ -129,37 +106,166 @@ public class SeckillServiceImpl implements SeckillService {
             throw new ServiceException("请勿重复抢购");
         }
 
-        // 6. 生成秒杀订单
         SeckillOrder order = new SeckillOrder();
-        order.setActivityId(dto.getActivityId());  // 设置活动ID
-        order.setUserId(dto.getUserId());  // 设置用户ID
-        order.setOrderNo(generateOrderNo());  // 生成订单号
-        order.setStatus(0);  // 初始状态为未支付（0）
-        orderMapper.insert(order);  // 保存到数据库
-        
+        order.setActivityId(dto.getActivityId());
+        order.setUserId(dto.getUserId());
+        order.setOrderNo(generateOrderNo());
+        order.setStatus(0);
+        orderMapper.insert(order);
         return order.getOrderNo();
     }
 
-    /**
-     * 查询在线的秒杀活动列表
-     * 作用：找出所有当前状态为进行中的秒杀活动，供用户查看和参与。
-     */
     @Override
     public List<SeckillActivity> listOnline() {
-        // 查询所有状态为1（进行中）的秒杀活动
         LambdaQueryWrapper<SeckillActivity> qw = new LambdaQueryWrapper<>();
-        qw.eq(SeckillActivity::getStatus, 1);
+        qw.eq(SeckillActivity::getStatus, 1)
+                .orderByAsc(SeckillActivity::getStartTime);
         return activityMapper.selectList(qw);
     }
 
-    /**
-     * 生成秒杀订单号
-     * 作用：生成一个唯一的秒杀订单号，用于标识用户的秒杀订单。
-     * 订单号以"SK"开头，后面跟18位随机字符，确保唯一性。
-     */
+    @Override
+    public PageResult<SeckillActivity> pageActivities(PageQuery query, String title, Integer status) {
+        Page<SeckillActivity> page = new Page<>(query.getPageNum(), query.getPageSize());
+        LambdaQueryWrapper<SeckillActivity> qw = new LambdaQueryWrapper<>();
+        qw.like(StringUtils.hasText(title), SeckillActivity::getTitle, title)
+                .eq(status != null, SeckillActivity::getStatus, status)
+                .orderByDesc(SeckillActivity::getCreateTime);
+        Page<SeckillActivity> result = activityMapper.selectPage(page, qw);
+        return PageResult.of(result.getRecords(), result.getTotal(), query.getPageSize());
+    }
+
+    @Override
+    public SeckillActivity getById(Long id) {
+        return activityMapper.selectById(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SeckillActivity create(SeckillActivityDTO dto) {
+        validateActivityTime(dto.getStartTime(), dto.getEndTime());
+        SeckillActivity activity = new SeckillActivity();
+        fillActivity(activity, dto);
+        activityMapper.insert(activity);
+        return activity;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SeckillActivity update(SeckillActivityDTO dto) {
+        if (dto.getId() == null) {
+            throw new ServiceException("活动ID不能为空");
+        }
+        validateActivityTime(dto.getStartTime(), dto.getEndTime());
+        SeckillActivity activity = requireActivity(dto.getId());
+        fillActivity(activity, dto);
+        activityMapper.updateById(activity);
+        return activity;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteByIds(List<Long> ids) {
+        if (CollectionUtils.isEmpty(ids)) {
+            return;
+        }
+        activityMapper.deleteBatchIds(ids);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changeStatus(Long id, Integer status) {
+        SeckillActivity activity = requireActivity(id);
+        activity.setStatus(status);
+        activityMapper.updateById(activity);
+    }
+
+    @Override
+    public Map<String, Object> statistics(Long id) {
+        SeckillActivity activity = requireActivity(id);
+        long totalOrderCount = orderMapper.selectCount(new LambdaQueryWrapper<SeckillOrder>()
+                .eq(SeckillOrder::getActivityId, id));
+        long lockedCount = orderMapper.selectCount(new LambdaQueryWrapper<SeckillOrder>()
+                .eq(SeckillOrder::getActivityId, id)
+                .eq(SeckillOrder::getStatus, 0));
+        long createdCount = orderMapper.selectCount(new LambdaQueryWrapper<SeckillOrder>()
+                .eq(SeckillOrder::getActivityId, id)
+                .eq(SeckillOrder::getStatus, 1));
+        long canceledCount = orderMapper.selectCount(new LambdaQueryWrapper<SeckillOrder>()
+                .eq(SeckillOrder::getActivityId, id)
+                .eq(SeckillOrder::getStatus, 2));
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("activityId", id);
+        data.put("title", activity.getTitle());
+        data.put("totalStock", activity.getTotalStock());
+        data.put("totalOrderCount", totalOrderCount);
+        data.put("lockedCount", lockedCount);
+        data.put("createdCount", createdCount);
+        data.put("canceledCount", canceledCount);
+        return data;
+    }
+
+    @Override
+    public String issueToken(Long activityId, Long userId) {
+        SeckillActivity activity = requireActivity(activityId);
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isAfter(activity.getEndTime())) {
+            throw new ServiceException("活动已结束");
+        }
+        String token = UUID.randomUUID().toString().replace("-", "");
+        Duration ttl = Duration.ofMinutes(10);
+        if (activity.getEndTime().isAfter(now)) {
+            long seconds = Duration.between(now, activity.getEndTime()).toSeconds();
+            ttl = Duration.ofSeconds(Math.max(30, Math.min(seconds, ttl.toSeconds())));
+        }
+        redisTemplate.opsForValue().set(tokenKey(activityId, userId), token, ttl);
+        return token;
+    }
+
+    private void validateToken(SeckillRequestDTO dto) {
+        if ("sandbox".equalsIgnoreCase(marketingMode) && !StringUtils.hasText(dto.getToken())) {
+            return;
+        }
+        if (!StringUtils.hasText(dto.getToken())) {
+            throw new ServiceException("秒杀令牌不能为空");
+        }
+        String key = tokenKey(dto.getActivityId(), dto.getUserId());
+        String cached = redisTemplate.opsForValue().get(key);
+        if (!dto.getToken().equals(cached)) {
+            throw new ServiceException("秒杀令牌无效或已过期");
+        }
+        redisTemplate.delete(key);
+    }
+
+    private void fillActivity(SeckillActivity activity, SeckillActivityDTO dto) {
+        activity.setTitle(dto.getTitle());
+        activity.setProductId(dto.getProductId());
+        activity.setSeckillPrice(dto.getSeckillPrice());
+        activity.setTotalStock(dto.getTotalStock());
+        activity.setStartTime(dto.getStartTime());
+        activity.setEndTime(dto.getEndTime());
+        activity.setStatus(dto.getStatus());
+    }
+
+    private void validateActivityTime(LocalDateTime startTime, LocalDateTime endTime) {
+        if (startTime == null || endTime == null || !endTime.isAfter(startTime)) {
+            throw new ServiceException("活动结束时间必须晚于开始时间");
+        }
+    }
+
+    private SeckillActivity requireActivity(Long activityId) {
+        SeckillActivity activity = activityMapper.selectById(activityId);
+        if (activity == null) {
+            throw new ServiceException(HttpStatus.NOT_FOUND, "活动不存在");
+        }
+        return activity;
+    }
+
+    private String tokenKey(Long activityId, Long userId) {
+        return tokenKeyPrefix + activityId + ":" + userId;
+    }
+
     private String generateOrderNo() {
         return "SK" + UUID.randomUUID().toString().replace("-", "").substring(0, 18);
     }
 }
-
-

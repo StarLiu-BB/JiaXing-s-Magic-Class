@@ -31,11 +31,12 @@ public class DanmakuController {
     @GetMapping("/history")
     public R<List<Danmaku>> history(@RequestParam Long roomId,
                                     @RequestParam(defaultValue = "50") Integer limit) {
+        int safeLimit = limit == null ? 50 : Math.min(Math.max(limit, 1), 200);
         LambdaQueryWrapper<Danmaku> qw = new LambdaQueryWrapper<>();
         qw.eq(Danmaku::getRoomId, roomId)
           .eq(Danmaku::getAuditStatus, 1)
           .orderByDesc(Danmaku::getCreateTime)
-          .last("limit " + limit);
+          .last("limit " + safeLimit);
         return R.ok(danmakuMapper.selectList(qw));
     }
 
@@ -58,4 +59,3 @@ public class DanmakuController {
         return R.ok(PageResult.of(page.getRecords(), page.getTotal(), page.getSize()));
     }
 }
-

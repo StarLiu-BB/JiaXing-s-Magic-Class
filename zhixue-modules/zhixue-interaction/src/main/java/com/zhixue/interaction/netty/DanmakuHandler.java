@@ -15,6 +15,7 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 
@@ -69,6 +70,7 @@ public class DanmakuHandler extends SimpleChannelInboundHandler<TextWebSocketFra
         try {
             // 把用户发送的 JSON 消息转换成 Java 对象
             DanmakuMessageDTO dto = objectMapper.readValue(text, DanmakuMessageDTO.class);
+            validateMessage(dto);
             dto.setSendTime(LocalDateTime.now());
             
             // 检查并过滤弹幕里的敏感词，把敏感词替换成 *
@@ -85,6 +87,21 @@ public class DanmakuHandler extends SimpleChannelInboundHandler<TextWebSocketFra
         } catch (Exception e) {
             log.error("处理弹幕消息失败, body={}", text, e);
             ctx.channel().writeAndFlush(new TextWebSocketFrame("{\"code\":500,\"msg\":\"处理失败\"}"));
+        }
+    }
+
+    private void validateMessage(DanmakuMessageDTO dto) {
+        if (dto.getRoomId() == null || dto.getUserId() == null) {
+            throw new ServiceException("房间或用户信息缺失");
+        }
+        if (!StringUtils.hasText(dto.getContent())) {
+            throw new ServiceException("弹幕内容不能为空");
+        }
+        if (dto.getContent().length() > 200) {
+            throw new ServiceException("弹幕内容不能超过200字符");
+        }
+        if (dto.getTimePoint() == null || dto.getTimePoint() < 0) {
+            dto.setTimePoint(0);
         }
     }
 }

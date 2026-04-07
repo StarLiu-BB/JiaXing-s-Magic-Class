@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  * 知识库管理控制器。
  * 这个类提供知识库的管理接口，主要是上传文档的功能。
@@ -41,8 +43,14 @@ public class KnowledgeBaseController {
                                        @RequestParam(defaultValue = "manual") String source,
                                        @RequestParam(required = false) String tags) {
         try {
+            if (file.isEmpty()) {
+                return R.fail("上传文件不能为空");
+            }
             // 读取文件内容
-            String text = new String(file.getBytes());
+            String text = new String(file.getBytes(), StandardCharsets.UTF_8);
+            if (text.isBlank()) {
+                return R.fail("文档内容不能为空");
+            }
             // 把文档内容存入知识库，会自动切成小段
             KnowledgeDocument doc = knowledgeBaseService.createFromText(title, source, tags, text);
             return R.ok(doc);
@@ -52,5 +60,4 @@ public class KnowledgeBaseController {
         }
     }
 }
-
 

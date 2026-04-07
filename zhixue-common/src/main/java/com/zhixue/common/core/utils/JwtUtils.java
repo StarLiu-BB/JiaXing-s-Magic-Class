@@ -7,6 +7,7 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
@@ -62,8 +63,11 @@ public final class JwtUtils {
     }
 
     // 根据密钥生成加密用的钥匙
-    private static SecretKey getKey(String base64Secret) {
-        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(base64Secret));
+    private static SecretKey getKey(String secret) {
+        try {
+            return Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+        } catch (Exception ignored) {
+            return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        }
     }
 }
-

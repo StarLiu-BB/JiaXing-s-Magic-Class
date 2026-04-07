@@ -29,5 +29,6 @@ public class UserDTO {
     private Integer status;
 
     private List<Long> roleIds;
-}
 
+    private String remark;
+}

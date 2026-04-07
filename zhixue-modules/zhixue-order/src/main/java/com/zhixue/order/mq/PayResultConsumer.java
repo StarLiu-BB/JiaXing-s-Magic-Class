@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 public class PayResultConsumer {
 
     private final OrderService orderService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     /**
      * 处理支付结果消息。
@@ -33,7 +33,7 @@ public class PayResultConsumer {
     public void onMessage(String message) {
         try {
             PayResultMessage payResult = objectMapper.readValue(message, PayResultMessage.class);
-            if (payResult.getPayStatus() == 1) {
+            if (payResult.getPayStatus() != null && payResult.getPayStatus() == 1) {
                 orderService.paySuccess(payResult.getOrderNo(), payResult.getPayChannel(), payResult.getPayNo());
             } else {
                 log.warn("支付失败，暂不处理 orderNo={}", payResult.getOrderNo());

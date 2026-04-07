@@ -2,10 +2,14 @@ package com.zhixue.gateway.filter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhixue.common.core.constant.CacheConstants;
 import com.zhixue.common.core.constant.HttpStatus;
 import com.zhixue.common.core.utils.JwtUtils;
 import com.zhixue.common.core.utils.StringUtils;
+import com.zhixue.common.redis.service.RedisService;
+import com.zhixue.common.security.config.InternalAccessConstants;
 import com.zhixue.common.security.config.SecurityProperties;
+import com.zhixue.common.security.model.LoginUser;
 import com.zhixue.gateway.config.WhiteListConfig;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +26,9 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -37,36 +43,49 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthFilter implements GlobalFilter, Ordered {
 
+    private static final List<String> INTERNAL_HEADERS = List.of(
+            InternalAccessConstants.USER_ID_HEADER,
+            InternalAccessConstants.USER_NAME_HEADER,
+            InternalAccessConstants.USER_ROLES_HEADER,
+            InternalAccessConstants.USER_PERMISSIONS_HEADER,
+            InternalAccessConstants.INNER_CALL_HEADER,
+            InternalAccessConstants.INTERNAL_TOKEN_HEADER
+    );
+
     private final WhiteListConfig whiteListConfig;
     private final SecurityProperties securityProperties;
+    private final RedisService redisService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
-        if (whiteListConfig.matches(path)) {
-            return chain.filter(exchange);
-        }
+        boolean whiteListed = whiteListConfig.matches(path);
+        ServerHttpRequest sanitizedRequest = sanitizeHeaders(exchange.getRequest(), false);
 
-        String header = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (StringUtils.isBlank(header) || !header.startsWith("Bearer ")) {
+        String token = extractBearerToken(sanitizedRequest.getHeaders().getFirst(HttpHeaders.AUTHORIZATION));
+        if (StringUtils.isBlank(token)) {
+            if (whiteListed) {
+                return chain.filter(exchange.mutate().request(sanitizeHeaders(sanitizedRequest, true)).build());
+            }
             return unauthorized(exchange, "未登录或令牌缺失");
         }
 
-        String token = header.substring(7);
-        Claims claims;
-        try {
-            claims = JwtUtils.parseClaims(token, securityProperties.getJwtSecret());
-        } catch (Exception e) {
+        LoginUser loginUser = resolveLoginUser(token);
+        if (loginUser == null) {
+            if (whiteListed) {
+                return chain.filter(exchange.mutate().request(sanitizeHeaders(sanitizedRequest, true)).build());
+            }
             return unauthorized(exchange, "令牌无效或已过期");
         }
 
-        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+        ServerHttpRequest mutatedRequest = sanitizeHeaders(sanitizedRequest, whiteListed).mutate()
                 .headers(httpHeaders -> {
-                    httpHeaders.set("X-User-Id", String.valueOf(claims.getOrDefault("userId", "")));
-                    httpHeaders.set("X-User-Name", String.valueOf(claims.getOrDefault("username", "")));
-                    Object roles = claims.get("roles");
-                    httpHeaders.set("X-User-Roles", roles == null ? "" : roles.toString());
+                    httpHeaders.set(InternalAccessConstants.USER_ID_HEADER, String.valueOf(loginUser.getUserId()));
+                    httpHeaders.set(InternalAccessConstants.USER_NAME_HEADER, String.valueOf(loginUser.getUsername()));
+                    httpHeaders.set(InternalAccessConstants.USER_ROLES_HEADER, String.join(",", safeList(loginUser.getRoles())));
+                    httpHeaders.set(InternalAccessConstants.USER_PERMISSIONS_HEADER, String.join(",", extractPermissions(loginUser)));
+                    httpHeaders.set(InternalAccessConstants.INTERNAL_TOKEN_HEADER, securityProperties.getInternalToken());
                 })
                 .build();
         return chain.filter(exchange.mutate().request(mutatedRequest).build());
@@ -96,5 +115,48 @@ public class AuthFilter implements GlobalFilter, Ordered {
     public int getOrder() {
         return -100;
     }
-}
 
+    private String extractBearerToken(String authorization) {
+        if (StringUtils.isBlank(authorization) || !authorization.startsWith("Bearer ")) {
+            return null;
+        }
+        return authorization.substring(7);
+    }
+
+    private LoginUser resolveLoginUser(String token) {
+        try {
+            Claims claims = JwtUtils.parseClaims(token, securityProperties.getJwtSecret());
+            if (claims == null || !redisService.hasKey(CacheConstants.LOGIN_TOKEN_KEY + token)) {
+                return null;
+            }
+            return redisService.get(CacheConstants.LOGIN_TOKEN_KEY + token);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private ServerHttpRequest sanitizeHeaders(ServerHttpRequest request, boolean stripAuthorization) {
+        return request.mutate().headers(headers -> {
+            INTERNAL_HEADERS.forEach(headers::remove);
+            if (stripAuthorization) {
+                headers.remove(HttpHeaders.AUTHORIZATION);
+            }
+        }).build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> extractPermissions(LoginUser loginUser) {
+        if (loginUser.getExtra() == null) {
+            return Collections.emptyList();
+        }
+        Object permissions = loginUser.getExtra().get("permissions");
+        if (permissions instanceof List<?> list) {
+            return list.stream().map(String::valueOf).toList();
+        }
+        return Collections.emptyList();
+    }
+
+    private List<String> safeList(List<String> values) {
+        return values == null ? Collections.emptyList() : values;
+    }
+}

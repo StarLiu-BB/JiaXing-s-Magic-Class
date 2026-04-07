@@ -14,7 +14,7 @@ import lombok.EqualsAndHashCode;
 public class UserQueryDTO extends PageQuery {
 
     private String username;
+    private String phone;
     private Integer status;
     private Long roleId;
 }
-

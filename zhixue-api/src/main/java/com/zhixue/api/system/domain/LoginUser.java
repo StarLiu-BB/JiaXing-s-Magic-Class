@@ -27,6 +27,6 @@ public class LoginUser implements Serializable {
     private String username;
     private String token;
     private List<String> roles;
+    private List<String> permissions;
     private SysUser sysUser;
 }
-

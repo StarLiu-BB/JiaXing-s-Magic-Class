@@ -6,13 +6,16 @@ import com.zhixue.ai.config.LlmConfig;
 import com.zhixue.ai.service.LlmService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -27,6 +30,10 @@ public class LlmServiceImpl implements LlmService {
 
     private final LlmConfig config;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    @Value("${zhixue.integration.ai.mode:sandbox}")
+    private String aiMode;
+
+    private static final List<String> RISK_WORDS = List.of("傻逼", "垃圾", "色情", "赌博", "欺诈");
 
     /**
      * 创建网络请求客户端。
@@ -49,6 +56,18 @@ public class LlmServiceImpl implements LlmService {
      */
     @Override
     public Mono<String> chat(String prompt) {
+        if (!StringUtils.hasText(prompt)) {
+            return Mono.just("问题不能为空");
+        }
+        if (isStubMode()) {
+            return Mono.just(buildStubChat(prompt));
+        }
+        if (!StringUtils.hasText(config.getApiKey())) {
+            if (isRealMode()) {
+                return Mono.just("AI_REAL_MODE_MISSING_API_KEY");
+            }
+            return Mono.just(buildSandboxChat(prompt));
+        }
         // 构造请求参数，包含模型名称和用户消息
         Map<String, Object> body = Map.of(
                 "model", config.getModel(),
@@ -67,6 +86,18 @@ public class LlmServiceImpl implements LlmService {
      */
     @Override
     public Mono<String> audit(String content) {
+        if (!StringUtils.hasText(content)) {
+            return Mono.just("OK");
+        }
+        if (isStubMode()) {
+            return Mono.just(localAudit(content));
+        }
+        if (!StringUtils.hasText(config.getApiKey())) {
+            if (isRealMode()) {
+                return Mono.just("AI_REAL_MODE_MISSING_API_KEY");
+            }
+            return Mono.just(localAudit(content));
+        }
         // 构造审核提示词，让 AI 判断内容是否安全
         String prompt = "你是内容审核助手，请判断以下弹幕是否包含违规、辱骂、色情、违法信息。" +
                 "如果安全，返回 OK；如果不安全，用简短中文说明风险点。\n内容：" + content;
@@ -87,8 +118,39 @@ public class LlmServiceImpl implements LlmService {
                 .map(this::extractContentSafely)
                 .onErrorResume(e -> {
                     log.error("调用 dashscope 失败", e);
-                    return Mono.just("AI 服务暂不可用: " + e.getMessage());
+                    if (isRealMode()) {
+                        return Mono.just("AI 服务调用失败: " + e.getMessage());
+                    }
+                    return Mono.just("沙箱模式已降级，返回模拟结果");
                 });
+    }
+
+    private String buildStubChat(String prompt) {
+        return "【stub答复】已收到问题：" + prompt.substring(0, Math.min(prompt.length(), 80))
+                + "。当前为本地 stub 模式，请在 sandbox/real 模式获取真实模型回答。";
+    }
+
+    private String buildSandboxChat(String prompt) {
+        return "【sandbox答复】当前未配置外部模型密钥，已启用沙箱降级。问题摘要："
+                + prompt.substring(0, Math.min(prompt.length(), 80));
+    }
+
+    private String localAudit(String content) {
+        String lower = content.toLowerCase();
+        for (String risk : RISK_WORDS) {
+            if (lower.contains(risk)) {
+                return "包含风险词: " + risk;
+            }
+        }
+        return "OK";
+    }
+
+    private boolean isStubMode() {
+        return "stub".equalsIgnoreCase(aiMode);
+    }
+
+    private boolean isRealMode() {
+        return "real".equalsIgnoreCase(aiMode);
     }
 
     /**
@@ -117,5 +179,4 @@ public class LlmServiceImpl implements LlmService {
         }
     }
 }
-
 
