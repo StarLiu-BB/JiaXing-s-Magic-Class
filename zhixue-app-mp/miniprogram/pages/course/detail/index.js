@@ -4,8 +4,7 @@ const {
   getCourseDetail,
   getCourseChapters,
   getCourseReviews,
-  favoriteCourse,
-  unfavoriteCourse
+  toggleFavoriteCourse
 } = require('../../../api/course')
 const { createOrder } = require('../../../api/order')
 const { upsertFavoriteCache, removeFavoriteCache } = require('../../../api/user')
@@ -128,16 +127,11 @@ Page({
     }
 
     try {
-      if (this.data.isFavorite) {
-        await unfavoriteCourse(this.data.courseId)
-        removeFavoriteCache(this.data.courseId)
-        this.setData({ isFavorite: false })
-        wx.showToast({
-          title: '已取消收藏',
-          icon: 'success'
-        })
-      } else {
-        await favoriteCourse(this.data.courseId)
+      // 后端是 toggle 语义，返回切换后的状态，以服务端结果为准
+      const res = await toggleFavoriteCourse(this.data.courseId)
+      const isFavorite = res?.data === undefined ? !this.data.isFavorite : !!res.data
+
+      if (isFavorite) {
         upsertFavoriteCache({
           id: this.data.courseId,
           courseId: this.data.courseId,
@@ -145,14 +139,22 @@ Page({
           cover: this.data.courseInfo?.cover || this.data.courseInfo?.coverUrl,
           price: this.data.courseInfo?.price
         })
-        this.setData({ isFavorite: true })
-        wx.showToast({
-          title: '收藏成功',
-          icon: 'success'
-        })
+      } else {
+        removeFavoriteCache(this.data.courseId)
       }
+
+      this.setData({ isFavorite })
+      wx.showToast({
+        title: isFavorite ? '收藏成功' : '已取消收藏',
+        icon: 'success'
+      })
     } catch (error) {
+      // 不得静默吞掉：失败必须让用户看到，否则界面状态与服务端不一致
       console.error('收藏操作失败:', error)
+      wx.showToast({
+        title: '操作失败，请稍后重试',
+        icon: 'none'
+      })
     }
   },
 

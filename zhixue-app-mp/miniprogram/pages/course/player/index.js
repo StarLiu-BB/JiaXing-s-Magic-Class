@@ -1,7 +1,7 @@
 // pages/course/player/index.js
 const app = getApp()
 const { getCourseChapters, getCourseDetail } = require('../../../api/course')
-const { updateStudyProgress } = require('../../../api/user')
+const { updateStudyProgress, ERR_NOT_IMPLEMENTED } = require('../../../api/user')
 const WebSocketManager = require('../../../api/websocket')
 
 Page({
@@ -22,10 +22,13 @@ Page({
     progress: 0,
     duration: 0,
     currentTime: 0,
-    videoContext: null,
-    wsManager: null,
     isPurchased: false
   },
+
+  // videoContext 与 wsManager 都是不可序列化的运行时对象，
+  // 必须挂在 this 上而不是 data 里，否则 setData 后方法调用会失效。
+  videoContext: null,
+  wsManager: null,
 
   /**
    * 生命周期函数--监听页面加载
@@ -75,9 +78,10 @@ Page({
    * 生命周期函数--监听页面卸载
    */
   onUnload() {
-    // 关闭WebSocket
-    if (this.data.wsManager) {
-      this.data.wsManager.close()
+    // 关闭WebSocket（实例挂在 this 上，不放进 data：类实例无法被 setData 序列化）
+    if (this.wsManager) {
+      this.wsManager.close()
+      this.wsManager = null
     }
     // 记录学习进度
     this.saveProgress()
@@ -87,9 +91,9 @@ Page({
    * 初始化视频上下文
    */
   initVideoContext() {
-    this.setData({
-      videoContext: wx.createVideoContext('course-video')
-    })
+    // VideoContext 不可序列化，放进 setData 后取回的对象已失去方法，
+    // 必须直接挂在页面实例上。
+    this.videoContext = wx.createVideoContext('course-video')
   },
 
   /**
@@ -161,17 +165,24 @@ Page({
    * 连接WebSocket
    */
   connectWebSocket() {
+    const userId = app.globalData.userInfo?.userId || app.globalData.userId
+    if (!userId) {
+      console.warn('[player] 未登录，跳过弹幕连接')
+      return
+    }
+
     const wsManager = new WebSocketManager()
-    
+
+    // 下行消息就是 DanmakuMessageDTO：{ roomId, userId, content, timePoint }
     wsManager.on('message', (data) => {
-      if (data.type === 'danmaku') {
-        this.addDanmaku(data.text, data.time)
+      if (data && data.content) {
+        this.addDanmaku(data.content, data.timePoint)
       }
     })
 
-    wsManager.connect(this.data.courseId).then(() => {
-      wsManager.join(this.data.courseId)
-      this.setData({ wsManager })
+    wsManager.connect(this.data.courseId, userId).then(() => {
+      // 房间归属由后端在收到首条弹幕时按 roomId 登记，无需单独 join
+      this.wsManager = wsManager
     }).catch((error) => {
       console.error('WebSocket连接失败:', error)
     })
@@ -210,7 +221,7 @@ Page({
       return
     }
 
-    if (!this.data.wsManager) {
+    if (!this.wsManager) {
       wx.showToast({
         title: '连接未建立',
         icon: 'none'
@@ -218,9 +229,15 @@ Page({
       return
     }
 
-    const currentTime = this.data.currentTime
-    this.data.wsManager.sendDanmaku(text.trim(), currentTime)
-    this.addDanmaku(text.trim(), currentTime)
+    // 不做本地回显：后端会把经过敏感词过滤的内容广播回本房间（含发送者），
+    // 本地再插一条会重复，且会绕过服务端的过滤结果。
+    const sent = this.wsManager.sendDanmaku(text.trim(), this.data.currentTime)
+    if (!sent) {
+      wx.showToast({
+        title: '发送失败，连接已断开',
+        icon: 'none'
+      })
+    }
   },
 
   /**
@@ -305,8 +322,8 @@ Page({
       })
       
       // 重新加载视频
-      this.data.videoContext.seek(0)
-      this.data.videoContext.play()
+      this.videoContext?.seek(0)
+      this.videoContext?.play()
     } else {
       wx.showToast({
         title: '已经是最后一节',
@@ -351,8 +368,8 @@ Page({
     })
 
     // 重新加载视频
-    this.data.videoContext.seek(0)
-    this.data.videoContext.play()
+    this.videoContext?.seek(0)
+    this.videoContext?.play()
   },
 
   canPlayLesson(lesson) {
@@ -388,6 +405,12 @@ Page({
       return
     }
 
+    // 后端尚无学习进度接口，已知能力缺口：只告警一次，避免播放过程中日志刷屏。
+    // 不做任何"假装已保存"的处理。
+    if (Page.__studyProgressUnavailable) {
+      return
+    }
+
     try {
       await updateStudyProgress({
         courseId: this.data.courseId,
@@ -398,6 +421,11 @@ Page({
         duration: this.data.duration
       })
     } catch (error) {
+      if (String(error?.message || '').includes(ERR_NOT_IMPLEMENTED)) {
+        Page.__studyProgressUnavailable = true
+        console.warn('[player] 后端暂未提供学习进度接口，本次播放不再上报进度')
+        return
+      }
       console.error('保存学习进度失败:', error)
     }
   },

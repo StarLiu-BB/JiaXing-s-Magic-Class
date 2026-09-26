@@ -3,8 +3,7 @@
  */
 import { getToken, removeToken } from '../utils/auth'
 
-// 基础URL，可通过 Storage 中的 BASE_URL 覆盖
-const BASE_URL = wx.getStorageSync('BASE_URL') || 'http://127.0.0.1:19001'
+import { getBaseUrl } from '../config'
 
 // 请求队列（用于防止重复请求）
 const requestQueue = new Map()
@@ -20,9 +19,9 @@ function requestInterceptor(config) {
     config.header['Authorization'] = `Bearer ${token}`
   }
 
-  // 添加请求ID（用于取消重复请求）
-  const requestId = `${config.url}_${JSON.stringify(config.data || {})}`
-  config.requestId = requestId
+  // 请求ID用于去重，必须包含 method：
+  // 否则 GET /order/list 与 DELETE /order/list 会被判为同一请求而互相误杀
+  config.requestId = `${config.method || 'GET'}_${config.url}_${JSON.stringify(config.data || {})}`
 
   return config
 }
@@ -130,8 +129,10 @@ async function refreshToken() {
  */
 function request(options = {}) {
   return new Promise((resolve, reject) => {
-    // 默认配置
+    // 默认配置。注意 options 必须先展开，再覆盖 header 等派生字段，
+    // 否则调用方传入的 header 会把 Content-Type 整体顶掉。
     const config = {
+      ...options,
       url: options.url,
       method: options.method || 'GET',
       data: options.data || {},
@@ -139,13 +140,12 @@ function request(options = {}) {
         'Content-Type': 'application/json',
         ...options.header
       },
-      timeout: options.timeout || 10000,
-      ...options
+      timeout: options.timeout || 10000
     }
 
     // 构建完整URL
     if (!config.url.startsWith('http')) {
-      config.url = BASE_URL + config.url
+      config.url = getBaseUrl() + config.url
     }
 
     // 请求拦截
@@ -274,5 +274,6 @@ module.exports = {
   post,
   put,
   del,
-  BASE_URL
+  // 地址改为按需解析（见 config.js），不再导出模块加载期固化的常量
+  getBaseUrl
 }

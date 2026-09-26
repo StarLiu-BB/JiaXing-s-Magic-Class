@@ -65,21 +65,24 @@ function getCourseReviews(courseId, params = {}) {
 }
 
 /**
- * 收藏课程
+ * 切换课程收藏状态。
+ *
+ * 后端是 toggle 语义：POST /course/interaction/favorite/{courseId}
+ * 返回 data 为切换后的状态（true=已收藏）。
+ * 原先的 /course/{id}/favorite 在后端并不存在，且 CourseController 无此映射。
  * @param {number} courseId 课程ID
  */
-function favoriteCourse(courseId) {
+function toggleFavoriteCourse(courseId) {
   const { post } = require('./request')
-  return post(`/course/${courseId}/favorite`)
+  return post(`/course/interaction/favorite/${courseId}`)
 }
 
 /**
- * 取消收藏
+ * 查询课程互动状态（是否已点赞/收藏）。
  * @param {number} courseId 课程ID
  */
-function unfavoriteCourse(courseId) {
-  const { del } = require('./request')
-  return del(`/course/${courseId}/favorite`)
+function getInteractionStatus(courseId) {
+  return get(`/course/interaction/status/${courseId}`)
 }
 
 module.exports = {
@@ -91,6 +94,6 @@ module.exports = {
   getCourseDetail,
   getCourseChapters,
   getCourseReviews,
-  favoriteCourse,
-  unfavoriteCourse
+  toggleFavoriteCourse,
+  getInteractionStatus
 }

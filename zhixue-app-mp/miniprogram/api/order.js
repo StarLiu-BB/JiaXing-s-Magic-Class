@@ -46,24 +46,9 @@ async function createOrder(data) {
  * @param {object} params 查询参数
  */
 async function getOrderList(params = {}) {
-  try {
-    return await get('/order/list', params)
-  } catch (error) {
-    const cache = readOrderCache()
-    const statusFilter = params.status
-    let list = [...cache]
-    if (statusFilter !== undefined && statusFilter !== null && statusFilter !== '') {
-      list = list.filter((item) => String(item.status) === String(statusFilter))
-    }
-    return {
-      code: 200,
-      data: {
-        list,
-        records: list,
-        total: list.length
-      }
-    }
-  }
+  // 订单是资金相关数据，失败时绝不能回退本地缓存并伪装成 code:200——
+  // 那会让用户把本机（可篡改的）数据当成服务端真实订单状态。
+  return get('/order/list', params)
 }
 
 /**
@@ -71,14 +56,8 @@ async function getOrderList(params = {}) {
  * @param {number} orderId 订单ID
  */
 async function getOrderDetail(orderId) {
-  try {
-    return await get('/order/detail', { orderNo: orderId })
-  } catch (error) {
-    const row = readOrderCache().find(
-      (item) => String(item.orderNo || item.id || item.orderId) === String(orderId)
-    )
-    return { code: 200, data: row || null }
-  }
+  // 同上：订单详情必须来自服务端，不做本地缓存伪装
+  return get('/order/detail', { orderNo: orderId })
 }
 
 module.exports = {

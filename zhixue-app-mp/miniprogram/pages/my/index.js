@@ -276,11 +276,21 @@ Page({
 
   async loadDashboardData() {
     try {
+      // 单个数据源失败不应让整页白屏，但不得伪造 code:200 把失败当成功——
+      // 统一标记为 failed，最后提示用户数据不完整。
+      const failed = []
+      const settle = (label, promise) =>
+        promise.catch((error) => {
+          console.warn(`[my] 加载${label}失败:`, error)
+          failed.push(label)
+          return { failed: true, data: [] }
+        })
+
       const [orderRes, favoriteRes, studyRes, couponRes] = await Promise.all([
-        getOrderList({ pageNum: 1, pageSize: 100 }).catch(() => ({ code: 200, data: [] })),
-        getFavoriteList({ pageNum: 1, pageSize: 100 }).catch(() => ({ code: 200, data: [] })),
-        getStudyRecords({ pageNum: 1, pageSize: 100 }).catch(() => ({ code: 200, data: [] })),
-        getAvailableCouponList().catch(() => ({ code: 200, data: [] }))
+        settle('订单', getOrderList({ pageNum: 1, pageSize: 100 })),
+        settle('收藏', getFavoriteList({ pageNum: 1, pageSize: 100 })),
+        settle('学习记录', getStudyRecords({ pageNum: 1, pageSize: 100 })),
+        settle('优惠券', getAvailableCouponList())
       ])
 
       const orders = orderRes.data?.list || orderRes.data?.records || orderRes.data || []
@@ -305,8 +315,16 @@ Page({
         orderStats: {
           unpaid: orders.filter((item) => Number(item.status) === 0).length
         },
-        couponCount: coupons.length
+        couponCount: coupons.length,
+        incompleteData: failed
       })
+
+      if (failed.length > 0) {
+        wx.showToast({
+          title: `${failed.join('、')}加载失败`,
+          icon: 'none'
+        })
+      }
     } catch (error) {
       console.error('加载我的页统计失败:', error)
     }

@@ -29,12 +29,9 @@ function saveClaimedCoupon(coupon) {
 }
 
 async function getAvailableCouponList() {
-  try {
-    return await get('/marketing/coupon/available')
-  } catch (error) {
-    const list = readCouponCache()
-    return { code: 200, data: list }
-  }
+  // 不再在失败时回退本地缓存并伪装成 code:200：
+  // 优惠券可用性由服务端判定，本机缓存可能已过期或被篡改。
+  return get('/marketing/coupon/available')
 }
 
 async function claimCoupon(couponId, userId) {

@@ -1,8 +1,7 @@
 package com.zhixue.interaction.service.impl;
 
 import com.zhixue.common.core.exception.ServiceException;
-import com.zhixue.common.security.context.SecurityContextHolder;
-import com.zhixue.common.security.model.LoginUser;
+import com.zhixue.common.security.utils.SecurityUtils;
 import com.zhixue.interaction.domain.entity.CourseLike;
 import com.zhixue.interaction.domain.entity.CourseStats;
 import com.zhixue.interaction.mapper.CourseLikeMapper;
@@ -180,10 +179,12 @@ public class LikeServiceImpl implements LikeService {
      * 获取当前登录用户ID。
      */
     private Long getCurrentUserId() {
-        LoginUser loginUser = SecurityContextHolder.getLoginUser();
-        if (loginUser == null || loginUser.getUserId() == null) {
+        // 身份来自网关校验后注入的可信请求头；
+        // 不能用 SecurityContextHolder，那个 ThreadLocal 全项目无人写入。
+        Long userId = SecurityUtils.getUserId();
+        if (userId == null) {
             throw new ServiceException("请先登录");
         }
-        return loginUser.getUserId();
+        return userId;
     }
 }

@@ -45,6 +45,9 @@ zhixue:
   security:
     jwt-secret: ${ZHIXUE_JWT_SECRET}
     jwt-expiration: ${ZHIXUE_JWT_EXPIRATION:7200}
+    # 必须与网关一致：InternalAccessFilter 用它判断网关注入的身份头是否可信。
+    # 缺失会导致所有已认证请求被拒为"非法内部请求"。
+    internal-token: ${ZHIXUE_INTERNAL_TOKEN}
   integration:
     interaction-mq:
       mode: ${ZHIXUE_INTERACTION_MQ_MODE:sandbox}

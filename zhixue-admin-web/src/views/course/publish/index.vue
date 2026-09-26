@@ -285,7 +285,8 @@ const categoryOptions = ref([])
 const chapterTree = ref([])
 const objectivesInput = ref('')
 const suitableInput = ref('')
-const uploadUrl = ref(import.meta.env.VITE_APP_BASE_API + '/media/upload/image')
+// 后端只提供 /media/upload（单文件直传），不存在 /media/upload/image
+const uploadUrl = ref(import.meta.env.VITE_APP_BASE_API + '/media/upload')
 
 // 富文本编辑器实例
 let editorInstance = null

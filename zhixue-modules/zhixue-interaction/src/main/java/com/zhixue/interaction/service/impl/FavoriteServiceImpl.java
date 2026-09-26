@@ -4,9 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhixue.common.core.domain.PageResult;
 import com.zhixue.common.core.exception.ServiceException;
+import com.zhixue.common.security.utils.SecurityUtils;
 import com.zhixue.common.redis.service.RedisService;
-import com.zhixue.common.security.context.SecurityContextHolder;
-import com.zhixue.common.security.model.LoginUser;
 import com.zhixue.interaction.domain.entity.CourseFavorite;
 import com.zhixue.interaction.domain.entity.CourseStats;
 import com.zhixue.interaction.mapper.CourseFavoriteMapper;
@@ -180,10 +179,12 @@ public class FavoriteServiceImpl implements FavoriteService {
      * 获取当前登录用户ID。
      */
     private Long getCurrentUserId() {
-        LoginUser loginUser = SecurityContextHolder.getLoginUser();
-        if (loginUser == null || loginUser.getUserId() == null) {
+        // 身份来自网关校验后注入的可信请求头；
+        // 不能用 SecurityContextHolder，那个 ThreadLocal 全项目无人写入。
+        Long userId = SecurityUtils.getUserId();
+        if (userId == null) {
             throw new ServiceException("请先登录");
         }
-        return loginUser.getUserId();
+        return userId;
     }
 }

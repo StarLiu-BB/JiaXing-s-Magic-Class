@@ -2,7 +2,7 @@ import request from '@/utils/request'
 
 export function listDanmakuPage(query) {
   return request({
-    url: '/interaction/danmaku/page',
+    url: '/danmaku/page',
     method: 'get',
     params: query
   }).then((res) => {
@@ -18,7 +18,7 @@ export function listDanmakuPage(query) {
 
 export function listDanmakuHistory(roomId, limit = 50) {
   return request({
-    url: '/interaction/danmaku/history',
+    url: '/danmaku/history',
     method: 'get',
     params: { roomId, limit }
   })

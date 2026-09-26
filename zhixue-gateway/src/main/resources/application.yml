@@ -47,6 +47,9 @@ spring:
             - StripPrefix=1
         - id: zhixue-course
           uri: lb://zhixue-course
+          # order 显式声明优先级：数值越小越先匹配。
+          # /course/** 是宽泛路径，必须排在更具体的 /course/interaction/** 之后。
+          order: 10
           predicates:
             - Path=/course/**
           filters:
@@ -79,6 +82,8 @@ spring:
             - Path=/media/**
         - id: zhixue-interaction
           uri: lb://zhixue-interaction
+          # 比 /course/** 更具体，必须优先匹配，否则该路径被 course 服务吞掉
+          order: 0
           predicates:
             - Path=/course/interaction/**,/danmaku/**
     sentinel:

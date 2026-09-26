@@ -1,5 +1,5 @@
 const { getOrderList } = require('../../../api/order')
-const { getFavoriteList, getStudyRecords } = require('../../../api/user')
+const { getFavoriteList, getStudyRecords, ERR_NOT_IMPLEMENTED } = require('../../../api/user')
 const { getAvailableCouponList, claimCoupon, readCouponCache } = require('../../../api/marketing')
 
 const MODE_CONFIG = {
@@ -89,8 +89,10 @@ Page({
     } catch (error) {
       console.error('列表加载失败:', error)
       this.setData({ list: [] })
+      // 区分"后端能力缺失"与"请求失败"，避免把功能缺口显示成网络问题
+      const notImplemented = String(error?.message || '').includes(ERR_NOT_IMPLEMENTED)
       wx.showToast({
-        title: '加载失败',
+        title: notImplemented ? '学习记录功能开发中' : '加载失败',
         icon: 'none'
       })
     } finally {

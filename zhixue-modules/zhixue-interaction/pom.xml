@@ -23,6 +23,13 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-bootstrap</artifactId>
         </dependency>
+        <!-- 服务注册：缺失时本服务不会注册到 Nacos，
+             网关 lb://zhixue-interaction 路由会返回 503，
+             而服务自身 actuator 健康检查仍显示 UP，故障极难定位 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

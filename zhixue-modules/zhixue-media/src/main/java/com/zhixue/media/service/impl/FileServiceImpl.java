@@ -6,6 +6,7 @@ import com.zhixue.common.core.domain.PageQuery;
 import com.zhixue.common.core.domain.PageResult;
 import com.zhixue.common.core.exception.ServiceException;
 import com.zhixue.media.config.MinioConfig.MinioProperties;
+import com.zhixue.media.security.ObjectPathGuard;
 import com.zhixue.media.domain.dto.ChunkUploadDTO;
 import com.zhixue.media.domain.dto.MergeChunkDTO;
 import com.zhixue.media.domain.entity.MediaFile;
@@ -22,7 +23,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.DigestUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +50,51 @@ public class FileServiceImpl implements FileService {
     private final VideoProcessService videoProcessService;
     @Value("${zhixue.integration.media-storage.mode:sandbox}")
     private String storageMode;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MediaFile uploadSingle(MultipartFile file, String bucket) {
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException("上传文件不能为空");
+        }
+        String targetBucket = resolveBucket(bucket);
+        String safeName = ObjectPathGuard.sanitizeFileName(file.getOriginalFilename());
+
+        byte[] content;
+        try {
+            content = file.getBytes();
+        } catch (IOException e) {
+            throw new ServiceException("读取上传文件失败: " + e.getMessage());
+        }
+        String md5 = DigestUtils.md5DigestAsHex(content);
+        String objectName = "upload/" + md5 + "/" + safeName;
+
+        if (!isStubMode()) {
+            try (InputStream in = new ByteArrayInputStream(content)) {
+                minioClient.putObject(PutObjectArgs.builder()
+                        .bucket(targetBucket)
+                        .object(objectName)
+                        .stream(in, content.length, -1)
+                        .contentType(StringUtils.hasText(file.getContentType())
+                                ? file.getContentType() : "application/octet-stream")
+                        .build());
+            } catch (Exception e) {
+                log.error("单文件上传失败，name={}", safeName, e);
+                throw new ServiceException("文件上传失败: " + e.getMessage());
+            }
+        }
+
+        MergeChunkDTO record = new MergeChunkDTO();
+        record.setFileMd5(md5);
+        record.setFileName(safeName);
+        record.setFileType(file.getContentType());
+        record.setFileSize((long) content.length);
+        MediaFile mediaFile = upsertMediaRecord(targetBucket, objectName, record);
+        // 单文件上传无需合并与转码，落库即可用
+        mediaFile.setStatus(3);
+        mediaFileMapper.updateById(mediaFile);
+        return mediaFile;
+    }
 
     @Override
     public boolean uploadChunk(ChunkUploadDTO dto) {
@@ -177,17 +229,21 @@ public class FileServiceImpl implements FileService {
         return mediaFile;
     }
 
+    /** 只允许默认桶，禁止客户端指定任意桶（否则可覆盖其他桶的对象）。 */
     private String resolveBucket(String bucket) {
-        return StringUtils.hasText(bucket) ? bucket : properties.getBucket();
+        return ObjectPathGuard.resolveBucket(bucket, properties.getBucket());
     }
 
+    /** md5 必须是合法 32 位哈希，否则可借该字段做路径穿越。 */
     private String chunkObject(String md5, int chunkIndex) {
-        return properties.getChunkPath() + "/" + md5 + "/" + chunkIndex;
+        return properties.getChunkPath() + "/" + ObjectPathGuard.requireValidMd5(md5) + "/" + chunkIndex;
     }
 
     private String mergedObject(String md5, String fileName) {
-        String safeName = StringUtils.hasText(fileName) ? fileName : md5;
-        return "upload/" + md5 + "/" + safeName;
+        String safeMd5 = ObjectPathGuard.requireValidMd5(md5);
+        String safeName = StringUtils.hasText(fileName)
+                ? ObjectPathGuard.sanitizeFileName(fileName) : safeMd5;
+        return "upload/" + safeMd5 + "/" + safeName;
     }
 
     private void removeChunksQuietly(String bucket, String md5, int chunkTotal) {

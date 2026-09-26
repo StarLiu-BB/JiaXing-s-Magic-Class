@@ -14,6 +14,14 @@ import java.util.List;
 public interface FileService {
 
     /**
+     * 上传单个完整文件（封面、富文本配图等小文件场景）。
+     *
+     * @param file   上传的文件
+     * @param bucket 目标桶，可为空（使用默认桶）
+     */
+    MediaFile uploadSingle(org.springframework.web.multipart.MultipartFile file, String bucket);
+
+    /**
      * 上传单个分片。
      */
     boolean uploadChunk(ChunkUploadDTO dto);
