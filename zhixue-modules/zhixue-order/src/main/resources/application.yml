@@ -47,7 +47,9 @@ order:
   timeout-queue: queue_order_timeout
   timeout-exchange: exchange_order_delay
   timeout-routing-key: order.timeout
-  pay-callback-url: http://localhost:9206/pay/callback
+  pay-callback-url: ${ZHIXUE_ORDER_PAY_CALLBACK_URL:http://localhost:9206/pay/callback}
+  # 支付回调验签共享密钥。未配置时所有回调一律拒绝（fail-closed），不提供兜底值。
+  pay-callback-secret: ${ZHIXUE_PAY_CALLBACK_SECRET:}
   pay:
     sandbox-base-url: ${ZHIXUE_ORDER_PAY_SANDBOX_BASE_URL:https://sandbox-pay.zhixue.local}
     alipay-gateway-url: ${ZHIXUE_ALIPAY_GATEWAY_URL:}

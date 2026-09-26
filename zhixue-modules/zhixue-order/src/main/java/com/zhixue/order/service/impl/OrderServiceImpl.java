@@ -1,6 +1,7 @@
 package com.zhixue.order.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhixue.common.core.constant.HttpStatus;
 import com.zhixue.common.core.domain.PageQuery;
@@ -81,20 +82,22 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void paySuccess(String orderNo, String payChannel, String payNo) {
-        Order order = findByOrderNo(orderNo);
-        if (order == null) {
-            log.warn("支付回调未找到订单 orderNo={}", orderNo);
+        // 用带 status 条件的原子更新实现幂等：重复回调只有第一次能影响到行。
+        // 不可改回"先查后改"，否则并发回调会重复置为已支付。
+        LambdaUpdateWrapper<Order> uw = new LambdaUpdateWrapper<>();
+        uw.eq(Order::getOrderNo, orderNo)
+                .eq(Order::getStatus, 0)
+                .set(Order::getStatus, 1)
+                .set(Order::getPayChannel, payChannel)
+                .set(Order::getPayNo, payNo)
+                .set(Order::getPayTime, LocalDateTime.now());
+
+        int affected = orderMapper.update(null, uw);
+        if (affected == 0) {
+            log.info("订单无需处理（不存在或已非待支付状态），跳过 orderNo={}", orderNo);
             return;
         }
-        if (order.getStatus() != 0) {
-            log.info("订单已处理，跳过 orderNo={}, status={}", orderNo, order.getStatus());
-            return;
-        }
-        order.setStatus(1);
-        order.setPayChannel(payChannel);
-        order.setPayNo(payNo);
-        order.setPayTime(LocalDateTime.now());
-        orderMapper.updateById(order);
+        log.info("订单支付成功 orderNo={}, payChannel={}", orderNo, payChannel);
     }
 
     @Override
@@ -208,9 +211,20 @@ public class OrderServiceImpl implements OrderService {
             }
             return;
         }
-        order.setStatus(2);
-        order.setRemark(StringUtils.hasText(reason) ? reason : "用户取消订单");
-        orderMapper.updateById(order);
+        // 同样用条件更新，消除与 OrderTimeoutConsumer 并发取消时的竞态
+        LambdaUpdateWrapper<Order> uw = new LambdaUpdateWrapper<>();
+        uw.eq(Order::getOrderNo, order.getOrderNo())
+                .eq(Order::getStatus, 0)
+                .set(Order::getStatus, 2)
+                .set(Order::getRemark, StringUtils.hasText(reason) ? reason : "用户取消订单");
+
+        int affected = orderMapper.update(null, uw);
+        if (affected == 0) {
+            log.info("订单状态已变更，跳过取消 orderNo={}", order.getOrderNo());
+            if (strict) {
+                throw new ServiceException("当前订单状态不可取消");
+            }
+        }
     }
 
     private LambdaQueryWrapper<Order> rangeWrapper(LocalDateTime startTime, LocalDateTime endTime) {

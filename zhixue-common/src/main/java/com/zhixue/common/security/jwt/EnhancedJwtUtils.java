@@ -8,6 +8,7 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -25,6 +26,7 @@ import java.util.function.Function;
  * 用户登录后生成凭证，后续请求都带上这个凭证来证明身份。
  */
 @Component
+@ConditionalOnProperty(prefix = "zhixue.security", name = "jwt-secret")
 public class EnhancedJwtUtils {
     
     private static final Logger log = LoggerFactory.getLogger(EnhancedJwtUtils.class);
