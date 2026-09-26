@@ -34,18 +34,16 @@ public class DanmakuHandler extends SimpleChannelInboundHandler<TextWebSocketFra
     private final RedisMessagePublisher redisMessagePublisher;
     private final DanmakuProducer danmakuProducer;
     private final SensitiveWordFilter sensitiveWordFilter;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    /** 必须注入 Spring 托管的实例：它已注册 JavaTimeModule，否则含 LocalDateTime 的弹幕无法序列化 */
+    private final ObjectMapper objectMapper;
 
     /**
-     * 当有新的 WebSocket 连接建立时调用
-     * 作用：把新连接保存起来，这样后面可以给这个连接发消息
+     * 当有新的 WebSocket 连接建立时调用。
+     * 此时还不知道客户端要进入哪个房间，房间归属在收到首条消息时确定。
      */
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) {
-        Channel channel = ctx.channel();
-        // 把新建立的连接加入到连接列表中，方便后续广播消息
-        redisMessageListener.addChannel(channel);
-        log.info("WebSocket 连接建立：{}", channel.id());
+        log.info("WebSocket 连接建立：{}", ctx.channel().id());
     }
 
     /**
@@ -72,7 +70,10 @@ public class DanmakuHandler extends SimpleChannelInboundHandler<TextWebSocketFra
             DanmakuMessageDTO dto = objectMapper.readValue(text, DanmakuMessageDTO.class);
             validateMessage(dto);
             dto.setSendTime(LocalDateTime.now());
-            
+
+            // 按消息中的房间号登记连接，后续广播只投递给同房间成员
+            redisMessageListener.addChannel(ctx.channel(), dto.getRoomId());
+
             // 检查并过滤弹幕里的敏感词，把敏感词替换成 *
             dto.setContent(sensitiveWordFilter.filter(dto.getContent()));
 

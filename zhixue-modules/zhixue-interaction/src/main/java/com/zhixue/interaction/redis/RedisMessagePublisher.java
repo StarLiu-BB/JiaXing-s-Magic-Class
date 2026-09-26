@@ -19,7 +19,8 @@ public class RedisMessagePublisher {
     public static final String CHANNEL = "interaction:danmaku";
 
     private final StringRedisTemplate redisTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    /** 必须注入 Spring 托管的实例：它已注册 JavaTimeModule，否则含 LocalDateTime 的弹幕无法序列化 */
+    private final ObjectMapper objectMapper;
 
     public void publish(DanmakuMessageDTO message) {
         try {

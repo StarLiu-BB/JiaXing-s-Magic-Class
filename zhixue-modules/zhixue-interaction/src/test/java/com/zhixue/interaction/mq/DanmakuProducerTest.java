@@ -5,6 +5,7 @@ import com.zhixue.interaction.service.DanmakuPersistenceService;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -20,7 +21,7 @@ class DanmakuProducerTest {
         @SuppressWarnings("unchecked")
         ObjectProvider<RabbitTemplate> provider = mock(ObjectProvider.class);
         DanmakuPersistenceService persistenceService = mock(DanmakuPersistenceService.class);
-        DanmakuProducer producer = new DanmakuProducer(provider, persistenceService);
+        DanmakuProducer producer = new DanmakuProducer(provider, persistenceService, Jackson2ObjectMapperBuilder.json().build());
         ReflectionTestUtils.setField(producer, "mqMode", "stub");
 
         DanmakuMessageDTO dto = new DanmakuMessageDTO();
@@ -40,7 +41,7 @@ class DanmakuProducerTest {
         ObjectProvider<RabbitTemplate> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(null);
         DanmakuPersistenceService persistenceService = mock(DanmakuPersistenceService.class);
-        DanmakuProducer producer = new DanmakuProducer(provider, persistenceService);
+        DanmakuProducer producer = new DanmakuProducer(provider, persistenceService, Jackson2ObjectMapperBuilder.json().build());
         ReflectionTestUtils.setField(producer, "mqMode", "sandbox");
 
         DanmakuMessageDTO dto = new DanmakuMessageDTO();
@@ -60,7 +61,7 @@ class DanmakuProducerTest {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         when(provider.getIfAvailable()).thenReturn(rabbitTemplate);
         DanmakuPersistenceService persistenceService = mock(DanmakuPersistenceService.class);
-        DanmakuProducer producer = new DanmakuProducer(provider, persistenceService);
+        DanmakuProducer producer = new DanmakuProducer(provider, persistenceService, Jackson2ObjectMapperBuilder.json().build());
         ReflectionTestUtils.setField(producer, "mqMode", "sandbox");
         ReflectionTestUtils.setField(producer, "exchange", "ex");
         ReflectionTestUtils.setField(producer, "routingKey", "rk");
