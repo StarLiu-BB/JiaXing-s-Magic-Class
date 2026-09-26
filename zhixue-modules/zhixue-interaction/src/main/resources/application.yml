@@ -43,7 +43,7 @@ logging:
 
 zhixue:
   security:
-    jwt-secret: ${ZHIXUE_JWT_SECRET:emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n}
+    jwt-secret: ${ZHIXUE_JWT_SECRET}
     jwt-expiration: ${ZHIXUE_JWT_EXPIRATION:7200}
   integration:
     interaction-mq:

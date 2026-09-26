@@ -39,9 +39,23 @@ data/
 *.tmp
 *.bak
 *.swp
+.jqwik-database
 
 # Trae
 .trae/
 .maven-repo/
 test_*.ps1
 test_*.txt
+
+# 凭据文件：严禁提交任何密钥/令牌
+.env
+*.env
+!*.env.example
+local.env
+secrets/
+*.pem
+*.key
+*.p12
+*.jks
+# 根目录临时验证脚本（历史上曾在此泄露过 API Key）
+/test_*.py

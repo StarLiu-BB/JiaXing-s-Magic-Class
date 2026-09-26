@@ -38,9 +38,9 @@ logging:
 
 zhixue:
   security:
-    jwt-secret: ${ZHIXUE_JWT_SECRET:emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n}
+    jwt-secret: ${ZHIXUE_JWT_SECRET}
     jwt-expiration: ${ZHIXUE_JWT_EXPIRATION:7200}
-    internal-token: ${ZHIXUE_INTERNAL_TOKEN:local-dev-internal-token-change-before-prod}
+    internal-token: ${ZHIXUE_INTERNAL_TOKEN}
   integration:
     search:
       mode: ${ZHIXUE_SEARCH_MODE:stub}

@@ -9,10 +9,34 @@ COMPOSE_FILE="$OPS_DIR/docker-compose.yml"
 LOG_DIR="$OPS_DIR/logs"
 RUN_DIR="$OPS_DIR/run"
 
+# 把 local.env 中的 __GENERATE__ 占位符替换为随机密钥，避免仓库内出现任何固定凭据
+materialize_secrets() {
+  grep -q '__GENERATE__' "$ENV_FILE" || return 0
+
+  local tmp key secret
+  tmp="$(mktemp)"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == *"__GENERATE__"* && "$line" != \#* ]]; then
+      key="${line%%=*}"
+      case "$key" in
+        ZHIXUE_INTERNAL_TOKEN) secret="$(openssl rand -hex 24)" ;;
+        *) secret="$(openssl rand -base64 48 | tr -d '\n')" ;;
+      esac
+      printf '%s=%s\n' "$key" "$secret" >>"$tmp"
+      echo "[init] 已为 $key 生成随机密钥"
+    else
+      printf '%s\n' "$line" >>"$tmp"
+    fi
+  done <"$ENV_FILE"
+  mv "$tmp" "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
+}
+
 ensure_env_file() {
   mkdir -p "$LOG_DIR" "$RUN_DIR"
   if [[ ! -f "$ENV_FILE" ]]; then
     cp "$ENV_EXAMPLE" "$ENV_FILE"
+    materialize_secrets
     return
   fi
 
@@ -23,6 +47,8 @@ ensure_env_file() {
       printf '\n%s\n' "$line" >>"$ENV_FILE"
     fi
   done <"$ENV_EXAMPLE"
+
+  materialize_secrets
 }
 
 load_env() {

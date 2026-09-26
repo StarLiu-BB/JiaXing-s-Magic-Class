@@ -81,6 +81,24 @@ class SmsLoginServiceImplTest {
     }
 
     @Test
+    void shouldRejectSandboxCodeWhenSandboxDisabled() {
+        // 默认配置下沙箱关闭，固定码 123456 不得再放行，否则可接管任意手机号账号
+        ReflectionTestUtils.setField(smsLoginService, "smsMode", "disabled");
+        ReflectionTestUtils.setField(smsLoginService, "sandboxSmsCode", "");
+
+        LoginForm form = new LoginForm();
+        form.setPhone("13800000003");
+        form.setSmsCode("123456");
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(anyString())).thenReturn(null);
+
+        assertThatThrownBy(() -> smsLoginService.login(form))
+                .isInstanceOf(ServiceException.class)
+                .hasMessage("短信验证码错误或已过期");
+    }
+
+    @Test
     void shouldRejectWhenSmsCodeInvalid() {
         LoginForm form = new LoginForm();
         form.setPhone("13800000003");

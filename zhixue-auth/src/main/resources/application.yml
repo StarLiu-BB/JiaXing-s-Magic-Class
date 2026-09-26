@@ -14,16 +14,17 @@ spring:
 # See .kiro/specs/security-hardening/CONFIGURATION.md for setup instructions
 zhixue:
   security:
-    jwt-secret: ${ZHIXUE_JWT_SECRET:emhpeHVlY2xvdWRqd3RzZWNyZXRrZXkyMDI0bXVzdGJlYXRsZWFzdDI1NmJpdHNsb25n}
+    jwt-secret: ${ZHIXUE_JWT_SECRET}
     jwt-expiration: ${ZHIXUE_JWT_EXPIRATION:7200}
-    internal-token: ${ZHIXUE_INTERNAL_TOKEN:local-dev-internal-token-change-before-prod}
+    internal-token: ${ZHIXUE_INTERNAL_TOKEN}
   auth:
+    # 沙箱模式会放行固定验证码，仅限本地联调；默认关闭，必须显式开启
     sms:
-      mode: ${ZHIXUE_AUTH_SMS_MODE:sandbox}
-      sandbox-code: ${ZHIXUE_AUTH_SMS_SANDBOX_CODE:123456}
+      mode: ${ZHIXUE_AUTH_SMS_MODE:disabled}
+      sandbox-code: ${ZHIXUE_AUTH_SMS_SANDBOX_CODE:}
     wechat:
-      mode: ${ZHIXUE_AUTH_WECHAT_MODE:sandbox}
-      sandbox-username: ${ZHIXUE_AUTH_WECHAT_SANDBOX_USERNAME:student}
+      mode: ${ZHIXUE_AUTH_WECHAT_MODE:disabled}
+      sandbox-username: ${ZHIXUE_AUTH_WECHAT_SANDBOX_USERNAME:}
 
 security:
   whitelist:

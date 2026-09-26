@@ -35,10 +35,10 @@ public class SmsLoginServiceImpl implements LoginService {
     private final RemoteUserService remoteUserService;
     private final SecurityProperties securityProperties;
 
-    @Value("${zhixue.auth.sms.mode:sandbox}")
+    @Value("${zhixue.auth.sms.mode:disabled}")
     private String smsMode;
 
-    @Value("${zhixue.auth.sms.sandbox-code:123456}")
+    @Value("${zhixue.auth.sms.sandbox-code:}")
     private String sandboxSmsCode;
 
     @Override
@@ -85,7 +85,10 @@ public class SmsLoginServiceImpl implements LoginService {
             }
             return;
         }
-        if ("sandbox".equalsIgnoreCase(smsMode) && sandboxSmsCode.equals(smsCode)) {
+        // 仅在显式开启沙箱模式且配置了固定验证码时才放行，避免默认配置下任意账号被接管
+        if ("sandbox".equalsIgnoreCase(smsMode)
+                && StringUtils.isNotBlank(sandboxSmsCode)
+                && sandboxSmsCode.equals(smsCode)) {
             return;
         }
         throw new ServiceException("短信验证码错误或已过期");

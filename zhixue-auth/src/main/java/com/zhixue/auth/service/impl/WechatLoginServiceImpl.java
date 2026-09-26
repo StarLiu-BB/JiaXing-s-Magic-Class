@@ -32,10 +32,10 @@ public class WechatLoginServiceImpl implements LoginService {
     private final RemoteUserService remoteUserService;
     private final SecurityProperties securityProperties;
 
-    @Value("${zhixue.auth.wechat.mode:sandbox}")
+    @Value("${zhixue.auth.wechat.mode:disabled}")
     private String wechatMode;
 
-    @Value("${zhixue.auth.wechat.sandbox-username:student}")
+    @Value("${zhixue.auth.wechat.sandbox-username:}")
     private String sandboxUsername;
 
     @Override
@@ -44,7 +44,8 @@ public class WechatLoginServiceImpl implements LoginService {
             throw new ServiceException("微信授权码不能为空");
         }
 
-        if (!"sandbox".equalsIgnoreCase(wechatMode)) {
+        // 仅在显式开启沙箱模式且配置了映射账号时才放行，默认拒绝
+        if (!"sandbox".equalsIgnoreCase(wechatMode) || StringUtils.isBlank(sandboxUsername)) {
             throw new ServiceException("当前环境暂未启用真实微信登录");
         }
 

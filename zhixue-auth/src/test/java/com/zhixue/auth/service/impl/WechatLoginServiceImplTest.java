@@ -39,6 +39,20 @@ class WechatLoginServiceImplTest {
     }
 
     @Test
+    void shouldRejectWhenSandboxDisabledByDefault() {
+        // 默认配置下微信沙箱关闭，任意授权码不得再登录成 student 账号
+        ReflectionTestUtils.setField(wechatLoginService, "wechatMode", "disabled");
+        ReflectionTestUtils.setField(wechatLoginService, "sandboxUsername", "");
+
+        LoginForm form = new LoginForm();
+        form.setWechatCode("any-forged-code");
+
+        assertThatThrownBy(() -> wechatLoginService.login(form))
+                .isInstanceOf(ServiceException.class)
+                .hasMessage("当前环境暂未启用真实微信登录");
+    }
+
+    @Test
     void shouldLoginWithSandboxMappedUser() {
         LoginForm form = new LoginForm();
         form.setWechatCode("wx-code-001");
