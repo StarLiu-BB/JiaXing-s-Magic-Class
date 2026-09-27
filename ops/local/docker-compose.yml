@@ -93,17 +93,6 @@ services:
     volumes:
       - es_data:/usr/share/elasticsearch/data
 
-  seata:
-    image: seataio/seata-server:2.0.0
-    restart: unless-stopped
-    platform: linux/amd64
-    container_name: zhixue-local-seata
-    environment:
-      TZ: ${TZ:-Asia/Shanghai}
-      SEATA_PORT: 8091
-      STORE_MODE: file
-    ports:
-      - "${ZHIXUE_SEATA_PORT:-18091}:8091"
 
   auth:
     image: eclipse-temurin:17-jre
@@ -131,7 +120,7 @@ services:
       ZHIXUE_JWT_SECRET: ${ZHIXUE_JWT_SECRET}
       ZHIXUE_JWT_EXPIRATION: ${ZHIXUE_JWT_EXPIRATION}
       ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
-      JAVA_OPTS: -Xms256m -Xmx256m
+      JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
     ports:
       - "${ZHIXUE_AUTH_PORT:-19100}:9100"
     volumes:
@@ -164,7 +153,7 @@ services:
       ZHIXUE_JWT_SECRET: ${ZHIXUE_JWT_SECRET}
       ZHIXUE_JWT_EXPIRATION: ${ZHIXUE_JWT_EXPIRATION}
       ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
-      JAVA_OPTS: -Xms256m -Xmx256m
+      JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
     ports:
       - "${ZHIXUE_SYSTEM_PORT:-19201}:9201"
     volumes:
@@ -199,7 +188,7 @@ services:
       ZHIXUE_SEARCH_MODE: ${ZHIXUE_SEARCH_MODE}
       ZHIXUE_JWT_SECRET: ${ZHIXUE_JWT_SECRET}
       ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
-      JAVA_OPTS: -Xms256m -Xmx256m
+      JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
     ports:
       - "${ZHIXUE_COURSE_PORT:-19202}:9202"
     volumes:
@@ -232,7 +221,7 @@ services:
       ZHIXUE_MINIO_SECRET_KEY: ${ZHIXUE_MINIO_SECRET_KEY}
       ZHIXUE_MINIO_BUCKET: ${ZHIXUE_MINIO_BUCKET}
       ZHIXUE_MEDIA_STORAGE_MODE: ${ZHIXUE_MEDIA_STORAGE_MODE}
-      JAVA_OPTS: -Xms256m -Xmx256m
+      JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
     ports:
       - "${ZHIXUE_MEDIA_PORT:-19203}:9203"
     volumes:
@@ -272,7 +261,7 @@ services:
       ZHIXUE_JWT_EXPIRATION: ${ZHIXUE_JWT_EXPIRATION}
       ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
       ZHIXUE_INTERACTION_MQ_MODE: ${ZHIXUE_INTERACTION_MQ_MODE}
-      JAVA_OPTS: -Xms256m -Xmx256m
+      JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
     ports:
       - "${ZHIXUE_INTERACTION_PORT:-19205}:9205"
       - "${ZHIXUE_INTERACTION_WS_PORT:-19999}:9999"
@@ -288,7 +277,6 @@ services:
       - redis
       - nacos
       - rabbitmq
-      - seata
     environment:
       TZ: ${TZ:-Asia/Shanghai}
       ZHIXUE_DB_HOST: mysql
@@ -310,11 +298,10 @@ services:
       ZHIXUE_RABBITMQ_USERNAME: ${ZHIXUE_RABBITMQ_USERNAME}
       ZHIXUE_RABBITMQ_PASSWORD: ${ZHIXUE_RABBITMQ_PASSWORD}
       ZHIXUE_RABBITMQ_VHOST: ${ZHIXUE_RABBITMQ_VHOST}
-      ZHIXUE_SEATA_ADDR: seata:8091
       ZHIXUE_ORDER_MQ_MODE: ${ZHIXUE_ORDER_MQ_MODE}
       ZHIXUE_PAY_CALLBACK_SECRET: ${ZHIXUE_PAY_CALLBACK_SECRET}
       ORDER_PAY_CALLBACK_URL: http://127.0.0.1:${ZHIXUE_GATEWAY_PORT:-19001}/order/pay/callback
-      JAVA_OPTS: -Xms256m -Xmx256m
+      JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
     ports:
       - "${ZHIXUE_ORDER_PORT:-19206}:9206"
     volumes:
@@ -345,7 +332,7 @@ services:
       ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
       ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
       ZHIXUE_MARKETING_MODE: ${ZHIXUE_MARKETING_MODE}
-      JAVA_OPTS: -Xms256m -Xmx256m
+      JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
     ports:
       - "${ZHIXUE_MARKETING_PORT:-19207}:9207"
     volumes:
@@ -378,7 +365,7 @@ services:
       ZHIXUE_DASHSCOPE_MODEL: ${ZHIXUE_DASHSCOPE_MODEL:-qwen-plus}
       ZHIXUE_DASHSCOPE_EMBEDDING_MODEL: ${ZHIXUE_DASHSCOPE_EMBEDDING_MODEL:-text-embedding-v2}
       ZHIXUE_EMBEDDING_DIMENSION: ${ZHIXUE_EMBEDDING_DIMENSION:-1536}
-      JAVA_OPTS: -Xms256m -Xmx256m
+      JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
     ports:
       - "${ZHIXUE_AI_PORT:-19208}:9208"
     volumes:
@@ -416,7 +403,7 @@ services:
       ZHIXUE_JWT_EXPIRATION: ${ZHIXUE_JWT_EXPIRATION}
       ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
       ZHIXUE_GATEWAY_PORT: ${ZHIXUE_GATEWAY_PORT}
-      JAVA_OPTS: -Xms256m -Xmx256m
+      JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
     ports:
       - "${ZHIXUE_GATEWAY_PORT:-19001}:${ZHIXUE_GATEWAY_PORT:-19001}"
     volumes:

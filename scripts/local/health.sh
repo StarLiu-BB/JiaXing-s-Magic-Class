@@ -25,7 +25,6 @@ if [[ "$SKIP_MEDIA" != "1" ]]; then
   wait_for_http "${ZHIXUE_MINIO_ENDPOINT}/minio/health/live" "MinIO"
 fi
 wait_for_http "${ZHIXUE_ES_URIS}" "Elasticsearch"
-wait_for_port 127.0.0.1 "${ZHIXUE_SEATA_PORT}" "Seata"
 wait_for_health_up "http://127.0.0.1:${ZHIXUE_COURSE_PORT}/actuator/health" "Course"
 wait_for_health_up "http://127.0.0.1:${ZHIXUE_SYSTEM_PORT}/actuator/health" "System"
 wait_for_health_up "http://127.0.0.1:${ZHIXUE_AUTH_PORT}/actuator/health" "Auth"

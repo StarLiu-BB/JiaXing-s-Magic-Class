@@ -11,7 +11,7 @@ load_env
 # 设 ZHIXUE_SKIP_MEDIA=1 可跳过 MinIO 与 media 服务，先跑通其余链路。
 SKIP_MEDIA="${ZHIXUE_SKIP_MEDIA:-0}"
 
-INFRA_SERVICES=(mysql redis nacos rabbitmq elasticsearch seata)
+INFRA_SERVICES=(mysql redis nacos rabbitmq elasticsearch)
 APP_SERVICES=(auth system course interaction order marketing ai gateway)
 
 if [[ "$SKIP_MEDIA" == "1" ]]; then
@@ -33,7 +33,6 @@ if [[ "$SKIP_MEDIA" != "1" ]]; then
   wait_for_http "${ZHIXUE_MINIO_ENDPOINT}/minio/health/live" "MinIO"
 fi
 wait_for_http "${ZHIXUE_ES_URIS}" "Elasticsearch"
-wait_for_port 127.0.0.1 "${ZHIXUE_SEATA_PORT}" "Seata"
 
 "$ROOT_DIR/scripts/local/db-init.sh"
 
