@@ -2,4 +2,5 @@ com.zhixue.common.redis.config.RedisConfig
 com.zhixue.common.mybatis.config.MybatisPlusConfig
 com.zhixue.common.swagger.config.Knife4jConfig
 com.zhixue.common.security.config.SecurityCredentialsValidator
+com.zhixue.common.core.config.JacksonLongPrecisionConfig
 
