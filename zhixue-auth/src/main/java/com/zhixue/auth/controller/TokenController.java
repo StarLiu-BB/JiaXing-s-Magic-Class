@@ -1,6 +1,7 @@
 package com.zhixue.auth.controller;
 
 import com.zhixue.auth.form.LoginForm;
+import com.zhixue.auth.service.LoginAttemptLimiter;
 import com.zhixue.auth.service.LoginService;
 import com.zhixue.auth.service.TokenService;
 import com.zhixue.common.core.constant.CacheConstants;
@@ -40,17 +41,39 @@ public class TokenController {
     private final TokenService tokenService;
     private final StringRedisTemplate redisTemplate;
     private final SecurityProperties securityProperties;
+    private final LoginAttemptLimiter loginAttemptLimiter;
 
     @PostMapping("/login")
     public R<Map<String, Object>> login(@Valid @RequestBody LoginForm form) {
         String loginType = normalizeLoginType(form);
+        // 登录接口在网关白名单内可无凭据反复调用，必须限制失败次数
+        String identifier = resolveIdentifier(form);
+        loginAttemptLimiter.assertNotLocked(identifier);
+
         if ("password".equalsIgnoreCase(loginType)) {
             validateCaptcha(form);
         }
         LoginService loginService = resolveLoginService(loginType);
-        LoginUser loginUser = loginService.login(form);
+
+        LoginUser loginUser;
+        try {
+            loginUser = loginService.login(form);
+        } catch (RuntimeException e) {
+            loginAttemptLimiter.recordFailure(identifier);
+            throw e;
+        }
+
+        loginAttemptLimiter.recordSuccess(identifier);
         String token = tokenService.createToken(loginUser);
         return R.ok(buildTokenPayload(token, loginUser));
+    }
+
+    /** 失败计数的标识：优先用户名，其次手机号。 */
+    private String resolveIdentifier(LoginForm form) {
+        if (StringUtils.isNotBlank(form.getUsername())) {
+            return form.getUsername();
+        }
+        return form.getPhone();
     }
 
     @PostMapping("/refresh")

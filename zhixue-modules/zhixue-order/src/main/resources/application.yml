@@ -30,16 +30,7 @@ mybatis-flex:
   configuration:
     map-underscore-to-camel-case: true
 
-seata:
-  enabled: true
-  application-id: zhixue-order
-  tx-service-group: order_tx_group
-  service:
-    vgroup-mapping:
-      order_tx_group: default
-    grouplist:
-      default: ${ZHIXUE_SEATA_ADDR:127.0.0.1:8091}
-
+# Seata 已移除：createOrder 无跨服务调用，且缺少 undo_log 无法真正回滚
 order:
   pay-result-queue: queue_order_pay_result
   pay-result-exchange: exchange_order

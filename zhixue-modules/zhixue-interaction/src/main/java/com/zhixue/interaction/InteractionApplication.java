@@ -14,7 +14,9 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableDiscoveryClient
 @EnableFeignClients(basePackages = "com.zhixue.api")
 @EnableScheduling
-@ComponentScan(basePackages = {"com.zhixue.interaction", "com.zhixue.common"})
+// com.zhixue.api 必须纳入扫描：Feign fallbackFactory 是 @Component，
+// @EnableFeignClients 只扫接口不注册组件，缺失会导致启动失败
+@ComponentScan(basePackages = {"com.zhixue.interaction", "com.zhixue.common", "com.zhixue.api"})
 public class InteractionApplication {
 
     public static void main(String[] args) {

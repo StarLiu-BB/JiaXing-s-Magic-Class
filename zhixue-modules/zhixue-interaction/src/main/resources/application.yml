@@ -12,6 +12,12 @@ spring:
       host: ${ZHIXUE_REDIS_HOST:127.0.0.1}
       port: ${ZHIXUE_REDIS_PORT:6379}
       password: ${ZHIXUE_REDIS_PASSWORD:}
+  cloud:
+    openfeign:
+      circuitbreaker:
+        # 必须显式开启，否则 fallbackFactory 永不触发；
+        # 弹幕审核依赖 zhixue-ai，AI 故障不应拖垮弹幕发送
+        enabled: true
   rabbitmq:
     host: ${ZHIXUE_RABBITMQ_HOST:127.0.0.1}
     port: ${ZHIXUE_RABBITMQ_PORT:5672}

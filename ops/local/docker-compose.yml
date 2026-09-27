@@ -1,6 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
+    restart: unless-stopped
     container_name: zhixue-local-mysql
     environment:
       TZ: ${TZ:-Asia/Shanghai}
@@ -18,6 +19,7 @@ services:
 
   redis:
     image: redis:7.2-alpine
+    restart: unless-stopped
     container_name: zhixue-local-redis
     command:
       - sh
@@ -31,6 +33,7 @@ services:
 
   nacos:
     image: nacos/nacos-server:v2.3.2
+    restart: unless-stopped
     platform: linux/amd64
     container_name: zhixue-local-nacos
     environment:
@@ -49,6 +52,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:3.13-management
+    restart: unless-stopped
     container_name: zhixue-local-rabbitmq
     environment:
       TZ: ${TZ:-Asia/Shanghai}
@@ -77,6 +81,7 @@ services:
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.5
+    restart: unless-stopped
     container_name: zhixue-local-elasticsearch
     environment:
       TZ: ${TZ:-Asia/Shanghai}
@@ -90,6 +95,7 @@ services:
 
   seata:
     image: seataio/seata-server:2.0.0
+    restart: unless-stopped
     platform: linux/amd64
     container_name: zhixue-local-seata
     environment:

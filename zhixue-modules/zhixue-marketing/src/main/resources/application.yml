@@ -20,6 +20,8 @@ mybatis-flex:
 
 xxl:
   job:
+    # 需要真实 xxl-job-admin 才开启；关闭时 @XxlJob 任务不会注册（本地默认关闭）
+    enabled: ${ZHIXUE_XXL_JOB_ENABLED:false}
     admin:
       addresses: ${ZHIXUE_XXL_JOB_ADDR:http://127.0.0.1:8180/xxl-job-admin}
     accessToken:

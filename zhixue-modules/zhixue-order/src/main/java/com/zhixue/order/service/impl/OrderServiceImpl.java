@@ -11,7 +11,6 @@ import com.zhixue.order.domain.dto.CreateOrderDTO;
 import com.zhixue.order.domain.entity.Order;
 import com.zhixue.order.mapper.OrderMapper;
 import com.zhixue.order.service.OrderService;
-import io.seata.spring.annotation.GlobalTransactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
@@ -50,8 +49,12 @@ public class OrderServiceImpl implements OrderService {
     @Value("${zhixue.integration.order-mq.mode:${ZHIXUE_ORDER_MQ_MODE:sandbox}}")
     private String orderMqMode;
 
+    // 本方法只操作本库并投递 MQ，没有跨服务调用，本地事务已足够。
+    // 此处原为 @GlobalTransactional，但缺少 undo_log 表与 DataSourceProxy，
+    // AT 模式根本无法回滚 —— 那是比不用分布式事务更危险的假象。
+    // 未来若引入跨服务扣减（库存/积分），需同时补齐 undo_log 才能改回全局事务。
     @Override
-    @GlobalTransactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class)
     public Order createOrder(CreateOrderDTO dto) {
         Order order = buildDraftOrder(dto);
         int insert = orderMapper.insert(order);

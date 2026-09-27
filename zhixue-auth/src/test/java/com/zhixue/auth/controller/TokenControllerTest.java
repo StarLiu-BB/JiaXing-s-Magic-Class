@@ -2,6 +2,7 @@ package com.zhixue.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhixue.auth.form.LoginForm;
+import com.zhixue.auth.service.LoginAttemptLimiter;
 import com.zhixue.auth.service.LoginService;
 import com.zhixue.auth.service.TokenService;
 import com.zhixue.common.security.config.SecurityProperties;
@@ -52,6 +53,9 @@ class TokenControllerTest {
 
     @Mock
     private LoginService passwordLoginService;
+
+    @Mock
+    private LoginAttemptLimiter loginAttemptLimiter;
 
     @InjectMocks
     private TokenController tokenController;

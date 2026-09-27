@@ -9,6 +9,11 @@ spring:
       host: ${ZHIXUE_REDIS_HOST:127.0.0.1}
       port: ${ZHIXUE_REDIS_PORT:6379}
       password: ${ZHIXUE_REDIS_PASSWORD:}
+  cloud:
+    openfeign:
+      circuitbreaker:
+        # 必须显式开启，否则 fallbackFactory 永不触发，下游故障会直接穿透
+        enabled: true
 
 # Security configuration should be stored in Nacos with encryption
 # See .kiro/specs/security-hardening/CONFIGURATION.md for setup instructions

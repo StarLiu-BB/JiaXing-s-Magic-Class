@@ -16,7 +16,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
  * 用户登录成功后，会得到一个登录凭证，后续访问其他服务时需要带上这个凭证来证明身份。
  */
 @SpringBootApplication(
-        scanBasePackages = {"com.zhixue.auth", "com.zhixue.common"},
+        scanBasePackages = {"com.zhixue.auth", "com.zhixue.common", "com.zhixue.api"},
         exclude = {
                 DataSourceAutoConfiguration.class,
                 DataSourceTransactionManagerAutoConfiguration.class

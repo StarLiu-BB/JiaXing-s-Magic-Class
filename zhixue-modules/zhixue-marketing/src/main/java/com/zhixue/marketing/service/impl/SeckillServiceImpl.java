@@ -29,7 +29,6 @@ import org.springframework.util.StringUtils;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,15 +60,37 @@ public class SeckillServiceImpl implements SeckillService {
     private String marketingMode;
 
     private DefaultRedisScript<Long> seckillScript;
+    private DefaultRedisScript<Long> rollbackScript;
 
     @PostConstruct
     public void loadLua() {
+        seckillScript = loadScript("lua/seckill_stock.lua");
+        rollbackScript = loadScript("lua/seckill_rollback.lua");
+    }
+
+    private DefaultRedisScript<Long> loadScript(String location) {
         try {
-            ClassPathResource resource = new ClassPathResource("lua/seckill_stock.lua");
+            ClassPathResource resource = new ClassPathResource(location);
             String script = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
-            seckillScript = new DefaultRedisScript<>(script, Long.class);
+            return new DefaultRedisScript<>(script, Long.class);
         } catch (Exception e) {
-            throw new IllegalStateException("加载秒杀 Lua 脚本失败", e);
+            throw new IllegalStateException("加载秒杀 Lua 脚本失败: " + location, e);
+        }
+    }
+
+    /**
+     * 补偿：归还 Redis 库存并移除已抢购标记。
+     *
+     * <p>Redis 扣减不在数据库事务范围内，事务回滚不会撤销它，
+     * 必须显式补偿，否则库存永久丢失、用户永久无法再抢。</p>
+     */
+    private void rollbackStock(String stockKey, String userKey, Long userId) {
+        try {
+            redisTemplate.execute(rollbackScript, List.of(stockKey, userKey), String.valueOf(userId));
+            log.warn("秒杀下单失败，已回滚 Redis 库存 userId={}, stockKey={}", userId, stockKey);
+        } catch (Exception e) {
+            // 补偿失败需要告警人工介入：此时 Redis 与 DB 已不一致
+            log.error("秒杀库存回滚失败，需人工核对 userId={}, stockKey={}", userId, stockKey, e);
         }
     }
 
@@ -98,7 +119,9 @@ public class SeckillServiceImpl implements SeckillService {
 
         String stockKey = stockKeyPrefix + dto.getActivityId();
         String userKey = userKeyPrefix + dto.getActivityId();
-        Long result = redisTemplate.execute(seckillScript, Collections.singletonList(stockKey), userKey, String.valueOf(dto.getUserId()));
+        // 两个 key 都通过 KEYS 传入，满足 Redis Cluster 的槽位校验要求
+        Long result = redisTemplate.execute(seckillScript, List.of(stockKey, userKey),
+                String.valueOf(dto.getUserId()));
         if (Objects.equals(result, 0L)) {
             throw new ServiceException("已售罄");
         }
@@ -106,13 +129,20 @@ public class SeckillServiceImpl implements SeckillService {
             throw new ServiceException("请勿重复抢购");
         }
 
-        SeckillOrder order = new SeckillOrder();
-        order.setActivityId(dto.getActivityId());
-        order.setUserId(dto.getUserId());
-        order.setOrderNo(generateOrderNo());
-        order.setStatus(0);
-        orderMapper.insert(order);
-        return order.getOrderNo();
+        // 库存已在 Redis 中扣减，后续任何失败都必须补偿回滚，
+        // 否则事务回滚只撤销数据库，Redis 库存永久丢失。
+        try {
+            SeckillOrder order = new SeckillOrder();
+            order.setActivityId(dto.getActivityId());
+            order.setUserId(dto.getUserId());
+            order.setOrderNo(generateOrderNo());
+            order.setStatus(0);
+            orderMapper.insert(order);
+            return order.getOrderNo();
+        } catch (RuntimeException e) {
+            rollbackStock(stockKey, userKey, dto.getUserId());
+            throw e;
+        }
     }
 
     @Override
