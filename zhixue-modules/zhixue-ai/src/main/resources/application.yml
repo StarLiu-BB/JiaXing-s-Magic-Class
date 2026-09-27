@@ -31,6 +31,11 @@ ai:
   dashscope:
     api-key: ${ZHIXUE_DASHSCOPE_API_KEY:}
     model: ${ZHIXUE_DASHSCOPE_MODEL:qwen-plus}
+    # 文本向量化模型；dimension 必须与 ES dense_vector 的 dims 一致
+    embedding-model: ${ZHIXUE_DASHSCOPE_EMBEDDING_MODEL:text-embedding-v2}
+    embedding-timeout-seconds: ${ZHIXUE_DASHSCOPE_EMBEDDING_TIMEOUT:20}
+    embedding:
+      dimension: ${ZHIXUE_EMBEDDING_DIMENSION:1536}
 
 logging:
   level:
