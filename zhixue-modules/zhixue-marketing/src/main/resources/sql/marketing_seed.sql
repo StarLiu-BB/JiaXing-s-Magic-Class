@@ -16,7 +16,9 @@ INSERT INTO coupon_user
 VALUES
     (62001, 61001, 1003, 0, DATE_ADD(NOW(), INTERVAL 7 DAY), NOW(), NOW(), 0);
 
+-- 原先指向课程 2002：该课程已下架，买到后课程页 404、什么也看不了；且秒杀价 99 高于课程原价 149 的折扣意义不明。
+-- 改为在售课程 2004（原价 99），秒杀价 49。
 INSERT INTO seckill_activity
     (id, title, product_id, seckill_price, total_stock, start_time, end_time, status, create_time, update_time, deleted)
 VALUES
-    (63001, '春季课程包秒杀', 2002, 99.00, 50, DATE_SUB(NOW(), INTERVAL 1 HOUR), DATE_ADD(NOW(), INTERVAL 5 HOUR), 1, NOW(), NOW(), 0);
+    (63001, '春季课程包秒杀', 2004, 49.00, 50, DATE_SUB(NOW(), INTERVAL 1 HOUR), DATE_ADD(NOW(), INTERVAL 5 HOUR), 1, NOW(), NOW(), 0);

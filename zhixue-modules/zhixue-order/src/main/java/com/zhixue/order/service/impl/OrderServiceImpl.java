@@ -82,7 +82,24 @@ public class OrderServiceImpl implements OrderService {
             return reusable;
         }
 
-        Order order = buildDraftOrder(userId, dto.getProductId(), price);
+        return insertWithTimeout(buildDraftOrder(userId, dto.getProductId(), price));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Order createSeckillOrder(Long userId, Long productId, BigDecimal amount, Long activityId) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "秒杀价必须大于0");
+        }
+        if (hasPaid(userId, productId)) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "您已购买该课程，无需参与秒杀");
+        }
+        Order order = buildDraftOrder(userId, productId, amount);
+        order.setRemark("秒杀活动 " + activityId);
+        return insertWithTimeout(order);
+    }
+
+    private Order insertWithTimeout(Order order) {
         int insert = orderMapper.insert(order);
         if (insert <= 0) {
             throw new ServiceException("创建订单失败");

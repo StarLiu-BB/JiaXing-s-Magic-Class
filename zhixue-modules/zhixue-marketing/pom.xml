@@ -65,6 +65,11 @@
             <groupId>com.zhixue</groupId>
             <artifactId>zhixue-api</artifactId>
         </dependency>
+        <!-- Feign 按服务名调用订单服务建单需要客户端负载均衡 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

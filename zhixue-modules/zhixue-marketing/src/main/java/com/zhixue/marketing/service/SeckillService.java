@@ -4,6 +4,7 @@ import com.zhixue.common.core.domain.PageQuery;
 import com.zhixue.common.core.domain.PageResult;
 import com.zhixue.marketing.domain.dto.SeckillActivityDTO;
 import com.zhixue.marketing.domain.dto.SeckillRequestDTO;
+import com.zhixue.marketing.domain.dto.SeckillResultVO;
 import com.zhixue.marketing.domain.entity.SeckillActivity;
 
 import java.util.List;
@@ -27,10 +28,11 @@ public interface SeckillService {
      * 执行秒杀操作
      * 作用：处理用户的秒杀请求，检查秒杀条件，执行库存扣减，并生成秒杀订单。
      * 使用Lua脚本保证Redis操作的原子性，防止库存超卖。
-     * @param dto 秒杀请求参数（包含活动ID、用户ID等信息）
-     * @return 生成的秒杀订单号
+     * @param userId 参与人，必须取自登录态
+     * @param dto 秒杀请求参数（活动ID、令牌）
+     * @return 订单服务中的待支付订单
      */
-    String seckill(SeckillRequestDTO dto);
+    SeckillResultVO seckill(Long userId, SeckillRequestDTO dto);
 
     /**
      * 查询在线的秒杀活动列表

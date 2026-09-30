@@ -1,10 +1,14 @@
 package com.zhixue.api.order;
 
+import com.zhixue.api.order.domain.OrderInfo;
+import com.zhixue.api.order.domain.SeckillOrderRequest;
 import com.zhixue.common.core.constant.ServiceNameConstants;
 import com.zhixue.common.core.domain.R;
 import com.zhixue.common.security.config.InternalAccessConstants;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -28,4 +32,13 @@ public interface RemoteOrderService {
                             @RequestParam("productId") Long productId,
                             @RequestHeader(InternalAccessConstants.INNER_CALL_HEADER) String innerHeader,
                             @RequestHeader(InternalAccessConstants.INTERNAL_TOKEN_HEADER) String internalToken);
+
+    /**
+     * 秒杀成交后生成待支付订单（按秒杀价）。仅限服务间调用。
+     * 契约由 zhixue-order 的 SeckillOrderContractTest 守护。
+     */
+    @PostMapping("/order/inner/seckill")
+    R<OrderInfo> createSeckillOrder(@RequestBody SeckillOrderRequest request,
+                                    @RequestHeader(InternalAccessConstants.INNER_CALL_HEADER) String innerHeader,
+                                    @RequestHeader(InternalAccessConstants.INTERNAL_TOKEN_HEADER) String internalToken);
 }

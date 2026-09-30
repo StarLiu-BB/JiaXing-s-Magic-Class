@@ -1,5 +1,6 @@
 package com.zhixue.marketing.domain.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zhixue.common.mybatis.core.BaseEntity;
 import lombok.Data;
@@ -32,6 +33,10 @@ public class SeckillActivity extends BaseEntity {
     private LocalDateTime endTime;
     /** 秒杀活动状态：0未开始 1进行中 2已结束 */
     private Integer status;
+
+    /** 剩余库存（取自 Redis，仅 C 端列表返回，不落库） */
+    @TableField(exist = false)
+    private Integer remainingStock;
 }
 
 

@@ -182,6 +182,35 @@ assert_not_contains "$(curl -fsS "${GATEWAY_URL}/course/2004/chapters" -H "Autho
 sql_course "update course set allow_preview=1 where id=2004;"
 sql_order "delete from \`order\` where user_id=1003 and product_id=2004;"
 
+echo "[smoke] 秒杀 C 端：身份、权限、成交即生成可支付订单"
+sql_marketing() { compose exec -T mysql mysql -uroot "-p${ZHIXUE_DB_PASSWORD}" zhixue_marketing -e "$1" >/dev/null 2>&1; }
+redis_del() { compose exec -T redis redis-cli -a "${ZHIXUE_REDIS_PASSWORD}" DEL "$@" >/dev/null 2>&1; }
+sql_marketing "delete from seckill_order where activity_id=63001;
+  update seckill_activity set status=1, total_stock=50, start_time=date_sub(now(),interval 1 hour), end_time=date_add(now(),interval 5 hour) where id=63001;"
+redis_del seckill:stock:63001 seckill:users:63001
+pwn_activity='{"title":"PWN","productId":2001,"seckillPrice":0.01,"totalStock":999,"startTime":"2026-01-01T00:00:00","endTime":"2099-01-01T00:00:00","status":1}'
+assert_code "$(curl -fsS -X POST "${GATEWAY_URL}/marketing/seckill" -H "Authorization: Bearer ${student_token}" \
+  -H 'Content-Type: application/json' -d "$pwn_activity")" "403" "学生不能新建秒杀活动"
+no_token_body='{"activityId":63001}'
+assert_contains "$(curl -fsS -X POST "${GATEWAY_URL}/marketing/seckill/do" -H "Authorization: Bearer ${student_token}" \
+  -H 'Content-Type: application/json' -d "$no_token_body")" "令牌不能为空" "不带令牌不能秒杀"
+assert_contains "$(curl -fsS "${GATEWAY_URL}/marketing/seckill/online" -H "Authorization: Bearer ${student_token}")" '"remainingStock":50' "活动列表返回剩余库存（惰性装载）"
+sk_token="$(curl -fsS -X POST "${GATEWAY_URL}/marketing/seckill/token?activityId=63001&userId=1001" \
+  -H "Authorization: Bearer ${student_token}" | extract_json_field data)"
+sk_body="{\"activityId\":63001,\"token\":\"${sk_token}\"}"
+sk_result="$(curl -fsS -X POST "${GATEWAY_URL}/marketing/seckill/do" -H "Authorization: Bearer ${student_token}" \
+  -H 'Content-Type: application/json' -d "$sk_body")"
+assert_code "$sk_result" "200" "秒杀成交"
+sk_order_no="$(printf '%s' "$sk_result" | extract_json_field data.orderNo)"
+sk_detail="$(curl -fsS "${GATEWAY_URL}/order/detail?orderNo=${sk_order_no}" -H "Authorization: Bearer ${student_token}")"
+assert_contains "$sk_detail" '"amount":49.00' "成交后订单服务存在按秒杀价的真实订单"
+assert_contains "$sk_detail" '"userId":1003' "秒杀订单归属登录用户而非参数中的 userId"
+assert_contains "$(curl -fsS -X POST "${GATEWAY_URL}/marketing/seckill/do" -H "Authorization: Bearer ${student_token}" \
+  -H 'Content-Type: application/json' -d "$sk_body")" "令牌无效" "令牌一次性，不能重放"
+sql_order "delete from \`order\` where user_id=1003 and product_id=2004;"
+sql_marketing "delete from seckill_order where activity_id=63001;"
+redis_del seckill:stock:63001 seckill:users:63001
+
 echo "[smoke] 课程发布与下架"
 compose exec -T mysql mysql -uroot "-p${ZHIXUE_DB_PASSWORD}" -e "update zhixue_course.course set status=0, shelf_status=0, publish_time=null where id=2003;" >/dev/null
 assert_code "$(curl -fsS -X POST "${GATEWAY_URL}/course/publish/2003" -H "Authorization: Bearer ${admin_token}")" "200" "发布草稿课程"

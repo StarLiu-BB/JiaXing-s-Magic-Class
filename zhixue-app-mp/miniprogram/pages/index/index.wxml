@@ -17,6 +17,12 @@
     </swiper>
   </view>
 
+  <!-- 限时秒杀入口 -->
+  <view class="seckill-entry" bindtap="onSeckillTap">
+    <text class="seckill-entry-title">⚡ 限时秒杀</text>
+    <text class="seckill-entry-desc">精选课程限量特价 ›</text>
+  </view>
+
   <!-- 分类导航 -->
   <view class="category-section" wx:if="{{categoryList.length > 0}}">
     <view class="section-title">课程分类</view>

@@ -1,0 +1,39 @@
+<view class="container">
+  <view class="loading" wx:if="{{loading && activities.length === 0}}">
+    <text>加载中...</text>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && activities.length === 0}}">
+    <text>暂无进行中的秒杀活动</text>
+  </view>
+
+  <view class="card" wx:for="{{activities}}" wx:key="id">
+    <image class="cover" wx:if="{{item.cover}}" src="{{item.cover}}" mode="aspectFill" />
+    <view class="cover cover-placeholder" wx:else>秒杀</view>
+    <view class="info">
+      <text class="title">{{item.courseTitle}}</text>
+      <text class="activity">{{item.title}}</text>
+
+      <view class="price-row">
+        <text class="seckill-price">¥{{item.seckillPrice}}</text>
+        <text class="original-price" wx:if="{{item.originalPrice}}">¥{{item.originalPrice}}</text>
+      </view>
+
+      <view class="meta-row">
+        <text class="stock" wx:if="{{item.remainingStock !== null && item.remainingStock !== undefined}}">仅剩 {{item.remainingStock}} 件</text>
+        <text class="countdown" wx:if="{{item.phase === 'upcoming'}}">距开始 {{item.countdown}}</text>
+        <text class="countdown" wx:if="{{item.phase === 'ongoing'}}">距结束 {{item.countdown}}</text>
+        <text class="countdown" wx:if="{{item.phase === 'ended'}}">已结束</text>
+      </view>
+
+      <button
+        class="buy-btn {{item.canBuy ? '' : 'disabled'}}"
+        data-id="{{item.id}}"
+        disabled="{{!item.canBuy || submittingId !== null}}"
+        loading="{{submittingId === item.id}}"
+        bindtap="onSeckillTap">
+        {{item.owned ? '已拥有' : !item.courseAvailable ? '暂不可购' : item.soldOut ? '已售罄' : item.phase === 'upcoming' ? '即将开始' : item.phase === 'ended' ? '已结束' : '立即抢购'}}
+      </button>
+    </view>
+  </view>
+</view>

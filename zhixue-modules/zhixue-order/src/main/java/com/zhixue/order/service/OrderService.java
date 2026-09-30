@@ -5,6 +5,7 @@ import com.zhixue.common.core.domain.PageResult;
 import com.zhixue.order.domain.dto.CreateOrderDTO;
 import com.zhixue.order.domain.entity.Order;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -32,6 +33,12 @@ public interface OrderService {
      * 用户是否已支付过该商品（用于付款前的防重复扣款校验）。
      */
     boolean hasPaid(Long userId, Long productId);
+
+    /**
+     * 秒杀成交后生成待支付订单。价格由营销服务（可信内部调用）决定，不再按课程原价核价；
+     * 已购买该课程则拒绝。
+     */
+    Order createSeckillOrder(Long userId, Long productId, BigDecimal amount, Long activityId);
 
     /**
      * 支付成功回调处理。

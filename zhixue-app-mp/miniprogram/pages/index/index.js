@@ -35,6 +35,10 @@ Page({
   /**
    * 点击搜索
    */
+  onSeckillTap() {
+    wx.navigateTo({ url: '/pages/seckill/index' })
+  },
+
   onSearchTap() {
     wx.navigateTo({
       url: '/pages/search/index'

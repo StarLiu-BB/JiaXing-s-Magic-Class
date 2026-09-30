@@ -188,6 +188,39 @@ class OrderPricingTest {
     }
 
     @Test
+    void seckillOrderShouldUseGivenPriceAndNotCallCourseService() {
+        // 秒杀价由营销服务（可信内部调用）决定，不能再按课程原价核价
+        when(orderMapper.selectCount(any())).thenReturn(0L);
+        when(orderMapper.insert(any(Order.class))).thenReturn(1);
+
+        Order order = orderService.createSeckillOrder(USER, COURSE, new BigDecimal("49.00"), 63001L);
+
+        assertThat(order.getAmount()).isEqualByComparingTo("49.00");
+        assertThat(order.getUserId()).isEqualTo(USER);
+        assertThat(order.getProductType()).isZero();
+        assertThat(order.getStatus()).isZero();
+        assertThat(order.getRemark()).contains("63001");
+        verify(remoteCourseService, never()).getCourse(any());
+    }
+
+    @Test
+    void seckillOrderShouldBeRejectedWhenAlreadyPurchased() {
+        when(orderMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> orderService.createSeckillOrder(USER, COURSE, new BigDecimal("49.00"), 63001L))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("已购买");
+        verify(orderMapper, never()).insert(any(Order.class));
+    }
+
+    @Test
+    void seckillOrderShouldRejectNonPositivePrice() {
+        assertThatThrownBy(() -> orderService.createSeckillOrder(USER, COURSE, BigDecimal.ZERO, 63001L))
+                .isInstanceOf(ServiceException.class);
+        verify(orderMapper, never()).insert(any(Order.class));
+    }
+
+    @Test
     void previewShouldAlsoUseServerPrice() {
         when(remoteCourseService.getCourse(COURSE)).thenReturn(R.ok(course("199.00", 1, 1)));
 

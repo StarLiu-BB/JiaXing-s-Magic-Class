@@ -45,7 +45,10 @@ insert into sys_menu (id, parent_id, menu_name, path, component, perms, icon, me
     (300, 0, '订单管理', '/order', 'Layout', null, 'Tickets', 0, 3, 1, 0, now(), now(), 0),
     (310, 300, '订单列表', 'list', 'order/list/index', 'order:list', 'List', 1, 1, 1, 0, now(), now(), 0),
     (311, 310, '订单取消', '', '', 'order:cancel', 'Close', 2, 1, 1, 0, now(), now(), 0),
-    (312, 310, '订单退款', '', '', 'order:refund', 'RefreshLeft', 2, 2, 1, 0, now(), now(), 0);
+    (312, 310, '订单退款', '', '', 'order:refund', 'RefreshLeft', 2, 2, 1, 0, now(), now(), 0),
+    (400, 0, '营销管理', '/marketing', 'Layout', null, 'Present', 0, 4, 1, 0, now(), now(), 0),
+    (410, 400, '秒杀管理', 'seckill', 'marketing/seckill/index', 'marketing:seckill:list', 'Timer', 1, 1, 1, 0, now(), now(), 0),
+    (411, 410, '秒杀编辑', '', '', 'marketing:seckill:edit', 'Edit', 2, 1, 1, 0, now(), now(), 0);
 
 insert into sys_user_role (id, user_id, role_id, create_time, update_time, deleted) values
     (10001, 1001, 1, now(), now(), 0),
@@ -80,6 +83,9 @@ insert into sys_role_menu (id, role_id, menu_id, create_time, update_time, delet
     (20025, 1, 310, now(), now(), 0),
     (20026, 1, 311, now(), now(), 0),
     (20027, 1, 312, now(), now(), 0),
+    (20028, 1, 400, now(), now(), 0),
+    (20029, 1, 410, now(), now(), 0),
+    (20030, 1, 411, now(), now(), 0),
     (21001, 2, 200, now(), now(), 0),
     (21002, 2, 210, now(), now(), 0),
     (21003, 2, 211, now(), now(), 0),

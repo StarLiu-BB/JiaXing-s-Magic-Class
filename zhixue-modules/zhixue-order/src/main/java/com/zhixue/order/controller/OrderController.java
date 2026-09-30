@@ -1,5 +1,6 @@
 package com.zhixue.order.controller;
 
+import com.zhixue.api.order.domain.SeckillOrderRequest;
 import com.zhixue.common.core.constant.HttpStatus;
 import com.zhixue.common.core.domain.PageQuery;
 import com.zhixue.common.core.domain.PageResult;
@@ -112,6 +113,19 @@ public class OrderController {
             throw new ServiceException(HttpStatus.FORBIDDEN, "禁止外部访问内部订单接口");
         }
         return R.ok(orderService.hasPaid(userId, productId));
+    }
+
+    /**
+     * 服务间接口：秒杀成交后按秒杀价生成待支付订单。
+     * 价格由调用方决定，因此必须仅限可信内部调用，否则任何人都能以任意价格给自己下单。
+     */
+    @PostMapping("/inner/seckill")
+    public R<Order> createSeckillOrder(@Valid @RequestBody SeckillOrderRequest request) {
+        if (!SecurityUtils.isTrustedInternalCall()) {
+            throw new ServiceException(HttpStatus.FORBIDDEN, "禁止外部访问内部订单接口");
+        }
+        return R.ok(orderService.createSeckillOrder(
+                request.getUserId(), request.getProductId(), request.getAmount(), request.getActivityId()));
     }
 
     @RequirePermission(PERM_REFUND)
