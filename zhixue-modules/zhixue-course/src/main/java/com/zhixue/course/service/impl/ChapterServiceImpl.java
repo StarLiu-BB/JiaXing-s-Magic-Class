@@ -2,11 +2,13 @@ package com.zhixue.course.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zhixue.course.domain.entity.Chapter;
+import com.zhixue.course.domain.entity.Course;
 import com.zhixue.course.domain.entity.Section;
 import com.zhixue.course.mapper.ChapterMapper;
 import com.zhixue.course.mapper.SectionMapper;
 import com.zhixue.course.service.ChapterService;
 import com.zhixue.course.service.support.CourseAccessGuard;
+import com.zhixue.course.service.support.LessonAccessPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,7 @@ public class ChapterServiceImpl implements ChapterService {
     private final ChapterMapper chapterMapper;
     private final SectionMapper sectionMapper;
     private final CourseAccessGuard courseAccessGuard;
+    private final LessonAccessPolicy lessonAccessPolicy;
 
     /**
      * 查询指定课程下的所有章节，按序号升序排列。
@@ -36,7 +39,7 @@ public class ChapterServiceImpl implements ChapterService {
      */
     @Override
     public List<Chapter> listByCourse(Long courseId) {
-        courseAccessGuard.requireReadableCourse(courseId);
+        Course course = courseAccessGuard.requireReadableCourse(courseId);
         LambdaQueryWrapper<Chapter> qw = new LambdaQueryWrapper<>();
         qw.eq(Chapter::getCourseId, courseId)
           .orderByAsc(Chapter::getOrderNum);
@@ -47,6 +50,8 @@ public class ChapterServiceImpl implements ChapterService {
         List<Section> sections = sectionMapper.selectList(new LambdaQueryWrapper<Section>()
                 .eq(Section::getCourseId, courseId)
                 .orderByAsc(Section::getOrderNum));
+        // 匿名白名单接口：付费课时的视频地址只下发给有权观看的用户
+        lessonAccessPolicy.mask(course, sections);
         Map<Long, List<Section>> sectionMap = sections.stream()
                 .collect(Collectors.groupingBy(Section::getChapterId));
         chapters.forEach(chapter -> chapter.setLessons(sectionMap.getOrDefault(chapter.getId(), Collections.emptyList())));

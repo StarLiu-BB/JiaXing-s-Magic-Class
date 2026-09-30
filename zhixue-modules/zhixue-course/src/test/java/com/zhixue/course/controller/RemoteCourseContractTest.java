@@ -45,6 +45,9 @@ class RemoteCourseContractTest {
     @Mock
     private CourseSearchService courseSearchService;
 
+    @Mock
+    private com.zhixue.course.service.support.LessonAccessPolicy lessonAccessPolicy;
+
     @InjectMocks
     private CourseController courseController;
 

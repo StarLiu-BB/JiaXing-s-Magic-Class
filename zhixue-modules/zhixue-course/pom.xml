@@ -52,11 +52,14 @@
             <groupId>com.zhixue</groupId>
             <artifactId>zhixue-common</artifactId>
         </dependency>
-        <!-- 仅测试期：用 Feign 接口声明的真实路径做服务间契约测试 -->
+        <!-- 调用订单服务查询购买关系；测试中也用其 Feign 声明做服务间契约测试 -->
         <dependency>
             <groupId>com.zhixue</groupId>
             <artifactId>zhixue-api</artifactId>
-            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

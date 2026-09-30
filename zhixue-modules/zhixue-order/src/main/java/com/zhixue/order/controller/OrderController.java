@@ -101,6 +101,19 @@ public class OrderController {
         return R.ok();
     }
 
+    /**
+     * 服务间接口：用户是否已购买该课程。课程服务据此决定是否下发付费课时视频地址。
+     * 订单表是购买关系的唯一事实来源 —— 支付即可看、退款即失效，无需跨服务同步。
+     * 网关从不设置 X-Inner-Call，外部请求（包括已登录用户）一律拒绝。
+     */
+    @GetMapping("/inner/purchased")
+    public R<Boolean> purchased(@RequestParam Long userId, @RequestParam Long productId) {
+        if (!SecurityUtils.isTrustedInternalCall()) {
+            throw new ServiceException(HttpStatus.FORBIDDEN, "禁止外部访问内部订单接口");
+        }
+        return R.ok(orderService.hasPaid(userId, productId));
+    }
+
     @RequirePermission(PERM_REFUND)
     @PutMapping("/{id}/refund")
     public R<Void> refund(@PathVariable Long id,

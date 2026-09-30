@@ -116,7 +116,7 @@
     </view>
     <view class="bar-right">
       <button class="btn-study" bindtap="onStudyTap">开始学习</button>
-      <button class="btn-buy" bindtap="onBuyTap">立即购买</button>
+      <button class="btn-buy" wx:if="{{!courseInfo.canStudy}}" bindtap="onBuyTap">立即购买</button>
     </view>
   </view>
 </view>

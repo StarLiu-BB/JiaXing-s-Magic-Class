@@ -7,6 +7,7 @@ const {
   toggleFavoriteCourse
 } = require('../../../api/course')
 const { createOrder } = require('../../../api/order')
+const { checkout } = require('../../../utils/pay')
 const { upsertFavoriteCache, removeFavoriteCache } = require('../../../api/user')
 
 Page({
@@ -177,42 +178,31 @@ Page({
       return
     }
 
+    let order = null
     try {
       wx.showLoading({ title: '创建订单中...' })
-      const userInfo = app.globalData.userInfo || {}
-      const userId = userInfo.userId || userInfo.id
-      if (!userId) {
-        throw new Error('用户信息不完整，请重新登录')
-      }
-      const price = Number(this.data.courseInfo?.price || 0)
-      
-      const res = await createOrder({
-        userId,
-        productId: Number(this.data.courseId),
-        productType: 1,
-        amount: price
-      })
-
+      // 下单人取自登录态、金额由服务端核价，这里只需告诉服务端买哪门课
+      const res = await createOrder({ productId: this.data.courseId })
       wx.hideLoading()
+      order = res.data || {}
 
-      if (res.code === 200) {
-        const order = res.data || {}
-        const highlight = order.orderNo || order.id || order.orderId || ''
-        wx.showToast({
-          title: '订单创建成功',
-          icon: 'success'
-        })
-        wx.navigateTo({
-          url: `/pages/my/list/index?mode=orders&highlight=${highlight}`
-        })
+      const paid = await checkout(order)
+      if (!paid) {
+        wx.showToast({ title: '订单已保留，可在"我的订单"继续支付', icon: 'none' })
+        return
       }
+      wx.showToast({ title: '支付成功', icon: 'success' })
+      // 以服务端为准刷新：支付后课程返回 canStudy=true，全部课时视频地址才会下发
+      await this.loadCourseDetail()
     } catch (error) {
       wx.hideLoading()
-      console.error('创建订单失败:', error)
-      wx.showToast({
-        title: error.message || '创建订单失败',
-        icon: 'none'
-      })
+      console.error('购买失败:', error)
+      // 业务错误的文案来自服务端（如"您已购买该课程"），request 已弹出；此处用同一文案兜底非请求异常
+      wx.showToast({ title: (error && error.message) || '购买失败', icon: 'none' })
+      if (order && order.orderNo) {
+        // 订单已创建但支付环节失败：引导到订单列表继续支付
+        wx.navigateTo({ url: `/pages/my/list/index?mode=orders&highlight=${order.orderNo}` })
+      }
     }
   },
 

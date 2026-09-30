@@ -1,4 +1,5 @@
-const { getOrderList } = require('../../../api/order')
+const { getOrderList, cancelOrder } = require('../../../api/order')
+const { checkout } = require('../../../utils/pay')
 const { getFavoriteList, getStudyRecords, ERR_NOT_IMPLEMENTED } = require('../../../api/user')
 const { getAvailableCouponList, claimCoupon, readCouponCache } = require('../../../api/marketing')
 
@@ -98,6 +99,43 @@ Page({
     } finally {
       this.setData({ loading: false })
     }
+  },
+
+  async onPayOrder(e) {
+    const { orderNo, amount } = e.currentTarget.dataset
+    try {
+      const paid = await checkout({ orderNo, amount })
+      if (paid) {
+        wx.showToast({ title: '支付成功', icon: 'success' })
+      }
+    } catch (error) {
+      // 业务错误（如订单已过期）由 request 弹出服务端提示
+      console.error('支付失败:', error)
+    } finally {
+      // 无论成败都以服务端最新状态刷新
+      this.fetchList()
+    }
+  },
+
+  onCancelOrder(e) {
+    const { id } = e.currentTarget.dataset
+    wx.showModal({
+      title: '取消订单',
+      content: '确定取消该订单吗？',
+      success: async (res) => {
+        if (!res.confirm) {
+          return
+        }
+        try {
+          await cancelOrder(id)
+          wx.showToast({ title: '已取消', icon: 'success' })
+        } catch (error) {
+          console.error('取消订单失败:', error)
+        } finally {
+          this.fetchList()
+        }
+      }
+    })
   },
 
   onOrderFilterTap(e) {

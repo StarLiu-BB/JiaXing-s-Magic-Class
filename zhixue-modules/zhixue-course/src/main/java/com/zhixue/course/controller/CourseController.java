@@ -11,6 +11,7 @@ import com.zhixue.course.domain.doc.CourseDoc;
 import com.zhixue.course.service.ChapterService;
 import com.zhixue.course.service.CourseSearchService;
 import com.zhixue.course.service.CourseService;
+import com.zhixue.course.service.support.LessonAccessPolicy;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -33,6 +34,7 @@ public class CourseController {
     private final CourseService courseService;
     private final CourseSearchService courseSearchService;
     private final ChapterService chapterService;
+    private final LessonAccessPolicy lessonAccessPolicy;
 
     /**
      * 分页查询课程列表。
@@ -81,6 +83,7 @@ public class CourseController {
         if (course == null) {
             return R.fail("课程不存在");
         }
+        course.setCanStudy(lessonAccessPolicy.canStudyAll(course));
         return R.ok(course);
     }
 
@@ -98,6 +101,7 @@ public class CourseController {
     public R<Map<String, Object>> aggregateDetail(@PathVariable Long id) {
         Course course = courseService.getById(id);
         List<Chapter> chapters = chapterService.listByCourse(id);
+        course.setCanStudy(lessonAccessPolicy.canStudyAll(course));
         Map<String, Object> result = new java.util.LinkedHashMap<>();
         result.put("course", course);
         result.put("chapters", chapters);

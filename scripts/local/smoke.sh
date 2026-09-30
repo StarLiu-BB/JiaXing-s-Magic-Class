@@ -149,6 +149,39 @@ assert_contains "$(curl -fsS -X POST "${GATEWAY_URL}/order/create" -H "Authoriza
 assert_code "$(curl -fsS "${GATEWAY_URL}/order/list?pageNum=1&pageSize=10&userId=1003" -H "Authorization: Bearer ${admin_token}")" "200" "管理员可按用户查询订单"
 sql_order "delete from \`order\` where id=990101 or (user_id=1003 and product_id=2004);"
 
+echo "[smoke] 付费课时访问控制"
+# 课程 2001(199 元) 试看前 2 节；学生 1003 在种子中已购买
+anon_chapters="$(curl -fsS "${GATEWAY_URL}/course/2001/chapters")"
+assert_contains "$anon_chapters" "intro.mp4" "匿名可看试看课时"
+assert_not_contains "$anon_chapters" "rbac.mp4" "匿名拿不到付费课时视频地址"
+assert_contains "$(curl -fsS "${GATEWAY_URL}/course/2001/chapters" -H "Authorization: Bearer ${student_token}")" "rbac.mp4" "已购学生可看全部课时"
+assert_code "$(curl -fsS "${GATEWAY_URL}/order/inner/purchased?userId=1001&productId=2001" -H "Authorization: Bearer ${student_token}")" "403" "外部无法调用内部已购查询"
+
+echo "[smoke] 下单 -> 模拟收银台 -> 开课 -> 退款 -> 收回（需 ZHIXUE_PAY_MOCK_ENABLED=true）"
+sql_course() { compose exec -T mysql mysql -uroot "-p${ZHIXUE_DB_PASSWORD}" zhixue_course -e "$1" >/dev/null 2>&1; }
+# 课程 2004 仅 1 个课时且默认可试看，临时关闭试看以便观察"购买前锁定 / 购买后解锁"
+sql_course "update course set allow_preview=0 where id=2004;"
+assert_not_contains "$(curl -fsS "${GATEWAY_URL}/course/2004/chapters" -H "Authorization: Bearer ${student_token}")" "sandbox.mp4" "购买前课时锁定"
+order_no="$(curl -fsS -X POST "${GATEWAY_URL}/order/create" -H "Authorization: Bearer ${student_token}" \
+  -H 'Content-Type: application/json' -d '{"productId":2004}' | extract_json_field data.orderNo)"
+# 请求体必须先放进变量：macOS 自带 bash 3.2 会对 "$(...)" 内双引号中的 {a,b} 做花括号展开，
+# 把 JSON 按逗号拆成两个 -d 参数（实测踩过）
+alipay_body="{\"orderNo\":\"${order_no}\",\"payChannel\":\"alipay\"}"
+mock_body="{\"orderNo\":\"${order_no}\",\"payChannel\":\"mock\"}"
+confirm_body="{\"orderNo\":\"${order_no}\"}"
+assert_contains "$(curl -fsS -X POST "${GATEWAY_URL}/pay" -H "Authorization: Bearer ${student_token}" \
+  -H 'Content-Type: application/json' -d "$alipay_body")" "暂未接入" "未接入的真实渠道明确拒绝"
+assert_code "$(curl -fsS -X POST "${GATEWAY_URL}/pay" -H "Authorization: Bearer ${student_token}" \
+  -H 'Content-Type: application/json' -d "$mock_body")" "200" "模拟收银台发起支付"
+assert_code "$(curl -fsS -X POST "${GATEWAY_URL}/pay/mock/confirm" -H "Authorization: Bearer ${student_token}" \
+  -H 'Content-Type: application/json' -d "$confirm_body")" "200" "模拟收银台确认付款"
+assert_contains "$(curl -fsS "${GATEWAY_URL}/course/2004/chapters" -H "Authorization: Bearer ${student_token}")" "sandbox.mp4" "支付后课时解锁"
+order_id="$(curl -fsS "${GATEWAY_URL}/order/detail?orderNo=${order_no}" -H "Authorization: Bearer ${student_token}" | extract_json_field data.id)"
+assert_code "$(curl -fsS -X PUT "${GATEWAY_URL}/order/${order_id}/refund" -H "Authorization: Bearer ${admin_token}")" "200" "运营退款"
+assert_not_contains "$(curl -fsS "${GATEWAY_URL}/course/2004/chapters" -H "Authorization: Bearer ${student_token}")" "sandbox.mp4" "退款后课时重新锁定"
+sql_course "update course set allow_preview=1 where id=2004;"
+sql_order "delete from \`order\` where user_id=1003 and product_id=2004;"
+
 echo "[smoke] 课程发布与下架"
 compose exec -T mysql mysql -uroot "-p${ZHIXUE_DB_PASSWORD}" -e "update zhixue_course.course set status=0, shelf_status=0, publish_time=null where id=2003;" >/dev/null
 assert_code "$(curl -fsS -X POST "${GATEWAY_URL}/course/publish/2003" -H "Authorization: Bearer ${admin_token}")" "200" "发布草稿课程"

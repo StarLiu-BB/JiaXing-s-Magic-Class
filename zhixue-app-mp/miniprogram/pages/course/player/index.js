@@ -376,6 +376,10 @@ Page({
     if (!lesson) {
       return false
     }
+    // 以服务端判定为准：locked 的课时不会下发视频地址（例如购买关系暂时查询失败）
+    if (lesson.locked === true) {
+      return false
+    }
     if (this.data.isPurchased) {
       return true
     }

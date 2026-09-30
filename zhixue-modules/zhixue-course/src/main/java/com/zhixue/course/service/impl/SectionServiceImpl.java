@@ -7,6 +7,7 @@ import com.zhixue.course.domain.entity.Section;
 import com.zhixue.course.mapper.SectionMapper;
 import com.zhixue.course.service.SectionService;
 import com.zhixue.course.service.support.CourseAccessGuard;
+import com.zhixue.course.service.support.LessonAccessPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class SectionServiceImpl implements SectionService {
 
     private final SectionMapper sectionMapper;
     private final CourseAccessGuard courseAccessGuard;
+    private final LessonAccessPolicy lessonAccessPolicy;
 
     /**
      * 查询指定章节下的所有小节，按序号升序排列。
@@ -32,11 +34,13 @@ public class SectionServiceImpl implements SectionService {
      */
     @Override
     public List<Section> listByChapter(Long chapterId) {
-        courseAccessGuard.requireReadableChapter(chapterId);
+        Chapter chapter = courseAccessGuard.requireReadableChapter(chapterId);
         LambdaQueryWrapper<Section> qw = new LambdaQueryWrapper<>();
         qw.eq(Section::getChapterId, chapterId)
           .orderByAsc(Section::getOrderNum);
-        return sectionMapper.selectList(qw);
+        List<Section> sections = sectionMapper.selectList(qw);
+        lessonAccessPolicy.mask(courseAccessGuard.requireReadableCourse(chapter.getCourseId()), sections);
+        return sections;
     }
 
     /**
@@ -46,7 +50,9 @@ public class SectionServiceImpl implements SectionService {
      */
     @Override
     public Section getById(Long id) {
-        return courseAccessGuard.requireReadableSection(id);
+        Section section = courseAccessGuard.requireReadableSection(id);
+        lessonAccessPolicy.mask(courseAccessGuard.requireReadableCourse(section.getCourseId()), List.of(section));
+        return section;
     }
 
     /**

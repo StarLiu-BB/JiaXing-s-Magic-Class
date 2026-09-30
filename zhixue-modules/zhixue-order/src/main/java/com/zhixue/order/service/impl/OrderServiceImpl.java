@@ -189,9 +189,17 @@ public class OrderServiceImpl implements OrderService {
         if (order.getStatus() != 1) {
             throw new ServiceException("仅已支付订单可退款");
         }
-        order.setStatus(3);
-        order.setRemark(StringUtils.hasText(reason) ? reason : "用户发起退款");
-        orderMapper.updateById(order);
+        // 观看权限以订单状态为准，退款即收回。与支付一样用条件更新保证原子：
+        // 原 updateById 无条件覆盖，并发下可能把状态已变更的订单改成已退款
+        LambdaUpdateWrapper<Order> uw = new LambdaUpdateWrapper<>();
+        uw.eq(Order::getId, id)
+                .eq(Order::getStatus, STATUS_PAID)
+                .set(Order::getStatus, 3)
+                .set(Order::getRemark, StringUtils.hasText(reason) ? reason : "运营审核退款");
+        if (orderMapper.update(null, uw) == 0) {
+            throw new ServiceException("仅已支付订单可退款");
+        }
+        log.info("订单已退款，课程观看权限随之失效 orderNo={}", order.getOrderNo());
     }
 
     @Override

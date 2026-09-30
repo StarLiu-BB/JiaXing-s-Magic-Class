@@ -110,6 +110,33 @@ class OrderPayIdempotencyTest {
     }
 
     @Test
+    void refundShouldUseConditionalUpdateFromPaidOnly() {
+        // 退款即收回观看权限（权限以订单状态为准），必须与支付一样原子：
+        // 原实现 updateById 无条件覆盖，并发下可把刚支付/已取消的订单改成已退款
+        Order paid = pendingOrder();
+        paid.setStatus(1);
+        when(orderMapper.selectById(1L)).thenReturn(paid);
+        when(orderMapper.update(isNull(), any())).thenReturn(1);
+
+        orderService.refundOrder(1L, "运营审核退款");
+
+        verify(orderMapper, times(1)).update(isNull(), any());
+        verify(orderMapper, never()).updateById(any(Order.class));
+    }
+
+    @Test
+    void refundShouldRejectWhenStatusChangedConcurrently() {
+        Order paid = pendingOrder();
+        paid.setStatus(1);
+        when(orderMapper.selectById(1L)).thenReturn(paid);
+        when(orderMapper.update(isNull(), any())).thenReturn(0);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> orderService.refundOrder(1L, "x"))
+                .isInstanceOf(com.zhixue.common.core.exception.ServiceException.class)
+                .hasMessageContaining("仅已支付订单可退款");
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void conditionalUpdateShouldCarryStatusPredicate() {
         when(orderMapper.update(isNull(), any())).thenReturn(1);

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhixue.common.core.domain.R;
 import com.zhixue.common.security.annotation.RequireLogin;
 import com.zhixue.common.security.utils.SecurityUtils;
+import com.zhixue.order.domain.dto.MockPayConfirmDTO;
 import com.zhixue.order.domain.dto.PayRequestDTO;
 import com.zhixue.order.domain.dto.PayResponse;
 import com.zhixue.order.domain.dto.PayResultMessage;
@@ -12,6 +13,7 @@ import com.zhixue.order.domain.entity.Order;
 import com.zhixue.order.security.PayCallbackVerifier;
 import com.zhixue.order.service.OrderService;
 import com.zhixue.order.service.PayService;
+import com.zhixue.order.strategy.MockPayStrategy;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.UUID;
 
 /**
  * 支付管理接口。
@@ -51,6 +57,34 @@ public class PayController {
     @PostMapping
     public R<PayResponse> pay(@Valid @RequestBody PayRequestDTO dto) {
         return R.ok(payService.pay(SecurityUtils.requireUserId(), dto));
+    }
+
+    /**
+     * 模拟收银台确认付款：代替尚未接入的真实渠道"通知我们付款成功"。
+     *
+     * <p>先以 mock 渠道完整执行一次发起支付的前置校验（本人订单、待支付、未过期、未重复购买、
+     * 模拟收银台已启用），再以渠道身份签名，交给与真实回调完全相同的验签入账路径。</p>
+     */
+    @RequireLogin
+    @PostMapping("/mock/confirm")
+    public R<Void> confirmMockPay(@Valid @RequestBody MockPayConfirmDTO dto) {
+        Long userId = SecurityUtils.requireUserId();
+        PayRequestDTO request = new PayRequestDTO();
+        request.setOrderNo(dto.getOrderNo());
+        request.setPayChannel(MockPayStrategy.CHANNEL);
+        payService.pay(userId, request);
+
+        Order order = orderService.findByOrderNo(dto.getOrderNo());
+        PayResultMessage notify = new PayResultMessage();
+        notify.setOrderNo(order.getOrderNo());
+        notify.setPayChannel(MockPayStrategy.CHANNEL);
+        notify.setPayNo("MOCK" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT));
+        notify.setPayStatus(1);
+        notify.setAmount(order.getAmount());
+        notify.setPayTime(LocalDateTime.now());
+        notify.setSign(payCallbackVerifier.sign(notify));
+        log.info("模拟收银台确认付款 orderNo={}, userId={}, payNo={}", order.getOrderNo(), userId, notify.getPayNo());
+        return callback(notify);
     }
 
     @PostMapping("/callback")

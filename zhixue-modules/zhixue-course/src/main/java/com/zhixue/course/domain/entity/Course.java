@@ -1,5 +1,6 @@
 package com.zhixue.course.domain.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zhixue.common.mybatis.core.BaseEntity;
 import lombok.Data;
@@ -34,6 +35,13 @@ public class Course extends BaseEntity {
     private Integer status; // 0草稿 1已发布
     private Integer shelfStatus; // 0下架 1上架
     private LocalDateTime publishTime;
+
+    /**
+     * 当前用户能否观看全部课时（免费 / 已购买 / 本课教师 / 管理员），不落库。
+     * 小程序据此决定展示"开始学习"还是"立即购买"。
+     */
+    @TableField(exist = false)
+    private Boolean canStudy;
 
     public String getName() {
         return title;

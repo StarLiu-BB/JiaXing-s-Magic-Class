@@ -60,3 +60,5 @@ zhixue:
       mode: ${ZHIXUE_ORDER_MQ_MODE:sandbox}
     order-pay:
       mode: ${ZHIXUE_ORDER_PAY_MODE:sandbox}
+      # 模拟收银台等于"免费付款按钮"，默认关闭；仅本地联调显式开启
+      mock-enabled: ${ZHIXUE_PAY_MOCK_ENABLED:false}

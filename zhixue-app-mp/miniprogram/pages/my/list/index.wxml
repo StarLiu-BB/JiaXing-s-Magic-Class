@@ -34,6 +34,13 @@
           <text class="title">状态</text>
           <text class="value">{{item.status === 0 ? '待支付' : item.status === 1 ? '已支付' : item.status === 2 ? '已取消' : item.status === 3 ? '已退款' : '未知'}}</text>
         </view>
+        <view class="order-actions" wx:if="{{item.status === 0}}">
+          <button class="action-btn ghost" size="mini" data-id="{{item.id}}" bindtap="onCancelOrder">取消订单</button>
+          <button class="action-btn primary" size="mini" data-order-no="{{item.orderNo}}" data-amount="{{item.amount}}" bindtap="onPayOrder">去支付</button>
+        </view>
+        <view class="order-actions" wx:if="{{item.status === 1}}">
+          <button class="action-btn primary" size="mini" data-id="{{item.productId}}" bindtap="onCourseTap">去学习</button>
+        </view>
       </block>
 
       <block wx:if="{{mode === 'favorites'}}">

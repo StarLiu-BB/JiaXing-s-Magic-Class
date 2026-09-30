@@ -1,9 +1,11 @@
 package com.zhixue.course;
 
+import com.zhixue.api.order.RemoteOrderService;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
  * 课程中心的启动类。
@@ -12,6 +14,8 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 @SpringBootApplication(scanBasePackages = {"com.zhixue.course", "com.zhixue.common"})
 @EnableDiscoveryClient
 @MapperScan("com.zhixue.course.mapper")
+// 仅注册查询购买关系所需的订单客户端；失败由 LessonAccessPolicy 按未购买处理（fail-closed）
+@EnableFeignClients(clients = RemoteOrderService.class)
 public class CourseApplication {
 
     /**

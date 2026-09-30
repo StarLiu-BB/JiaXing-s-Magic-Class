@@ -1,7 +1,7 @@
 /**
  * 订单相关API
  */
-const { post, get } = require('./request')
+const { post, get, put } = require('./request')
 const ORDER_CACHE_KEY = 'ZX_ORDER_CACHE'
 
 function readOrderCache() {
@@ -30,8 +30,9 @@ function saveOrderToCache(order) {
 }
 
 /**
- * 创建订单
- * @param {object} data 订单数据
+ * 创建订单。只需传 productId：下单人取自登录态、金额由服务端核价，
+ * 客户端传入的 userId / amount 会被服务端忽略。已有未过期的待支付订单时返回该订单。
+ * @param {{productId: number}} data 订单数据
  */
 async function createOrder(data) {
   const res = await post('/order/create', data)
@@ -60,10 +61,38 @@ async function getOrderDetail(orderId) {
   return get('/order/detail', { orderNo: orderId })
 }
 
+/**
+ * 发起支付，返回收银台所需信息（渠道、应付金额）
+ * @param {string} orderNo 订单号
+ * @param {string} payChannel 支付渠道，当前仅支持 mock（模拟收银台）
+ */
+function payOrder(orderNo, payChannel) {
+  return post('/pay', { orderNo, payChannel })
+}
+
+/**
+ * 模拟收银台确认付款（本地联调，不产生真实扣款）
+ * @param {string} orderNo 订单号
+ */
+function confirmMockPay(orderNo) {
+  return post('/pay/mock/confirm', { orderNo })
+}
+
+/**
+ * 取消待支付订单
+ * @param {string|number} id 订单ID
+ */
+function cancelOrder(id) {
+  return put(`/order/${id}/cancel`, { reason: '用户取消订单' })
+}
+
 module.exports = {
   createOrder,
   getOrderList,
   getOrderDetail,
+  payOrder,
+  confirmMockPay,
+  cancelOrder,
   readOrderCache,
   saveOrderToCache
 }
