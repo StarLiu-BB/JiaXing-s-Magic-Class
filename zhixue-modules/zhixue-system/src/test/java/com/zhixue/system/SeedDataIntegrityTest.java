@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -85,5 +87,52 @@ class SeedDataIntegrityTest {
                     .as("接口所需权限 %s 未在 sys_menu 种子中定义，所有角色调用都会 403", perm)
                     .contains("'" + perm + "'");
         }
+    }
+
+    /**
+     * 推广到所有业务模块：权限码只在 system 种子中定义，其它服务的接口若要求了
+     * 种子里不存在的权限，任何角色都拿不到它，接口永远 403 且极难排查。
+     */
+    @Test
+    void everyPermissionRequiredByAnyModuleControllerMustBeSeeded() throws Exception {
+        String sql = seed();
+        Pattern annotation = Pattern.compile("@RequirePermission\\(\\s*\\{?([^)}]*)\\}?");
+        Pattern literal = Pattern.compile("\"([^\"]+)\"");
+
+        List<String> missing = new ArrayList<>();
+        List<Path> controllers;
+        try (Stream<Path> files = Files.walk(Paths.get(".."))) {
+            controllers = files
+                    .filter(p -> p.toString().replace('\\', '/').matches(".*/src/main/java/.*/controller/[^/]+\\.java"))
+                    .toList();
+        }
+        assertThat(controllers).as("应能扫描到各模块的控制器").isNotEmpty();
+
+        // 权限码也可能以常量声明（如 PERM_REFUND = "order:refund"）后在注解或代码中引用
+        Pattern constant = Pattern.compile("PERM_[A-Z_]+\\s*=\\s*\"([^\"]+)\"");
+
+        for (Path controller : controllers) {
+            String source = Files.readString(controller, StandardCharsets.UTF_8);
+            List<String> perms = new ArrayList<>();
+            Matcher m = annotation.matcher(source);
+            while (m.find()) {
+                Matcher perm = literal.matcher(m.group(1));
+                while (perm.find()) {
+                    perms.add(perm.group(1));
+                }
+            }
+            Matcher c = constant.matcher(source);
+            while (c.find()) {
+                perms.add(c.group(1));
+            }
+            for (String perm : perms) {
+                if (!sql.contains("'" + perm + "'")) {
+                    missing.add(controller.getFileName() + " -> " + perm);
+                }
+            }
+        }
+        assertThat(missing)
+                .as("以下接口所需权限未在 sys_menu 种子中定义，所有角色调用都会 403")
+                .isEmpty();
     }
 }

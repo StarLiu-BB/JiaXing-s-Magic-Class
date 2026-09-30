@@ -1,43 +1,21 @@
 package com.zhixue.order.domain.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.Data;
-
-import java.math.BigDecimal;
 
 /**
  * 创建订单的数据传输对象。
- * 用于接收前端传来的创建订单请求参数。
+ *
+ * <p>只接收"买什么"。下单人取自登录态，金额由服务端向课程服务核价，
+ * 商品类型固定为课程 —— 这三项都不得由客户端决定。
+ * 客户端即使仍携带 userId / amount / productType，也会被忽略。</p>
  */
 @Data
 public class CreateOrderDTO {
 
     /**
-     * 用户编号，表示是谁下的订单
-     */
-    @NotNull(message = "用户编号不能为空")
-    private Long userId;
-
-    /**
-     * 商品编号，表示买的是什么
+     * 商品编号（课程 ID）
      */
     @NotNull(message = "商品编号不能为空")
     private Long productId;
-
-    /**
-     * 商品类型，比如课程、会员等
-     */
-    @NotNull(message = "商品类型不能为空")
-    private Integer productType;
-
-    /**
-     * 订单金额，必须大于0
-     */
-    @NotNull(message = "金额不能为空")
-    @Positive(message = "金额必须大于0")
-    private BigDecimal amount;
 }
-
-

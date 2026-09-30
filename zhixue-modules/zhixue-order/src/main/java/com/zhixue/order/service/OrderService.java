@@ -15,17 +15,23 @@ import java.util.Map;
 public interface OrderService {
 
     /**
-     * 创建订单。
-     * 这个方法是分布式事务的入口，会同时创建订单记录和发送延时消息用于超时取消。
+     * 创建订单：金额由服务端向课程服务核价；已购买则拒绝；
+     * 已有未过期的待支付订单则直接返回该订单，避免重复下单。
+     * @param userId 下单人，必须取自登录态
      * @param dto 创建订单需要的参数
-     * @return 创建成功的订单信息
+     * @return 创建成功（或复用）的订单信息
      */
-    Order createOrder(CreateOrderDTO dto);
+    Order createOrder(Long userId, CreateOrderDTO dto);
 
     /**
      * 预览订单（不落库），用于前端确认价格与可购买性。
      */
-    Order previewOrder(CreateOrderDTO dto);
+    Order previewOrder(Long userId, CreateOrderDTO dto);
+
+    /**
+     * 用户是否已支付过该商品（用于付款前的防重复扣款校验）。
+     */
+    boolean hasPaid(Long userId, Long productId);
 
     /**
      * 支付成功回调处理。

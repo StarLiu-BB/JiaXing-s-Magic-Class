@@ -122,6 +122,32 @@ student_result="$(login_and_fetch_info student student123)"
 student_info="$(printf '%s' "$student_result" | sed -n '2p')"
 assert_contains "$student_info" "STUDENT" "学生角色返回正确"
 assert_not_contains "$student_info" "system:user:list" "学生权限不包含后台系统管理"
+student_token="$(printf '%s' "$student_result" | sed -n '1p')"
+
+echo "[smoke] 订单身份与核价（经网关）"
+# 曾出现的回归：订单服务未配内部令牌，经网关转发的已登录请求被一律判为"非法内部请求"(401)。
+# 单元测试覆盖不到这类配置问题，必须经网关用真实令牌验证。
+sql_order() { compose exec -T mysql mysql -uroot "-p${ZHIXUE_DB_PASSWORD}" zhixue_order -e "$1" >/dev/null 2>&1; }
+sql_order "delete from \`order\` where id=990101 or (user_id=1003 and product_id=2004);
+  insert into \`order\` (id,order_no,user_id,product_id,product_type,amount,status,expire_time,create_time,update_time,deleted)
+  values (990101,'ORD-SMOKE-ADMIN',1001,2004,0,99.00,1,date_add(now(),interval 1 day),now(),now(),0);"
+
+student_orders="$(curl -fsS "${GATEWAY_URL}/order/list?pageNum=1&pageSize=50&userId=1001" -H "Authorization: Bearer ${student_token}")"
+assert_code "$student_orders" "200" "学生可经网关查询自己的订单"
+assert_not_contains "$student_orders" "ORD-SMOKE-ADMIN" "学生传 userId 也查不到他人订单"
+assert_code "$(curl -fsS "${GATEWAY_URL}/order/detail?orderNo=ORD-SMOKE-ADMIN" -H "Authorization: Bearer ${student_token}")" "404" "学生读取他人订单返回不存在"
+assert_code "$(curl -fsS -X PUT "${GATEWAY_URL}/order/990101/refund" -H "Authorization: Bearer ${student_token}")" "403" "学生无权退款"
+
+created="$(curl -fsS -X POST "${GATEWAY_URL}/order/create" -H "Authorization: Bearer ${student_token}" \
+  -H 'Content-Type: application/json' -d '{"productId":2004,"amount":0.01,"userId":1001}')"
+assert_code "$created" "200" "学生下单成功"
+assert_contains "$created" '"amount":99.00' "订单金额取自课程服务而非客户端"
+assert_contains "$created" '"userId":1003' "下单人取自登录态而非请求体"
+assert_contains "$(curl -fsS -X POST "${GATEWAY_URL}/order/create" -H "Authorization: Bearer ${student_token}" \
+  -H 'Content-Type: application/json' -d '{"productId":2001}')" "已购买" "已购课程不能重复下单"
+
+assert_code "$(curl -fsS "${GATEWAY_URL}/order/list?pageNum=1&pageSize=10&userId=1003" -H "Authorization: Bearer ${admin_token}")" "200" "管理员可按用户查询订单"
+sql_order "delete from \`order\` where id=990101 or (user_id=1003 and product_id=2004);"
 
 echo "[smoke] 课程发布与下架"
 compose exec -T mysql mysql -uroot "-p${ZHIXUE_DB_PASSWORD}" -e "update zhixue_course.course set status=0, shelf_status=0, publish_time=null where id=2003;" >/dev/null

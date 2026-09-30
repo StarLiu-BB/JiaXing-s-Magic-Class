@@ -3,9 +3,12 @@ package com.zhixue.order.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zhixue.api.course.RemoteCourseService;
+import com.zhixue.api.course.domain.CourseInfo;
 import com.zhixue.common.core.constant.HttpStatus;
 import com.zhixue.common.core.domain.PageQuery;
 import com.zhixue.common.core.domain.PageResult;
+import com.zhixue.common.core.domain.R;
 import com.zhixue.common.core.exception.ServiceException;
 import com.zhixue.order.domain.dto.CreateOrderDTO;
 import com.zhixue.order.domain.entity.Order;
@@ -34,8 +37,16 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
+    /** schema 约定：0=课程 1=其他。当前只售卖课程。 */
+    private static final int PRODUCT_TYPE_COURSE = 0;
+    private static final int STATUS_PENDING = 0;
+    private static final int STATUS_PAID = 1;
+    private static final int COURSE_PUBLISHED = 1;
+    private static final int COURSE_ON_SHELF = 1;
+
     private final OrderMapper orderMapper;
     private final RabbitTemplate rabbitTemplate;
+    private final RemoteCourseService remoteCourseService;
 
     @Value("${order.timeout-exchange:exchange_order_delay}")
     private String timeoutExchange;
@@ -55,8 +66,23 @@ public class OrderServiceImpl implements OrderService {
     // 未来若引入跨服务扣减（库存/积分），需同时补齐 undo_log 才能改回全局事务。
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Order createOrder(CreateOrderDTO dto) {
-        Order order = buildDraftOrder(dto);
+    public Order createOrder(Long userId, CreateOrderDTO dto) {
+        BigDecimal price = resolveCoursePrice(dto.getProductId());
+
+        List<Order> activeOrders = findActiveOrders(userId, dto.getProductId());
+        if (activeOrders.stream().anyMatch(o -> Integer.valueOf(STATUS_PAID).equals(o.getStatus()))) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "您已购买该课程，无需重复下单");
+        }
+        Order reusable = activeOrders.stream()
+                .filter(o -> Integer.valueOf(STATUS_PENDING).equals(o.getStatus()) && !isExpired(o))
+                .findFirst()
+                .orElse(null);
+        if (reusable != null) {
+            log.info("复用未过期的待支付订单 orderNo={}, userId={}", reusable.getOrderNo(), userId);
+            return reusable;
+        }
+
+        Order order = buildDraftOrder(userId, dto.getProductId(), price);
         int insert = orderMapper.insert(order);
         if (insert <= 0) {
             throw new ServiceException("创建订单失败");
@@ -78,8 +104,17 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public Order previewOrder(CreateOrderDTO dto) {
-        return buildDraftOrder(dto);
+    public Order previewOrder(Long userId, CreateOrderDTO dto) {
+        return buildDraftOrder(userId, dto.getProductId(), resolveCoursePrice(dto.getProductId()));
+    }
+
+    @Override
+    public boolean hasPaid(Long userId, Long productId) {
+        LambdaQueryWrapper<Order> qw = new LambdaQueryWrapper<>();
+        qw.eq(Order::getUserId, userId)
+                .eq(Order::getProductId, productId)
+                .eq(Order::getStatus, STATUS_PAID);
+        return orderMapper.selectCount(qw) > 0;
     }
 
     @Override
@@ -186,19 +221,55 @@ public class OrderServiceImpl implements OrderService {
         return "ORD" + System.currentTimeMillis() + RandomUtils.nextInt(1000, 9999);
     }
 
-    private Order buildDraftOrder(CreateOrderDTO dto) {
-        if (dto.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ServiceException("金额必须大于0");
-        }
+    private Order buildDraftOrder(Long userId, Long productId, BigDecimal price) {
         Order order = new Order();
         order.setOrderNo(generateOrderNo());
-        order.setUserId(dto.getUserId());
-        order.setProductId(dto.getProductId());
-        order.setProductType(dto.getProductType());
-        order.setAmount(dto.getAmount());
-        order.setStatus(0);
+        order.setUserId(userId);
+        order.setProductId(productId);
+        order.setProductType(PRODUCT_TYPE_COURSE);
+        order.setAmount(price);
+        order.setStatus(STATUS_PENDING);
         order.setExpireTime(LocalDateTime.now().plusMinutes(30));
         return order;
+    }
+
+    /**
+     * 向课程服务核价。取不到真实价格时一律拒绝下单（fail-closed），
+     * 绝不退回信任客户端传入的金额。
+     */
+    private BigDecimal resolveCoursePrice(Long courseId) {
+        R<CourseInfo> result;
+        try {
+            result = remoteCourseService.getCourse(courseId);
+        } catch (Exception e) {
+            log.error("核价时调用课程服务失败 courseId={}", courseId, e);
+            throw new ServiceException(HttpStatus.SERVICE_UNAVAILABLE, "课程服务繁忙，暂不可购买，请稍后重试");
+        }
+        CourseInfo course = result != null && result.isSuccess() ? result.getData() : null;
+        if (course == null) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "课程不存在或暂不可购买");
+        }
+        if (!Integer.valueOf(COURSE_PUBLISHED).equals(course.getStatus())
+                || !Integer.valueOf(COURSE_ON_SHELF).equals(course.getShelfStatus())) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "课程未上架，暂不可购买");
+        }
+        if (course.getPrice() == null || course.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "免费课程无需购买，可直接学习");
+        }
+        return course.getPrice();
+    }
+
+    /** 该用户对该商品的待支付与已支付订单。 */
+    private List<Order> findActiveOrders(Long userId, Long productId) {
+        LambdaQueryWrapper<Order> qw = new LambdaQueryWrapper<>();
+        qw.eq(Order::getUserId, userId)
+                .eq(Order::getProductId, productId)
+                .in(Order::getStatus, STATUS_PENDING, STATUS_PAID);
+        return orderMapper.selectList(qw);
+    }
+
+    private boolean isExpired(Order order) {
+        return order.getExpireTime() == null || !order.getExpireTime().isAfter(LocalDateTime.now());
     }
 
     private void cancelPendingOrder(Order order, String reason, boolean strict) {

@@ -51,6 +51,10 @@ logging:
     com.zhixue: INFO
 
 zhixue:
+  # 必须配置：扫描 com.zhixue.common 后 InternalAccessFilter 生效，
+  # 未配置时网关转发的每个已登录请求都会被判为"非法内部请求"(401)
+  security:
+    internal-token: ${ZHIXUE_INTERNAL_TOKEN}
   integration:
     order-mq:
       mode: ${ZHIXUE_ORDER_MQ_MODE:sandbox}

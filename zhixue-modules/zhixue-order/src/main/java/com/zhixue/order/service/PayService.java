@@ -12,10 +12,11 @@ public interface PayService {
     /**
      * 发起支付请求。
      * 根据订单信息和支付渠道，调用对应的支付平台（支付宝或微信）生成支付链接或二维码。
+     * @param userId 付款人，必须取自登录态
      * @param dto 支付请求参数
      * @return 支付响应结果，包含支付链接或二维码
      */
-    PayResponse pay(PayRequestDTO dto);
+    PayResponse pay(Long userId, PayRequestDTO dto);
 }
 
 

@@ -1,5 +1,7 @@
 package com.zhixue.common.security.utils;
 
+import com.zhixue.common.core.constant.HttpStatus;
+import com.zhixue.common.core.exception.ServiceException;
 import com.zhixue.common.core.utils.ServletUtils;
 import com.zhixue.common.core.utils.StringUtils;
 import com.zhixue.common.security.config.InternalAccessConstants;
@@ -47,6 +49,18 @@ public final class SecurityUtils {
         } catch (NumberFormatException ignored) {
             return null;
         }
+    }
+
+    /**
+     * 获取当前登录用户 ID，未登录直接拒绝。
+     * 业务接口应以此作为身份来源，禁止采信请求体/参数中的 userId。
+     */
+    public static Long requireUserId() {
+        Long userId = getUserId();
+        if (userId == null) {
+            throw new ServiceException(HttpStatus.UNAUTHORIZED, "未登录或令牌已失效");
+        }
+        return userId;
     }
 
     public static boolean isTrustedInternalCall() {

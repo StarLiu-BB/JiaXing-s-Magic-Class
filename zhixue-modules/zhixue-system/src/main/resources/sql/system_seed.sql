@@ -41,7 +41,11 @@ insert into sys_menu (id, parent_id, menu_name, path, component, perms, icon, me
     (220, 200, '课程发布', 'publish', 'course/publish/index', 'course:publish', 'Plus', 1, 2, 1, 0, now(), now(), 0),
     (230, 200, '章节管理', 'chapter', 'course/chapter/index', 'course:chapter:list', 'Folder', 1, 3, 1, 0, now(), now(), 0),
     (240, 200, '分类管理', 'category', 'course/category/index', 'course:category:list', 'Grid', 1, 4, 1, 0, now(), now(), 0),
-    (241, 240, '分类编辑', '', '', 'course:category:edit', 'Edit', 2, 1, 1, 0, now(), now(), 0);
+    (241, 240, '分类编辑', '', '', 'course:category:edit', 'Edit', 2, 1, 1, 0, now(), now(), 0),
+    (300, 0, '订单管理', '/order', 'Layout', null, 'Tickets', 0, 3, 1, 0, now(), now(), 0),
+    (310, 300, '订单列表', 'list', 'order/list/index', 'order:list', 'List', 1, 1, 1, 0, now(), now(), 0),
+    (311, 310, '订单取消', '', '', 'order:cancel', 'Close', 2, 1, 1, 0, now(), now(), 0),
+    (312, 310, '订单退款', '', '', 'order:refund', 'RefreshLeft', 2, 2, 1, 0, now(), now(), 0);
 
 insert into sys_user_role (id, user_id, role_id, create_time, update_time, deleted) values
     (10001, 1001, 1, now(), now(), 0),
@@ -72,6 +76,10 @@ insert into sys_role_menu (id, role_id, menu_id, create_time, update_time, delet
     (20021, 1, 240, now(), now(), 0),
     (20022, 1, 241, now(), now(), 0),
     (20023, 1, 141, now(), now(), 0),
+    (20024, 1, 300, now(), now(), 0),
+    (20025, 1, 310, now(), now(), 0),
+    (20026, 1, 311, now(), now(), 0),
+    (20027, 1, 312, now(), now(), 0),
     (21001, 2, 200, now(), now(), 0),
     (21002, 2, 210, now(), now(), 0),
     (21003, 2, 211, now(), now(), 0),

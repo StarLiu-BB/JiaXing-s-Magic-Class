@@ -3,6 +3,8 @@ package com.zhixue.order.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhixue.common.core.domain.R;
+import com.zhixue.common.security.annotation.RequireLogin;
+import com.zhixue.common.security.utils.SecurityUtils;
 import com.zhixue.order.domain.dto.PayRequestDTO;
 import com.zhixue.order.domain.dto.PayResponse;
 import com.zhixue.order.domain.dto.PayResultMessage;
@@ -45,9 +47,10 @@ public class PayController {
     @Value("${zhixue.integration.order-mq.mode:sandbox}")
     private String mqMode;
 
+    @RequireLogin
     @PostMapping
     public R<PayResponse> pay(@Valid @RequestBody PayRequestDTO dto) {
-        return R.ok(payService.pay(dto));
+        return R.ok(payService.pay(SecurityUtils.requireUserId(), dto));
     }
 
     @PostMapping("/callback")

@@ -1,8 +1,13 @@
 package com.zhixue.order.controller;
 
+import com.zhixue.common.core.constant.HttpStatus;
 import com.zhixue.common.core.domain.PageQuery;
 import com.zhixue.common.core.domain.PageResult;
 import com.zhixue.common.core.domain.R;
+import com.zhixue.common.core.exception.ServiceException;
+import com.zhixue.common.security.annotation.RequireLogin;
+import com.zhixue.common.security.annotation.RequirePermission;
+import com.zhixue.common.security.utils.SecurityUtils;
 import com.zhixue.order.domain.dto.CreateOrderDTO;
 import com.zhixue.order.domain.dto.OrderCancelDTO;
 import com.zhixue.order.domain.dto.OrderRefundDTO;
@@ -34,48 +39,69 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class OrderController {
 
+    /** 运营查看全站订单 */
+    static final String PERM_LIST = "order:list";
+    /** 运营取消任意待支付订单 */
+    static final String PERM_CANCEL = "order:cancel";
+    /** 退款只允许运营审核后执行，学生不能自助退款 */
+    static final String PERM_REFUND = "order:refund";
+
     private final OrderService orderService;
 
+    @RequireLogin
     @PostMapping("/preview")
     public R<Order> preview(@Valid @RequestBody CreateOrderDTO dto) {
-        return R.ok(orderService.previewOrder(dto));
+        return R.ok(orderService.previewOrder(SecurityUtils.requireUserId(), dto));
     }
 
+    @RequireLogin
     @PostMapping
     public R<Order> createAlias(@Valid @RequestBody CreateOrderDTO dto) {
-        return R.ok(orderService.createOrder(dto));
+        return R.ok(orderService.createOrder(SecurityUtils.requireUserId(), dto));
     }
 
+    @RequireLogin
     @PostMapping("/create")
     public R<Order> create(@Valid @RequestBody CreateOrderDTO dto) {
-        return R.ok(orderService.createOrder(dto));
+        return R.ok(orderService.createOrder(SecurityUtils.requireUserId(), dto));
     }
 
+    @RequireLogin
     @GetMapping("/detail")
     public R<Order> detail(@RequestParam String orderNo) {
-        return R.ok(orderService.findByOrderNo(orderNo));
+        return R.ok(requireAccessible(orderService.findByOrderNo(orderNo), PERM_LIST));
     }
 
+    @RequireLogin
     @GetMapping("/{id}")
     public R<Order> getById(@PathVariable Long id) {
-        return R.ok(orderService.findById(id));
+        return R.ok(requireAccessible(orderService.findById(id), PERM_LIST));
     }
 
+    /**
+     * 运营（order:list）可按任意 userId 查询；其余用户一律只能看自己的订单，
+     * 传入的 userId 被忽略 —— 否则不传 userId 就能拉取全站订单。
+     */
+    @RequireLogin
     @GetMapping("/list")
     public R<PageResult<Order>> list(PageQuery pageQuery,
                                      @RequestParam(required = false) String orderNo,
                                      @RequestParam(required = false) Long userId,
                                      @RequestParam(required = false) Integer status) {
-        return R.ok(orderService.pageOrders(pageQuery, orderNo, userId, status));
+        Long scopedUserId = SecurityUtils.hasAnyPermission(PERM_LIST) ? userId : SecurityUtils.requireUserId();
+        return R.ok(orderService.pageOrders(pageQuery, orderNo, scopedUserId, status));
     }
 
+    @RequireLogin
     @PutMapping("/{id}/cancel")
     public R<Void> cancel(@PathVariable Long id,
                           @RequestBody(required = false) OrderCancelDTO dto) {
+        requireAccessible(orderService.findById(id), PERM_CANCEL);
         orderService.cancelOrderById(id, dto != null ? dto.getReason() : null);
         return R.ok();
     }
 
+    @RequirePermission(PERM_REFUND)
     @PutMapping("/{id}/refund")
     public R<Void> refund(@PathVariable Long id,
                           @RequestBody(required = false) OrderRefundDTO dto) {
@@ -83,6 +109,20 @@ public class OrderController {
         return R.ok();
     }
 
+    /**
+     * 本人订单或具备指定运营权限才可访问。对他人订单统一返回"订单不存在"，
+     * 而不是 403 —— 避免攻击者借响应差异枚举有效的订单 ID/订单号。
+     */
+    private Order requireAccessible(Order order, String managePermission) {
+        if (order == null
+                || !(order.getUserId().equals(SecurityUtils.requireUserId())
+                || SecurityUtils.hasAnyPermission(managePermission))) {
+            throw new ServiceException(HttpStatus.NOT_FOUND, "订单不存在");
+        }
+        return order;
+    }
+
+    @RequirePermission(PERM_LIST)
     @GetMapping("/statistics")
     public R<Map<String, Object>> statistics(@RequestParam(required = false) String startTime,
                                              @RequestParam(required = false) String endTime) {
