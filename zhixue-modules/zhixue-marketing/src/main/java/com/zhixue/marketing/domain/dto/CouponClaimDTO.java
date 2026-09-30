@@ -20,9 +20,9 @@ public class CouponClaimDTO {
 
     /**
      * 用户ID
-     * 说明：领取优惠券的用户的唯一标识，不能为空
+     * 说明：由服务端填充——接口领券时取自登录态，运营发放时取自发放名单；
+     * 客户端传入的值会被覆盖，因此不做必填校验。
      */
-    @NotNull
     private Long userId;
 }
 

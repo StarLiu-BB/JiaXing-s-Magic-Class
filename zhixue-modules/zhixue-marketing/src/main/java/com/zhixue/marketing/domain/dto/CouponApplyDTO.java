@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Data
 public class CouponApplyDTO {
 
-    @NotNull(message = "用户ID不能为空")
+    /** 由服务端取自登录态并覆盖，客户端传入的值无效 */
     private Long userId;
 
     @NotNull(message = "用户优惠券记录ID不能为空")
