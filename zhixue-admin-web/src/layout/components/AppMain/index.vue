@@ -1,13 +1,13 @@
 <template>
-  <section class="app-main">
+  <main class="app-main">
     <router-view v-slot="{ Component }">
-      <transition name="fade-transform" mode="out-in">
+      <transition name="page" mode="out-in">
         <keep-alive :include="cachedViews">
           <component :is="Component" :key="key" />
         </keep-alive>
       </transition>
     </router-view>
-  </section>
+  </main>
 </template>
 
 <script setup>
@@ -23,27 +23,30 @@ const key = computed(() => route.path)
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables' as *;
+
 .app-main {
-  /* 50= navbar + tags-view = 50 + 34 */
-  min-height: calc(100vh - 84px);
-  width: 100%;
   position: relative;
-  overflow: hidden;
-  padding: 20px;
+  width: 100%;
+  min-height: calc(100vh - #{$headerHeight});
+  padding: 20px 24px 32px;
 }
 
-.fade-transform-leave-active,
-.fade-transform-enter-active {
-  transition: all 0.5s;
+// 页面切换：短促的淡入 + 轻微上移，原先是 0.5s 的左右横移
+.page-enter-active {
+  transition: opacity 0.18s var(--zx-ease), transform 0.18s var(--zx-ease);
 }
 
-.fade-transform-enter-from {
+.page-leave-active {
+  transition: opacity 0.1s var(--zx-ease);
+}
+
+.page-enter-from {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateY(4px);
 }
 
-.fade-transform-leave-to {
+.page-leave-to {
   opacity: 0;
-  transform: translateX(30px);
 }
 </style>

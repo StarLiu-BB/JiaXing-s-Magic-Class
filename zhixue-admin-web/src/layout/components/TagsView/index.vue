@@ -62,20 +62,11 @@ const isAffix = (tag) => {
   return tag.meta && tag.meta.affix
 }
 
-// 打开右键菜单
+// 打开右键菜单（菜单为 position: fixed，直接使用视口坐标，并防止溢出右边界）
 const openMenu = (tag, e) => {
-  const menuMinWidth = 105
-  const offsetLeft = scrollPaneRef.value.$el.getBoundingClientRect().left // container margin left
-  const offsetWidth = scrollPaneRef.value.$el.offsetWidth // container width
-  const maxLeft = offsetWidth - menuMinWidth // left boundary
-  let menuLeft = e.clientX - offsetLeft + 15 // 15: margin right
-
-  if (menuLeft > maxLeft) {
-    menuLeft = maxLeft
-  }
-
-  top.value = e.clientY
-  left.value = menuLeft
+  const menuWidth = 128
+  top.value = e.clientY + 4
+  left.value = Math.min(e.clientX, window.innerWidth - menuWidth - 8)
   visible.value = true
   selectedTag.value = tag
 }
@@ -173,96 +164,89 @@ addView()
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables' as *;
+
 .tags-view-container {
-  height: 34px;
+  height: $tagsViewHeight;
   width: 100%;
-  background: #fff;
-  border-bottom: 1px solid #d8dce5;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.12), 0 0 3px 0 rgba(0, 0, 0, 0.04);
-  
+  background: var(--zx-surface);
+  border-bottom: 1px solid var(--el-border-color-light);
+
   .tags-view-wrapper {
+    height: 100%;
+
+    :deep(.scroll-wrapper) {
+      display: flex;
+      align-items: center;
+      height: $tagsViewHeight;
+      gap: 4px;
+      padding: 0 12px;
+    }
+
     .tags-view-item {
-      display: inline-block;
-      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      color: var(--el-text-color-secondary);
       cursor: pointer;
-      height: 26px;
-      line-height: 26px;
-      border: 1px solid #d8dce5;
-      color: #495060;
-      background: #fff;
-      padding: 0 8px;
-      font-size: 12px;
-      margin-left: 5px;
-      margin-top: 4px;
-      
-      &:first-of-type {
-        margin-left: 15px;
+      transition: background-color 0.16s var(--zx-ease), color 0.16s var(--zx-ease);
+
+      &:hover {
+        background: var(--el-fill-color-light);
+        color: var(--el-text-color-primary);
       }
-      
-      &:last-of-type {
-        margin-right: 15px;
-      }
-      
+
       &.active {
-        background-color: #42b983;
-        color: #fff;
-        border-color: #42b983;
-        
-        &::before {
-          content: '';
-          background: #fff;
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          position: relative;
-          margin-right: 2px;
-        }
+        background: var(--el-color-primary-light-9);
+        color: var(--el-color-primary);
+        font-weight: 600;
       }
-      
+
       .el-icon-close {
         width: 16px;
         height: 16px;
-        vertical-align: 2px;
-        border-radius: 50%;
-        text-align: center;
-        transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
-        transform-origin: 100% 50%;
-        
-        &:before {
-          transform: scale(0.6);
-          display: inline-block;
-          vertical-align: -3px;
-        }
-        
+        margin-right: -4px;
+        padding: 3px;
+        border-radius: 4px;
+        color: inherit;
+        opacity: 0.6;
+        transition: background-color 0.16s var(--zx-ease), opacity 0.16s var(--zx-ease);
+
         &:hover {
-          background-color: #b4bccc;
-          color: #fff;
+          opacity: 1;
+          background: color-mix(in srgb, currentColor 14%, transparent);
         }
       }
     }
   }
-  
+
   .contextmenu {
-    margin: 0;
-    background: #fff;
+    position: fixed;
     z-index: 3000;
-    position: absolute;
-    list-style-type: none;
-    padding: 5px 0;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 400;
-    color: #333;
-    box-shadow: 2px 2px 3px 0 rgba(0, 0, 0, 0.3);
-    
+    min-width: 128px;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    background: var(--zx-surface);
+    border: 1px solid var(--el-border-color-light);
+    border-radius: 8px;
+    box-shadow: var(--el-box-shadow-light);
+    font-size: 13px;
+    color: var(--el-text-color-regular);
+
     li {
-      margin: 0;
-      padding: 7px 16px;
+      padding: 6px 12px;
+      border-radius: 6px;
       cursor: pointer;
-      
+
       &:hover {
-        background: #eee;
+        background: var(--el-fill-color-light);
+        color: var(--el-text-color-primary);
       }
     }
   }

@@ -1,14 +1,11 @@
 <template>
   <div class="sidebar-wrapper" :class="{ 'has-logo': showLogo }">
     <Logo v-if="showLogo" :collapse="isCollapse" />
-    <el-scrollbar wrap-class="scrollbar-wrapper">
+    <el-scrollbar wrap-class="scrollbar-wrapper" class="sidebar-scroll">
       <el-menu
         :default-active="activeMenu"
         :collapse="isCollapse"
-        :background-color="variables.menuBg"
-        :text-color="variables.menuText"
         :unique-opened="true"
-        :active-text-color="variables.menuActiveText"
         :collapse-transition="false"
         mode="vertical"
         class="sidebar-menu"
@@ -35,13 +32,6 @@ import SidebarItem from './SidebarItem.vue'
 const route = useRoute()
 const appStore = useAppStore()
 const userStore = useUserStore()
-
-// 菜单样式变量 - 现代简洁风格
-const variables = {
-  menuBg: '#1e1e2d',
-  menuText: '#a2a3b7',
-  menuActiveText: '#ffffff'
-}
 
 const showLogo = computed(() => true)
 const isCollapse = computed(() => appStore.isCollapse)
@@ -105,40 +95,80 @@ const activeMenu = computed(() => {
 </script>
 
 <style lang="scss" scoped>
+// 菜单颜色、高度、缩进均由 styles/element.scss 中的 --el-menu-* 变量控制
 .sidebar-wrapper {
   height: 100%;
-  
-  :deep(.el-menu) {
-    border-right: none;
-    
-    .el-menu-item,
-    .el-sub-menu__title {
-      height: 48px;
-      line-height: 48px;
-      font-size: 14px;
-      
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.05) !important;
-      }
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.sidebar-menu {
+  padding: 10px 0 16px;
+
+  :deep(.el-menu-item),
+  :deep(.el-sub-menu__title) {
+    margin: 2px 10px;
+    border-radius: 8px;
+    transition: background-color 0.16s var(--zx-ease), color 0.16s var(--zx-ease);
+
+    .el-icon {
+      color: var(--el-text-color-secondary);
+      transition: color 0.16s var(--zx-ease);
     }
-    
-    .el-menu-item.is-active {
-      background: linear-gradient(90deg, #3699ff 0%, #1e1e2d 100%) !important;
-      border-left: 3px solid #3699ff;
-    }
-    
-    .el-sub-menu.is-active > .el-sub-menu__title {
-      color: #ffffff !important;
-    }
-    
-    .el-sub-menu .el-menu-item {
-      padding-left: 50px !important;
-      min-width: auto;
+
+    &:hover .el-icon {
+      color: var(--el-text-color-primary);
     }
   }
-  
-  :deep(.scrollbar-wrapper) {
-    overflow-x: hidden !important;
+
+  :deep(.el-sub-menu .el-menu) {
+    background: transparent;
+  }
+
+  :deep(.el-menu-item.is-active) {
+    background: var(--el-color-primary-light-9);
+    color: var(--el-color-primary);
+    font-weight: 600;
+
+    .el-icon {
+      color: var(--el-color-primary);
+    }
+  }
+
+  // 子菜单处于激活路径时，父级标题加深而不上色，避免两处同时高亮
+  :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+    color: var(--el-text-color-primary);
+    font-weight: 600;
+
+    .el-icon {
+      color: var(--el-color-primary);
+    }
+  }
+
+  &.el-menu--collapse {
+    width: 100%;
+
+    :deep(.el-menu-item),
+    :deep(.el-sub-menu__title) {
+      margin: 2px 8px;
+      padding: 0 !important;
+      justify-content: center;
+    }
+
+    :deep(.el-sub-menu__icon-arrow) {
+      display: none;
+    }
+
+    // Element 的折叠样式用 `.el-menu--collapse > .el-sub-menu` 子选择器隐藏标题，
+    // 但 SidebarItem 外面包了一层 div，选择器匹配不到，折叠后文字会挤在 64px 里
+    :deep(.el-sub-menu__title > span) {
+      display: none;
+    }
   }
 }
 </style>

@@ -1,27 +1,129 @@
-// 全局样式
-@import './variables.scss';
+// 全局样式入口（在 main.js 中于 Element Plus 样式之后引入）
+@use './tokens';
+@use './element';
 
-// 侧边栏样式
-.el-menu {
-  border-right: none;
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.el-menu--collapse {
-  width: 54px;
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
 }
 
-// 滚动条样式
+body {
+  font-family: var(--el-font-family);
+  font-size: var(--el-font-size-base);
+  line-height: 1.5;
+  color: var(--el-text-color-regular);
+  background: var(--zx-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 2px solid var(--el-color-primary-light-5);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--el-color-primary-light-8);
+  color: var(--el-text-color-primary);
+}
+
+// 页面容器：内边距由 AppMain 统一提供，页面内不再各自加
+.app-container {
+  min-width: 0;
+}
+
+// 页面内常见的卡片标题栏
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+}
+
+// 数字等宽，便于金额、计数在列中对齐
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+// 滚动条
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--el-border-color-dark);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--el-border-color-darker);
+  background-clip: content-box;
+}
+
 .scrollbar-wrapper {
   overflow-x: hidden !important;
-  
-  .el-scrollbar__bar {
-    &.is-vertical {
-      right: 0px;
-    }
-    
-    &.is-horizontal {
-      display: none;
-    }
+
+  .el-scrollbar__bar.is-horizontal {
+    display: none;
   }
 }
 
+// 顶部路由进度条
+#nprogress .bar {
+  background: var(--el-color-primary) !important;
+  height: 2px !important;
+}
+
+#nprogress .peg {
+  box-shadow: 0 0 10px var(--el-color-primary), 0 0 5px var(--el-color-primary) !important;
+}
+
+#nprogress .spinner {
+  display: none !important;
+}
+
+// 尊重"减少动态效果"系统设置
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

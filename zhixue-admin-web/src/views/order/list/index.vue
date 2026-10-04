@@ -1,13 +1,13 @@
 <template>
   <div class="app-container">
-    <el-row :gutter="16" class="stat-row">
-      <el-col v-for="item in statCards" :key="item.key" :xs="12" :sm="8" :md="4">
-        <el-card shadow="never" class="stat-card">
-          <div class="stat-label">{{ item.label }}</div>
-          <div class="stat-value" :class="item.cls">{{ item.value }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <section class="stat-grid" aria-label="订单统计">
+      <div v-for="item in statCards" :key="item.key" class="stat-card">
+        <div class="stat-label">
+          <span v-if="item.cls" class="stat-dot" :class="item.cls" aria-hidden="true" />{{ item.label }}
+        </div>
+        <div class="stat-value">{{ item.value }}</div>
+      </div>
+    </section>
 
     <el-card shadow="never">
       <template #header>
@@ -263,46 +263,52 @@ refreshAll()
 </script>
 
 <style scoped>
-.stat-row {
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
   margin-bottom: 16px;
 }
 
 .stat-card {
-  margin-bottom: 8px;
+  padding: 14px 16px;
+  background: var(--zx-surface);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--zx-radius-card);
 }
 
 .stat-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
+
+.stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--el-color-info);
+}
+
+.stat-dot.success { background: var(--el-color-success); }
+.stat-dot.warning { background: var(--el-color-warning); }
+.stat-dot.danger { background: var(--el-color-danger); }
+.stat-dot.info { background: var(--el-border-color-darker); }
 
 .stat-value {
   margin-top: 6px;
   font-size: 22px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.stat-value.success {
-  color: #67c23a;
-}
-
-.stat-value.warning {
-  color: #e6a23c;
-}
-
-.stat-value.danger {
-  color: #f56c6c;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--el-text-color-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .search-form {
-  margin-bottom: 16px;
+  margin-bottom: 4px;
 }
 
 .pagination {

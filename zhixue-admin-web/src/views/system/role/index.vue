@@ -295,6 +295,6 @@ onMounted(getList)
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.5;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 </style>

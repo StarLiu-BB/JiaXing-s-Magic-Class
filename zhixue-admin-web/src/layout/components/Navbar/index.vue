@@ -1,48 +1,39 @@
 <template>
   <div class="navbar">
-    <div class="navbar-content">
-      <!-- 左侧：折叠按钮、面包屑 -->
-      <div class="navbar-left">
-        <!-- 折叠按钮 -->
-        <div class="hamburger-container" @click="toggleSideBar">
-          <el-icon :class="isCollapse ? 'is-active' : ''">
-            <Fold v-if="!isCollapse" />
-            <Expand v-else />
-          </el-icon>
-        </div>
-        
-        <!-- 面包屑 -->
-        <breadcrumb class="breadcrumb-container" />
-      </div>
-      
-      <!-- 右侧：工具栏 -->
-      <div class="navbar-right">
-        <!-- 全屏按钮 -->
-        <screenfull class="right-menu-item hover-effect" />
-        
-        <!-- 设置按钮 -->
-        <div class="right-menu-item hover-effect" @click="openSettings">
-          <el-icon><Setting /></el-icon>
-        </div>
-        
-        <!-- 用户头像下拉菜单 -->
-        <el-dropdown class="avatar-container right-menu-item hover-effect" trigger="click">
-          <div class="avatar-wrapper">
-            <img :src="avatar" class="user-avatar" />
-            <el-icon><CaretBottom /></el-icon>
-          </div>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <router-link to="/profile/index">
-                <el-dropdown-item>个人中心</el-dropdown-item>
-              </router-link>
-              <el-dropdown-item divided @click="logout">
-                <span style="display:block;">退出登录</span>
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
+    <div class="navbar-left">
+      <button
+        type="button"
+        class="icon-button"
+        :aria-label="isCollapse ? '展开侧边栏' : '收起侧边栏'"
+        :title="isCollapse ? '展开侧边栏' : '收起侧边栏'"
+        @click="toggleSideBar"
+      >
+        <el-icon :size="18"><Expand v-if="isCollapse" /><Fold v-else /></el-icon>
+      </button>
+      <span class="divider" aria-hidden="true" />
+      <Breadcrumb />
+    </div>
+
+    <div class="navbar-right">
+      <Screenfull class="icon-button" />
+
+      <el-dropdown trigger="click" placement="bottom-end" @command="handleCommand">
+        <button type="button" class="user-trigger" aria-label="账号菜单">
+          <img v-if="avatarUrl" :src="avatarUrl" class="avatar" alt="" />
+          <span v-else class="avatar avatar-initial" aria-hidden="true">{{ initial }}</span>
+          <span class="user-name">{{ displayName }}</span>
+          <el-icon class="caret" :size="12"><ArrowDown /></el-icon>
+        </button>
+        <template #dropdown>
+          <el-dropdown-menu class="user-menu">
+            <div class="user-menu-head">
+              <div class="user-menu-name">{{ displayName }}</div>
+              <div v-if="username && username !== displayName" class="user-menu-sub">{{ username }}</div>
+            </div>
+            <el-dropdown-item command="logout" :icon="SwitchButton">退出登录</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
   </div>
 </template>
@@ -51,7 +42,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { Fold, Expand, Setting, CaretBottom } from '@element-plus/icons-vue'
+import { Fold, Expand, ArrowDown, SwitchButton } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/modules/app'
 import { useUserStore } from '@/stores/modules/user'
 import Breadcrumb from './Breadcrumb.vue'
@@ -62,118 +53,166 @@ const appStore = useAppStore()
 const userStore = useUserStore()
 
 const isCollapse = computed(() => appStore.isCollapse)
-const avatar = computed(() => userStore.avatar || 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif')
+const username = computed(() => userStore.name)
+const displayName = computed(() => userStore.userInfo?.nickname || userStore.name || '未命名用户')
+const initial = computed(() => Array.from(displayName.value)[0] || '?')
+// 只展示站内或 https 头像；原先的默认头像是第三方图床的外链 GIF
+const avatarUrl = computed(() => {
+  const url = userStore.avatar
+  return url && (url.startsWith('/') || url.startsWith('https://')) ? url : ''
+})
 
-// 切换侧边栏
 const toggleSideBar = () => {
   appStore.toggleSidebar()
 }
 
-// 打开设置
-const openSettings = () => {
-  ElMessage.warning('当前版本暂不提供页面设置')
+const handleCommand = (command) => {
+  if (command === 'logout') logout()
 }
 
-// 退出登录
 const logout = () => {
-  ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-    confirmButtonText: '确定',
+  ElMessageBox.confirm('退出后需要重新输入账号和验证码。', '退出登录', {
+    confirmButtonText: '退出',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(async () => {
     await userStore.logout()
     router.push('/login')
-    ElMessage.success('退出登录成功')
+    ElMessage.success('已退出登录')
   }).catch(() => {})
 }
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables' as *;
+
 .navbar {
-  height: 50px;
+  height: $navBarHeight;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 0 12px;
+  background: var(--zx-surface);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.navbar-left,
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 8px 0 4px;
+  background: var(--el-border-color);
+}
+
+.icon-button {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  transition: background-color 0.16s var(--zx-ease), color 0.16s var(--zx-ease);
+
+  &:hover {
+    background: var(--el-fill-color-light);
+    color: var(--el-text-color-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--zx-ring);
+  }
+}
+
+.user-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 8px 0 4px;
+  margin-left: 4px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: var(--el-text-color-primary);
+  transition: background-color 0.16s var(--zx-ease);
+
+  &:hover {
+    background: var(--el-fill-color-light);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--zx-ring);
+  }
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.user-name {
+  max-width: 120px;
   overflow: hidden;
-  position: relative;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
-  
-  .navbar-content {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 15px;
-  }
-  
-  .navbar-left {
-    display: flex;
-    align-items: center;
-    
-    .hamburger-container {
-      line-height: 46px;
-      height: 100%;
-      float: left;
-      cursor: pointer;
-      transition: background 0.3s;
-      -webkit-tap-highlight-color: transparent;
-      
-      &:hover {
-        background: rgba(0, 0, 0, 0.025);
-      }
-      
-      .el-icon {
-        font-size: 20px;
-        vertical-align: middle;
-      }
-    }
-    
-    .breadcrumb-container {
-      margin-left: 10px;
-    }
-  }
-  
-  .navbar-right {
-    display: flex;
-    align-items: center;
-    
-    .right-menu-item {
-      display: inline-block;
-      padding: 0 8px;
-      height: 100%;
-      font-size: 18px;
-      color: #5a5e66;
-      vertical-align: text-bottom;
-      
-      &.hover-effect {
-        cursor: pointer;
-        transition: background 0.3s;
-        
-        &:hover {
-          background: rgba(0, 0, 0, 0.025);
-        }
-      }
-    }
-    
-    .avatar-container {
-      margin-right: 30px;
-      
-      .avatar-wrapper {
-        display: flex;
-        align-items: center;
-        cursor: pointer;
-        
-        .user-avatar {
-          cursor: pointer;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          margin-right: 5px;
-        }
-        
-        .el-icon {
-          font-size: 12px;
-        }
-      }
-    }
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.caret {
+  color: var(--el-text-color-secondary);
+}
+
+.user-menu-head {
+  padding: 8px 16px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  min-width: 168px;
+}
+
+.user-menu-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.user-menu-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+@media (max-width: 640px) {
+  .user-name {
+    display: none;
   }
 }
 </style>

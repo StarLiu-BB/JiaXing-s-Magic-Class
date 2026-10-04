@@ -30,7 +30,7 @@ const goHome = () => {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--zx-canvas);
   
   .error-content {
     width: 500px;

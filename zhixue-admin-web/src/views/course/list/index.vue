@@ -1,191 +1,193 @@
 <template>
   <div class="app-container">
-    <!-- 状态标签页 -->
-    <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="status-tabs">
-      <el-tab-pane label="全部" name="all" />
-      <el-tab-pane label="草稿" name="0" />
-      <el-tab-pane label="已发布" name="1" />
-      <el-tab-pane label="已下架" name="offline" />
-    </el-tabs>
+    <el-card shadow="never" class="page-card">
+      <!-- 状态标签页 -->
+      <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="status-tabs">
+        <el-tab-pane label="全部" name="all" />
+        <el-tab-pane label="草稿" name="0" />
+        <el-tab-pane label="已发布" name="1" />
+        <el-tab-pane label="已下架" name="offline" />
+      </el-tabs>
 
-    <!-- 搜索区域 -->
-    <el-form
-      :model="queryParams"
-      ref="queryFormRef"
-      :inline="true"
-      label-width="80px"
-      class="search-form"
-    >
-      <el-form-item label="课程标题" prop="title">
-        <el-input
-          v-model="queryParams.title"
-          placeholder="请输入课程标题"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleSearch"
-        />
-      </el-form-item>
-      <el-form-item label="分类" prop="categoryId">
-        <el-select
-          v-model="queryParams.categoryId"
-          placeholder="请选择分类"
-          clearable
-          style="width: 200px"
-        >
-          <el-option
-            v-for="category in categoryOptions"
-            :key="category.id"
-            :label="category.name"
-            :value="category.id"
+      <!-- 搜索区域 -->
+      <el-form
+        :model="queryParams"
+        ref="queryFormRef"
+        :inline="true"
+        label-width="80px"
+        class="search-form"
+      >
+        <el-form-item label="课程标题" prop="title">
+          <el-input
+            v-model="queryParams.title"
+            placeholder="请输入课程标题"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
           />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="讲师" prop="teacherName">
-        <el-input
-          v-model="queryParams.teacherName"
-          placeholder="请输入讲师名称"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleSearch"
-        />
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleSearch">搜索</el-button>
-        <el-button icon="Refresh" @click="handleReset">重置</el-button>
-      </el-form-item>
-    </el-form>
-
-    <!-- 工具栏 -->
-    <el-row :gutter="10" class="toolbar">
-      <el-col :span="1.5">
-        <el-button
-          type="primary"
-          plain
-          icon="Plus"
-          v-hasPermi="['course:publish']"
-          @click="handleAdd"
-        >
-          发布课程
-        </el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="danger"
-          plain
-          icon="Delete"
-          :disabled="selectedRows.length === 0"
-          v-hasPermi="['course:delete']"
-          @click="handleBatchDelete"
-        >
-          批量删除
-        </el-button>
-      </el-col>
-    </el-row>
-
-    <!-- 数据表格 -->
-    <el-table
-      v-loading="loading"
-      :data="courseList"
-      @selection-change="handleSelectionChange"
-      ref="tableRef"
-    >
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="封面" width="120" align="center">
-        <template #default="scope">
-          <el-image
-            :src="scope.row.coverUrl || scope.row.cover"
-            :preview-src-list="[scope.row.coverUrl || scope.row.cover]"
-            fit="cover"
-            style="width: 80px; height: 60px; border-radius: 4px"
-            :preview-teleported="true"
+        </el-form-item>
+        <el-form-item label="分类" prop="categoryId">
+          <el-select
+            v-model="queryParams.categoryId"
+            placeholder="请选择分类"
+            clearable
+            style="width: 200px"
+          >
+            <el-option
+              v-for="category in categoryOptions"
+              :key="category.id"
+              :label="category.name"
+              :value="category.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="讲师" prop="teacherName">
+          <el-input
+            v-model="queryParams.teacherName"
+            placeholder="请输入讲师名称"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
           />
-        </template>
-      </el-table-column>
-      <el-table-column label="课程标题" prop="title" min-width="200" show-overflow-tooltip />
-      <el-table-column label="分类" prop="categoryName" width="100" />
-      <el-table-column label="讲师" prop="teacherName" width="120" />
-      <el-table-column label="价格" width="150" align="center">
-        <template #default="scope">
-          <span class="price-current">¥{{ scope.row.price }}</span>
-          <span v-if="scope.row.originalPrice" class="price-original">
-            ¥{{ scope.row.originalPrice }}
-          </span>
-        </template>
-      </el-table-column>
-      <el-table-column label="销量" prop="sales" width="100" align="center" />
-      <el-table-column label="学习人数" prop="studentCount" width="120" align="center" />
-      <el-table-column label="状态" width="100" align="center">
-        <template #default="scope">
-          <el-tag :type="getStatusType(scope.row.status)">
-            {{ getStatusText(scope.row.status) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" prop="createTime" width="180" align="center">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" width="250" fixed="right">
-        <template #default="scope">
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleSearch">搜索</el-button>
+          <el-button icon="Refresh" @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- 工具栏 -->
+      <el-row :gutter="10" class="toolbar">
+        <el-col :span="1.5">
           <el-button
-            link
             type="primary"
-            icon="View"
-            @click="handleView(scope.row)"
-          >
-            查看
-          </el-button>
-          <el-button
-            link
-            type="primary"
-            icon="Edit"
-            v-hasPermi="['course:edit']"
-            @click="handleEdit(scope.row)"
-          >
-            编辑
-          </el-button>
-          <el-button
-            v-if="scope.row.status === 0"
-            link
-            type="success"
-            icon="Promotion"
+            plain
+            icon="Plus"
             v-hasPermi="['course:publish']"
-            @click="handlePublish(scope.row)"
+            @click="handleAdd"
           >
-            发布
+            发布课程
           </el-button>
+        </el-col>
+        <el-col :span="1.5">
           <el-button
-            v-if="scope.row.status === 1"
-            link
-            type="warning"
-            icon="Remove"
-            v-hasPermi="['course:offline']"
-            @click="handleOffline(scope.row)"
-          >
-            下架
-          </el-button>
-          <el-button
-            link
             type="danger"
+            plain
             icon="Delete"
+            :disabled="selectedRows.length === 0"
             v-hasPermi="['course:delete']"
-            @click="handleDelete(scope.row)"
+            @click="handleBatchDelete"
           >
-            删除
+            批量删除
           </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+        </el-col>
+      </el-row>
 
-    <!-- 分页组件 -->
-    <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="pageNum"
-      v-model:limit="pageSize"
-      @pagination="handlePagination"
-    />
+      <!-- 数据表格 -->
+      <el-table
+        v-loading="loading"
+        :data="courseList"
+        @selection-change="handleSelectionChange"
+        ref="tableRef"
+      >
+        <el-table-column type="selection" width="55" align="center" />
+        <el-table-column label="封面" width="120" align="center">
+          <template #default="scope">
+            <el-image
+              :src="scope.row.coverUrl || scope.row.cover"
+              :preview-src-list="[scope.row.coverUrl || scope.row.cover]"
+              fit="cover"
+              style="width: 80px; height: 60px; border-radius: 4px"
+              :preview-teleported="true"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="课程标题" prop="title" min-width="200" show-overflow-tooltip />
+        <el-table-column label="分类" prop="categoryName" width="100" />
+        <el-table-column label="讲师" prop="teacherName" width="120" />
+        <el-table-column label="价格" width="150" align="center">
+          <template #default="scope">
+            <span class="price-current">¥{{ scope.row.price }}</span>
+            <span v-if="scope.row.originalPrice" class="price-original">
+              ¥{{ scope.row.originalPrice }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="销量" prop="sales" width="100" align="center" />
+        <el-table-column label="学习人数" prop="studentCount" width="120" align="center" />
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="scope">
+            <el-tag :type="getStatusType(scope.row.status)">
+              {{ getStatusText(scope.row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" prop="createTime" width="180" align="center">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.createTime) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" width="300" fixed="right">
+          <template #default="scope">
+            <el-button
+              link
+              type="primary"
+              icon="View"
+              @click="handleView(scope.row)"
+            >
+              查看
+            </el-button>
+            <el-button
+              link
+              type="primary"
+              icon="Edit"
+              v-hasPermi="['course:edit']"
+              @click="handleEdit(scope.row)"
+            >
+              编辑
+            </el-button>
+            <el-button
+              v-if="scope.row.status === 0"
+              link
+              type="success"
+              icon="Promotion"
+              v-hasPermi="['course:publish']"
+              @click="handlePublish(scope.row)"
+            >
+              发布
+            </el-button>
+            <el-button
+              v-if="scope.row.status === 1"
+              link
+              type="warning"
+              icon="Remove"
+              v-hasPermi="['course:offline']"
+              @click="handleOffline(scope.row)"
+            >
+              下架
+            </el-button>
+            <el-button
+              link
+              type="danger"
+              icon="Delete"
+              v-hasPermi="['course:delete']"
+              @click="handleDelete(scope.row)"
+            >
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页组件 -->
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="pageNum"
+        v-model:limit="pageSize"
+        @pagination="handlePagination"
+      />
+    </el-card>
   </div>
 </template>
 
@@ -433,43 +435,29 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.app-container {
-  padding: 20px;
-}
-
 .status-tabs {
-  background: #fff;
-  padding: 0 20px;
-  margin-bottom: 20px;
-  border-radius: 4px;
+  margin: -8px 0 12px;
 }
 
 .search-form {
-  background: #fff;
-  padding: 20px;
-  border-radius: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 4px;
 }
 
 .toolbar {
-  margin-bottom: 20px;
-}
-
-:deep(.el-table) {
-  background: #fff;
-  border-radius: 4px;
+  margin-bottom: 16px;
 }
 
 .price-current {
-  color: #ff4d4f;
-  font-weight: bold;
-  font-size: 16px;
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .price-original {
-  color: #999;
+  color: var(--el-text-color-placeholder);
   text-decoration: line-through;
   font-size: 12px;
-  margin-left: 8px;
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
 }
 </style>

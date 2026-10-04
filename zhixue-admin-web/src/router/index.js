@@ -55,7 +55,7 @@ export const constantRoutes = [
       {
         path: 'dashboard',
         name: 'Dashboard',
-        component: () => import('@/views/Home.vue'),
+        component: () => import('@/views/dashboard/index.vue'),
         meta: {
           title: '首页',
           icon: 'HomeFilled',

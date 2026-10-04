@@ -1,180 +1,182 @@
 <template>
   <div class="app-container">
-    <!-- 搜索区域 -->
-    <el-form
-      :model="queryParams"
-      ref="queryFormRef"
-      :inline="true"
-      label-width="80px"
-      class="search-form"
-    >
-      <el-form-item label="用户名" prop="username">
-        <el-input
-          v-model="queryParams.username"
-          placeholder="请输入用户名"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleSearch"
-        />
-      </el-form-item>
-      <el-form-item label="手机号" prop="phone">
-        <el-input
-          v-model="queryParams.phone"
-          placeholder="请输入手机号"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleSearch"
-        />
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select
-          v-model="queryParams.status"
-          placeholder="请选择状态"
-          clearable
-          style="width: 200px"
-        >
-          <el-option label="正常" value="0" />
-          <el-option label="停用" value="1" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="创建时间">
-        <el-date-picker
-          v-model="dateRange"
-          type="datetimerange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
-          value-format="YYYY-MM-DD HH:mm:ss"
-          style="width: 350px"
-        />
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleSearch">搜索</el-button>
-        <el-button icon="Refresh" @click="handleReset">重置</el-button>
-      </el-form-item>
-    </el-form>
-
-    <!-- 工具栏 -->
-    <el-row :gutter="10" class="toolbar">
-      <el-col :span="1.5">
-        <el-button
-          type="primary"
-          plain
-          icon="Plus"
-          v-hasPermi="['system:user:add']"
-          @click="handleAdd"
-        >
-          新增
-        </el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="info"
-          plain
-          icon="Edit"
-          :disabled="selectedRows.length !== 1"
-          v-hasPermi="['system:user:edit']"
-          @click="handleUpdate"
-        >
-          修改
-        </el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="danger"
-          plain
-          icon="Delete"
-          :disabled="selectedRows.length === 0"
-          v-hasPermi="['system:user:remove']"
-          @click="handleBatchDelete"
-        >
-          删除
-        </el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="warning"
-          plain
-          icon="Download"
-          :loading="exporting"
-          v-hasPermi="['system:user:list']"
-          @click="handleExport"
-        >
-          导出
-        </el-button>
-      </el-col>
-    </el-row>
-
-    <!-- 数据表格 -->
-    <el-table
-      v-loading="loading"
-      :data="userList"
-      @selection-change="handleSelectionChange"
-      ref="tableRef"
-    >
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="用户编号" prop="id" width="100" align="center" />
-      <el-table-column label="用户名" prop="username" width="120" />
-      <el-table-column label="昵称" prop="nickname" width="120" />
-      <el-table-column label="部门" prop="deptName" width="120" />
-      <el-table-column label="手机号" prop="phone" width="120" />
-      <el-table-column label="状态" align="center" width="100">
-        <template #default="scope">
-          <el-switch
-            v-model="scope.row.status"
-            :active-value="0"
-            :inactive-value="1"
-            v-hasPermi="['system:user:edit']"
-            @change="handleStatusChange(scope.row)"
+    <el-card shadow="never" class="page-card">
+      <!-- 搜索区域 -->
+      <el-form
+        :model="queryParams"
+        ref="queryFormRef"
+        :inline="true"
+        label-width="80px"
+        class="search-form"
+      >
+        <el-form-item label="用户名" prop="username">
+          <el-input
+            v-model="queryParams.username"
+            placeholder="请输入用户名"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
           />
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" prop="createTime" width="180" align="center">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" width="200" fixed="right">
-        <template #default="scope">
+        </el-form-item>
+        <el-form-item label="手机号" prop="phone">
+          <el-input
+            v-model="queryParams.phone"
+            placeholder="请输入手机号"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleSearch"
+          />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select
+            v-model="queryParams.status"
+            placeholder="请选择状态"
+            clearable
+            style="width: 200px"
+          >
+            <el-option label="正常" value="0" />
+            <el-option label="停用" value="1" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="创建时间">
+          <el-date-picker
+            v-model="dateRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 350px"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleSearch">搜索</el-button>
+          <el-button icon="Refresh" @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- 工具栏 -->
+      <el-row :gutter="10" class="toolbar">
+        <el-col :span="1.5">
           <el-button
-            link
             type="primary"
+            plain
+            icon="Plus"
+            v-hasPermi="['system:user:add']"
+            @click="handleAdd"
+          >
+            新增
+          </el-button>
+        </el-col>
+        <el-col :span="1.5">
+          <el-button
+            type="info"
+            plain
             icon="Edit"
+            :disabled="selectedRows.length !== 1"
             v-hasPermi="['system:user:edit']"
-            @click="handleUpdate(scope.row)"
+            @click="handleUpdate"
           >
             修改
           </el-button>
+        </el-col>
+        <el-col :span="1.5">
           <el-button
-            link
             type="danger"
+            plain
             icon="Delete"
+            :disabled="selectedRows.length === 0"
             v-hasPermi="['system:user:remove']"
-            @click="handleDelete(scope.row)"
+            @click="handleBatchDelete"
           >
             删除
           </el-button>
+        </el-col>
+        <el-col :span="1.5">
           <el-button
-            link
             type="warning"
-            icon="Key"
-            v-hasPermi="['system:user:resetPwd']"
-            @click="handleResetPwd(scope.row)"
+            plain
+            icon="Download"
+            :loading="exporting"
+            v-hasPermi="['system:user:list']"
+            @click="handleExport"
           >
-            重置密码
+            导出
           </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+        </el-col>
+      </el-row>
 
-    <!-- 分页组件 -->
-    <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="pageNum"
-      v-model:limit="pageSize"
-      @pagination="handlePagination"
-    />
+      <!-- 数据表格 -->
+      <el-table
+        v-loading="loading"
+        :data="userList"
+        @selection-change="handleSelectionChange"
+        ref="tableRef"
+      >
+        <el-table-column type="selection" width="55" align="center" />
+        <el-table-column label="用户编号" prop="id" width="100" align="center" />
+        <el-table-column label="用户名" prop="username" width="120" />
+        <el-table-column label="昵称" prop="nickname" width="120" />
+        <el-table-column label="部门" prop="deptName" width="120" />
+        <el-table-column label="手机号" prop="phone" width="120" />
+        <el-table-column label="状态" align="center" width="100">
+          <template #default="scope">
+            <el-switch
+              v-model="scope.row.status"
+              :active-value="0"
+              :inactive-value="1"
+              v-hasPermi="['system:user:edit']"
+              @change="handleStatusChange(scope.row)"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" prop="createTime" width="180" align="center">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.createTime) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" width="260" fixed="right">
+          <template #default="scope">
+            <el-button
+              link
+              type="primary"
+              icon="Edit"
+              v-hasPermi="['system:user:edit']"
+              @click="handleUpdate(scope.row)"
+            >
+              修改
+            </el-button>
+            <el-button
+              link
+              type="danger"
+              icon="Delete"
+              v-hasPermi="['system:user:remove']"
+              @click="handleDelete(scope.row)"
+            >
+              删除
+            </el-button>
+            <el-button
+              link
+              type="warning"
+              icon="Key"
+              v-hasPermi="['system:user:resetPwd']"
+              @click="handleResetPwd(scope.row)"
+            >
+              重置密码
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页组件 -->
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="pageNum"
+        v-model:limit="pageSize"
+        @pagination="handlePagination"
+      />
+    </el-card>
 
     <!-- 新增/修改弹窗 -->
     <el-dialog
@@ -697,24 +699,12 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.app-container {
-  padding: 20px;
-}
-
 .search-form {
-  background: #fff;
-  padding: 20px;
-  border-radius: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 4px;
 }
 
 .toolbar {
-  margin-bottom: 20px;
-}
-
-:deep(.el-table) {
-  background: #fff;
-  border-radius: 4px;
+  margin-bottom: 16px;
 }
 
 .dialog-footer {

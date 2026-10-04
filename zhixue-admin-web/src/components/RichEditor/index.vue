@@ -169,12 +169,12 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .rich-editor {
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--el-border-color);
   border-radius: 4px;
   overflow: hidden;
 
   .editor-toolbar {
-    border-bottom: 1px solid #dcdfe6;
+    border-bottom: 1px solid var(--el-border-color);
   }
 
   .editor-content {

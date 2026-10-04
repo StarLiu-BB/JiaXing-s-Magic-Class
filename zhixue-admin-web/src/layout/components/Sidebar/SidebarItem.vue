@@ -66,11 +66,16 @@ function resolvePath(routePath) {
 .sidebar-item {
   :deep(.el-menu-item),
   :deep(.el-sub-menu__title) {
-    i, .el-icon {
-      margin-right: 8px;
-      font-size: 18px;
+    .el-icon {
+      margin-right: 10px;
+      font-size: 17px;
     }
   }
+}
+
+// 折叠态只剩图标，去掉右边距才能居中
+:global(.el-menu--collapse .sidebar-item .el-icon) {
+  margin-right: 0 !important;
 }
 </style>
 

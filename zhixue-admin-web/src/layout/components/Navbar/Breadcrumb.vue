@@ -58,15 +58,50 @@ watch(route, getBreadcrumb, { immediate: true })
 
 <style lang="scss" scoped>
 .app-breadcrumb.el-breadcrumb {
-  display: inline-block;
-  font-size: 14px;
-  line-height: 50px;
-  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  white-space: nowrap;
 
+  :deep(.el-breadcrumb__separator) {
+    color: var(--el-text-color-placeholder);
+    margin: 0 8px;
+  }
+
+  a {
+    color: var(--el-text-color-secondary);
+    font-weight: 400;
+    cursor: pointer;
+    transition: color 0.16s var(--zx-ease);
+
+    &:hover {
+      color: var(--el-color-primary);
+    }
+  }
+
+  // 当前页：最深、最重；父级只作路径提示
   .no-redirect {
-    color: #97a8be;
+    color: var(--el-text-color-secondary);
     cursor: text;
   }
+
+  :deep(.el-breadcrumb__item:last-child) .no-redirect {
+    color: var(--el-text-color-primary);
+    font-weight: 600;
+  }
+}
+
+.breadcrumb-enter-active {
+  transition: opacity 0.2s var(--zx-ease);
+}
+
+.breadcrumb-enter-from,
+.breadcrumb-leave-active {
+  opacity: 0;
+}
+
+.breadcrumb-leave-active {
+  position: absolute;
 }
 </style>
 

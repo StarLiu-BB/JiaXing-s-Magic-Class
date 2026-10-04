@@ -10,6 +10,10 @@ import router from './router'
 import pinia from './stores'
 import { setupDirectives } from './directive'
 
+// 主题与全局样式必须在 Element Plus、nprogress 的样式之后引入
+import '@fontsource-variable/geist'
+import '@/styles/index.scss'
+
 const app = createApp(App)
 
 // 注册所有图标

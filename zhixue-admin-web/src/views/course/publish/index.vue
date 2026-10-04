@@ -1,217 +1,219 @@
 <template>
   <div class="app-container">
-    <el-steps :active="activeStep" finish-status="success" align-center class="steps">
-      <el-step title="基本信息" />
-      <el-step title="课程内容" />
-      <el-step title="章节管理" />
-      <el-step title="课程设置" />
-      <el-step title="完成发布" />
-    </el-steps>
+    <el-card shadow="never" class="page-card">
+      <el-steps :active="activeStep" finish-status="success" align-center class="steps">
+        <el-step title="基本信息" />
+        <el-step title="课程内容" />
+        <el-step title="章节管理" />
+        <el-step title="课程设置" />
+        <el-step title="完成发布" />
+      </el-steps>
 
-    <div class="step-content">
-      <!-- 步骤1：基本信息 -->
-      <el-form
-        v-show="activeStep === 0"
-        ref="step1FormRef"
-        :model="form"
-        :rules="step1Rules"
-        label-width="120px"
-      >
-        <el-form-item label="课程标题" prop="title">
-          <el-input v-model="form.title" placeholder="请输入课程标题" maxlength="100" show-word-limit />
-        </el-form-item>
-        <el-form-item label="课程分类" prop="categoryId">
-          <el-select v-model="form.categoryId" placeholder="请选择分类" style="width: 100%">
-            <el-option
-              v-for="category in categoryOptions"
-              :key="category.id"
-              :label="category.name"
-              :value="category.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="课程封面" prop="cover">
-          <el-upload
-            class="cover-uploader"
-            :action="uploadUrl"
-            :show-file-list="false"
-            :on-success="handleCoverSuccess"
-            :before-upload="beforeCoverUpload"
-          >
-            <img v-if="form.cover" :src="form.cover" class="cover-image" />
-            <el-icon v-else class="cover-uploader-icon"><Plus /></el-icon>
-          </el-upload>
-          <div class="upload-tip">建议尺寸：750x422px，支持 JPG、PNG 格式</div>
-        </el-form-item>
-        <el-form-item label="课程价格" prop="price">
-          <el-input-number
-            v-model="form.price"
-            :min="0"
-            :precision="2"
-            placeholder="请输入价格"
-            style="width: 200px"
-          />
-          <span style="margin-left: 10px">元</span>
-        </el-form-item>
-        <el-form-item label="原价" prop="originalPrice">
-          <el-input-number
-            v-model="form.originalPrice"
-            :min="0"
-            :precision="2"
-            placeholder="请输入原价（可选）"
-            style="width: 200px"
-          />
-          <span style="margin-left: 10px">元</span>
-        </el-form-item>
-        <el-form-item label="课程简介" prop="description">
-          <el-input
-            v-model="form.description"
-            type="textarea"
-            :rows="5"
-            placeholder="请输入课程简介"
-            maxlength="500"
-            show-word-limit
-          />
-        </el-form-item>
-        <el-form-item label="学习目标">
-          <el-input
-            v-model="objectivesInput"
-            type="textarea"
-            :rows="3"
-            placeholder="每行一个目标，例如：&#10;掌握Vue3基础语法&#10;学会使用组合式API"
-            @blur="handleObjectivesBlur"
-          />
-        </el-form-item>
-        <el-form-item label="适合人群">
-          <el-input
-            v-model="suitableInput"
-            type="textarea"
-            :rows="3"
-            placeholder="每行一个人群，例如：&#10;前端开发者&#10;Vue初学者"
-            @blur="handleSuitableBlur"
-          />
-        </el-form-item>
-      </el-form>
-
-      <!-- 步骤2：课程内容 -->
-      <div v-show="activeStep === 1" class="rich-text-editor">
-        <el-form-item label="课程详情" prop="content">
-          <div id="editor-container" style="height: 500px"></div>
-        </el-form-item>
-      </div>
-
-      <!-- 步骤3：章节管理 -->
-      <div v-show="activeStep === 2" class="chapter-management">
-        <div class="chapter-toolbar">
-          <el-button type="primary" icon="Plus" @click="handleAddChapter">添加章节</el-button>
-        </div>
-        <el-tree
-          :data="chapterTree"
-          :props="{ children: 'lessons', label: 'title' }"
-          default-expand-all
-          :expand-on-click-node="false"
-          node-key="id"
-          draggable
-          @node-drop="handleNodeDrop"
+      <div class="step-content">
+        <!-- 步骤1：基本信息 -->
+        <el-form
+          v-show="activeStep === 0"
+          ref="step1FormRef"
+          :model="form"
+          :rules="step1Rules"
+          label-width="120px"
         >
-          <template #default="{ node, data }">
-            <div class="tree-node">
-              <span v-if="!data.lessonId" class="node-label">
-                <el-icon><Folder /></el-icon>
-                {{ data.title }}
-              </span>
-              <span v-else class="node-label">
-                <el-icon><VideoPlay /></el-icon>
-                {{ data.title }}
-                <el-tag v-if="data.isFree" type="success" size="small" style="margin-left: 10px">免费</el-tag>
-              </span>
-              <span class="node-actions">
-                <el-button
-                  v-if="!data.lessonId"
-                  link
-                  type="primary"
-                  icon="Plus"
-                  @click="handleAddLesson(data)"
-                >
-                  添加课时
-                </el-button>
-                <el-button link type="primary" icon="Edit" @click="handleEditNode(data)">编辑</el-button>
-                <el-button link type="danger" icon="Delete" @click="handleDeleteNode(data)">删除</el-button>
-              </span>
-            </div>
-          </template>
-        </el-tree>
+          <el-form-item label="课程标题" prop="title">
+            <el-input v-model="form.title" placeholder="请输入课程标题" maxlength="100" show-word-limit />
+          </el-form-item>
+          <el-form-item label="课程分类" prop="categoryId">
+            <el-select v-model="form.categoryId" placeholder="请选择分类" style="width: 100%">
+              <el-option
+                v-for="category in categoryOptions"
+                :key="category.id"
+                :label="category.name"
+                :value="category.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="课程封面" prop="cover">
+            <el-upload
+              class="cover-uploader"
+              :action="uploadUrl"
+              :show-file-list="false"
+              :on-success="handleCoverSuccess"
+              :before-upload="beforeCoverUpload"
+            >
+              <img v-if="form.cover" :src="form.cover" class="cover-image" />
+              <el-icon v-else class="cover-uploader-icon"><Plus /></el-icon>
+            </el-upload>
+            <div class="upload-tip">建议尺寸：750x422px，支持 JPG、PNG 格式</div>
+          </el-form-item>
+          <el-form-item label="课程价格" prop="price">
+            <el-input-number
+              v-model="form.price"
+              :min="0"
+              :precision="2"
+              placeholder="请输入价格"
+              style="width: 200px"
+            />
+            <span style="margin-left: 10px">元</span>
+          </el-form-item>
+          <el-form-item label="原价" prop="originalPrice">
+            <el-input-number
+              v-model="form.originalPrice"
+              :min="0"
+              :precision="2"
+              placeholder="请输入原价（可选）"
+              style="width: 200px"
+            />
+            <span style="margin-left: 10px">元</span>
+          </el-form-item>
+          <el-form-item label="课程简介" prop="description">
+            <el-input
+              v-model="form.description"
+              type="textarea"
+              :rows="5"
+              placeholder="请输入课程简介"
+              maxlength="500"
+              show-word-limit
+            />
+          </el-form-item>
+          <el-form-item label="学习目标">
+            <el-input
+              v-model="objectivesInput"
+              type="textarea"
+              :rows="3"
+              placeholder="每行一个目标，例如：&#10;掌握Vue3基础语法&#10;学会使用组合式API"
+              @blur="handleObjectivesBlur"
+            />
+          </el-form-item>
+          <el-form-item label="适合人群">
+            <el-input
+              v-model="suitableInput"
+              type="textarea"
+              :rows="3"
+              placeholder="每行一个人群，例如：&#10;前端开发者&#10;Vue初学者"
+              @blur="handleSuitableBlur"
+            />
+          </el-form-item>
+        </el-form>
+
+        <!-- 步骤2：课程内容 -->
+        <div v-show="activeStep === 1" class="rich-text-editor">
+          <el-form-item label="课程详情" prop="content">
+            <div id="editor-container" style="height: 500px"></div>
+          </el-form-item>
+        </div>
+
+        <!-- 步骤3：章节管理 -->
+        <div v-show="activeStep === 2" class="chapter-management">
+          <div class="chapter-toolbar">
+            <el-button type="primary" icon="Plus" @click="handleAddChapter">添加章节</el-button>
+          </div>
+          <el-tree
+            :data="chapterTree"
+            :props="{ children: 'lessons', label: 'title' }"
+            default-expand-all
+            :expand-on-click-node="false"
+            node-key="id"
+            draggable
+            @node-drop="handleNodeDrop"
+          >
+            <template #default="{ node, data }">
+              <div class="tree-node">
+                <span v-if="!data.lessonId" class="node-label">
+                  <el-icon><Folder /></el-icon>
+                  {{ data.title }}
+                </span>
+                <span v-else class="node-label">
+                  <el-icon><VideoPlay /></el-icon>
+                  {{ data.title }}
+                  <el-tag v-if="data.isFree" type="success" size="small" style="margin-left: 10px">免费</el-tag>
+                </span>
+                <span class="node-actions">
+                  <el-button
+                    v-if="!data.lessonId"
+                    link
+                    type="primary"
+                    icon="Plus"
+                    @click="handleAddLesson(data)"
+                  >
+                    添加课时
+                  </el-button>
+                  <el-button link type="primary" icon="Edit" @click="handleEditNode(data)">编辑</el-button>
+                  <el-button link type="danger" icon="Delete" @click="handleDeleteNode(data)">删除</el-button>
+                </span>
+              </div>
+            </template>
+          </el-tree>
+        </div>
+
+        <!-- 步骤4：课程设置 -->
+        <el-form
+          v-show="activeStep === 3"
+          ref="step4FormRef"
+          :model="form"
+          :rules="step4Rules"
+          label-width="120px"
+        >
+          <el-form-item label="有效期" prop="validityDays">
+            <el-radio-group v-model="form.validityType">
+              <el-radio :label="0">永久有效</el-radio>
+              <el-radio :label="1">购买后有效</el-radio>
+            </el-radio-group>
+            <el-input-number
+              v-if="form.validityType === 1"
+              v-model="form.validityDays"
+              :min="1"
+              placeholder="天数"
+              style="width: 150px; margin-left: 20px"
+            />
+            <span v-if="form.validityType === 1" style="margin-left: 10px">天</span>
+          </el-form-item>
+          <el-form-item label="试看设置">
+            <el-switch v-model="form.allowPreview" />
+            <span style="margin-left: 10px">允许试看</span>
+          </el-form-item>
+          <el-form-item v-if="form.allowPreview" label="试看课时数">
+            <el-input-number
+              v-model="form.previewLessons"
+              :min="0"
+              placeholder="试看课时数"
+              style="width: 150px"
+            />
+          </el-form-item>
+          <el-form-item label="学习模式">
+            <el-radio-group v-model="form.studyMode">
+              <el-radio :label="0">自由学习</el-radio>
+              <el-radio :label="1">顺序学习</el-radio>
+            </el-radio-group>
+          </el-form-item>
+        </el-form>
+
+        <!-- 步骤5：完成发布 -->
+        <div v-show="activeStep === 4" class="publish-summary">
+          <el-result icon="success" title="课程信息已保存" sub-title="请确认信息无误后发布课程">
+            <template #extra>
+              <el-button type="primary" @click="handlePublish">立即发布</el-button>
+              <el-button @click="handleSaveDraft">保存草稿</el-button>
+            </template>
+          </el-result>
+          <el-descriptions title="课程信息" :column="2" border style="margin-top: 30px">
+            <el-descriptions-item label="课程标题">{{ form.title }}</el-descriptions-item>
+            <el-descriptions-item label="课程分类">
+              {{ getCategoryName(form.categoryId) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="课程价格">¥{{ form.price }}</el-descriptions-item>
+            <el-descriptions-item label="原价">¥{{ form.originalPrice || '无' }}</el-descriptions-item>
+            <el-descriptions-item label="章节数">{{ chapterTree.length }}</el-descriptions-item>
+            <el-descriptions-item label="课时数">{{ totalLessons }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
       </div>
 
-      <!-- 步骤4：课程设置 -->
-      <el-form
-        v-show="activeStep === 3"
-        ref="step4FormRef"
-        :model="form"
-        :rules="step4Rules"
-        label-width="120px"
-      >
-        <el-form-item label="有效期" prop="validityDays">
-          <el-radio-group v-model="form.validityType">
-            <el-radio :label="0">永久有效</el-radio>
-            <el-radio :label="1">购买后有效</el-radio>
-          </el-radio-group>
-          <el-input-number
-            v-if="form.validityType === 1"
-            v-model="form.validityDays"
-            :min="1"
-            placeholder="天数"
-            style="width: 150px; margin-left: 20px"
-          />
-          <span v-if="form.validityType === 1" style="margin-left: 10px">天</span>
-        </el-form-item>
-        <el-form-item label="试看设置">
-          <el-switch v-model="form.allowPreview" />
-          <span style="margin-left: 10px">允许试看</span>
-        </el-form-item>
-        <el-form-item v-if="form.allowPreview" label="试看课时数">
-          <el-input-number
-            v-model="form.previewLessons"
-            :min="0"
-            placeholder="试看课时数"
-            style="width: 150px"
-          />
-        </el-form-item>
-        <el-form-item label="学习模式">
-          <el-radio-group v-model="form.studyMode">
-            <el-radio :label="0">自由学习</el-radio>
-            <el-radio :label="1">顺序学习</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-
-      <!-- 步骤5：完成发布 -->
-      <div v-show="activeStep === 4" class="publish-summary">
-        <el-result icon="success" title="课程信息已保存" sub-title="请确认信息无误后发布课程">
-          <template #extra>
-            <el-button type="primary" @click="handlePublish">立即发布</el-button>
-            <el-button @click="handleSaveDraft">保存草稿</el-button>
-          </template>
-        </el-result>
-        <el-descriptions title="课程信息" :column="2" border style="margin-top: 30px">
-          <el-descriptions-item label="课程标题">{{ form.title }}</el-descriptions-item>
-          <el-descriptions-item label="课程分类">
-            {{ getCategoryName(form.categoryId) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="课程价格">¥{{ form.price }}</el-descriptions-item>
-          <el-descriptions-item label="原价">¥{{ form.originalPrice || '无' }}</el-descriptions-item>
-          <el-descriptions-item label="章节数">{{ chapterTree.length }}</el-descriptions-item>
-          <el-descriptions-item label="课时数">{{ totalLessons }}</el-descriptions-item>
-        </el-descriptions>
+      <div class="step-actions">
+        <el-button v-if="activeStep > 0" @click="prevStep">上一步</el-button>
+        <el-button v-if="activeStep < 4" type="primary" @click="nextStep">下一步</el-button>
+        <el-button v-if="activeStep === 4" type="success" @click="handlePublish">发布课程</el-button>
+        <el-button @click="handleCancel">取消</el-button>
       </div>
-    </div>
-
-    <div class="step-actions">
-      <el-button v-if="activeStep > 0" @click="prevStep">上一步</el-button>
-      <el-button v-if="activeStep < 4" type="primary" @click="nextStep">下一步</el-button>
-      <el-button v-if="activeStep === 4" type="success" @click="handlePublish">发布课程</el-button>
-      <el-button @click="handleCancel">取消</el-button>
-    </div>
+    </el-card>
 
     <!-- 章节/课时编辑弹窗 -->
     <el-dialog
@@ -414,9 +416,9 @@ const initEditor = async () => {
     textarea.className = 'el-textarea__inner'
     textarea.style.width = '100%'
     textarea.style.height = '100%'
-    textarea.style.border = '1px solid #dcdfe6'
-    textarea.style.borderRadius = '4px'
-    textarea.style.padding = '5px 15px'
+    textarea.style.border = 'none'
+    textarea.style.boxShadow = 'none'
+    textarea.style.padding = '10px 14px'
     textarea.placeholder = '请输入课程详情内容...'
     textarea.value = form.content
     textarea.addEventListener('input', (e) => {
@@ -897,14 +899,13 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.app-container {
-  padding: 20px;
-  background: #fff;
-  border-radius: 4px;
+.page-card :deep(.el-card__body) {
+  padding: 28px 32px 24px;
 }
 
 .steps {
-  margin-bottom: 40px;
+  max-width: 880px;
+  margin: 0 auto 32px;
 }
 
 .step-content {
@@ -914,15 +915,16 @@ onUnmounted(() => {
 
 .cover-uploader {
   :deep(.el-upload) {
-    border: 1px dashed #d9d9d9;
+    border: 1px dashed var(--el-border-color-dark);
     border-radius: 6px;
     cursor: pointer;
     position: relative;
     overflow: hidden;
-    transition: all 0.3s;
+    background: var(--el-fill-color-lighter);
+    transition: border-color 0.16s var(--zx-ease);
 
     &:hover {
-      border-color: #409eff;
+      border-color: var(--el-color-primary);
     }
   }
 
@@ -935,7 +937,7 @@ onUnmounted(() => {
 
   .cover-uploader-icon {
     font-size: 28px;
-    color: #8c939d;
+    color: var(--el-text-color-placeholder);
     width: 200px;
     height: 112px;
     line-height: 112px;
@@ -945,14 +947,14 @@ onUnmounted(() => {
 
 .upload-tip {
   font-size: 12px;
-  color: #999;
-  margin-top: 5px;
+  color: var(--el-text-color-secondary);
+  margin-top: 6px;
 }
 
 .rich-text-editor {
   :deep(#editor-container) {
-    border: 1px solid #dcdfe6;
-    border-radius: 4px;
+    border: 1px solid var(--el-border-color);
+    border-radius: var(--el-border-radius-base);
   }
 }
 
@@ -987,8 +989,8 @@ onUnmounted(() => {
 
 .step-actions {
   text-align: center;
-  margin-top: 40px;
+  margin-top: 32px;
   padding-top: 20px;
-  border-top: 1px solid #e8e8e8;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 </style>

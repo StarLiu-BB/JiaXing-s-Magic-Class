@@ -1,10 +1,16 @@
 <template>
-  <div class="screenfull" @click="click">
-    <el-icon>
+  <button
+    type="button"
+    class="screenfull"
+    :aria-label="isFullscreen ? '退出全屏' : '全屏'"
+    :title="isFullscreen ? '退出全屏' : '全屏'"
+    @click="click"
+  >
+    <el-icon :size="17">
       <FullScreen v-if="!isFullscreen" />
       <Aim v-else />
     </el-icon>
-  </div>
+  </button>
 </template>
 
 <script setup>
