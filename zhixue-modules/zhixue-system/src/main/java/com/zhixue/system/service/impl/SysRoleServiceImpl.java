@@ -2,9 +2,9 @@ package com.zhixue.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zhixue.common.core.exception.ServiceException;
+import com.zhixue.system.domain.entity.SysMenu;
 import com.zhixue.system.domain.entity.SysRole;
 import com.zhixue.system.domain.entity.SysRoleMenu;
-import com.zhixue.system.domain.entity.SysUserRole;
 import com.zhixue.system.mapper.SysMenuMapper;
 import com.zhixue.system.mapper.SysRoleMapper;
 import com.zhixue.system.mapper.SysRoleMenuMapper;
@@ -72,8 +72,9 @@ public class SysRoleServiceImpl implements SysRoleService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean removeRole(Long id) {
-        roleMenuMapper.delete(new LambdaQueryWrapper<SysRoleMenu>().eq(SysRoleMenu::getRoleId, id));
-        userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getRoleId, id));
+        rejectIfSuperAdmin(roleMapper.selectById(id), "删除");
+        roleMenuMapper.physicalDeleteByRoleId(id);
+        userRoleMapper.physicalDeleteByRoleId(id);
         return roleMapper.deleteById(id) > 0;
     }
 
@@ -81,28 +82,29 @@ public class SysRoleServiceImpl implements SysRoleService {
     @Transactional(rollbackFor = Exception.class)
     public boolean assignMenus(Long roleId, List<Long> menuIds) {
         log.info("分配权限 roleId={}, menus={}", roleId, menuIds);
-        if (roleId == null || roleMapper.selectById(roleId) == null) {
+        SysRole role = roleId == null ? null : roleMapper.selectById(roleId);
+        if (role == null) {
             throw new ServiceException("角色不存在");
         }
         if (menuIds == null) {
             return true;
         }
-        roleMenuMapper.delete(new LambdaQueryWrapper<SysRoleMenu>().eq(SysRoleMenu::getRoleId, roleId));
-        if (menuIds.isEmpty()) {
-            return true;
-        }
         List<Long> targetMenuIds = menuIds.stream().filter(Objects::nonNull).distinct().toList();
+        requireRecoveryGrant(role, targetMenuIds);
+        if (!targetMenuIds.isEmpty()) {
+            List<Long> existingMenuIds = menuMapper.selectBatchIds(targetMenuIds).stream()
+                    .filter(Objects::nonNull)
+                    .map(SysMenu::getId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            if (existingMenuIds.size() != targetMenuIds.size()) {
+                throw new ServiceException("存在无效菜单，分配失败");
+            }
+        }
+        roleMenuMapper.physicalDeleteByRoleId(roleId);
         if (targetMenuIds.isEmpty()) {
             return true;
-        }
-        List<Long> existingMenuIds = menuMapper.selectBatchIds(targetMenuIds).stream()
-                .filter(Objects::nonNull)
-                .map(menu -> menu.getId())
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        if (existingMenuIds.size() != targetMenuIds.size()) {
-            throw new ServiceException("存在无效菜单，分配失败");
         }
         int inserted = 0;
         for (Long menuId : targetMenuIds) {
@@ -124,8 +126,42 @@ public class SysRoleServiceImpl implements SysRoleService {
         if (role == null) {
             throw new ServiceException("角色不存在");
         }
+        if (status != 0) {
+            rejectIfSuperAdmin(role, "停用");
+        }
         role.setStatus(status);
         return roleMapper.updateById(role) > 0;
+    }
+
+    /**
+     * 超级管理员角色不可删除或停用：角色页开放写操作后，一次误点即可让所有管理员
+     * 立即失去全部后台权限，且无法在界面上恢复。
+     */
+    private void rejectIfSuperAdmin(SysRole role, String action) {
+        if (isSuperAdmin(role)) {
+            throw new ServiceException("超级管理员角色不允许" + action);
+        }
+    }
+
+    private static boolean isSuperAdmin(SysRole role) {
+        return role != null && "ADMIN".equalsIgnoreCase(role.getRoleKey());
+    }
+
+    /** 超级管理员重新授权时必须保留的权限：缺了它们就再也无法在界面上修改任何授权 */
+    private static final List<String> RECOVERY_PERMS = List.of("system:role:list", "system:role:edit");
+
+    private void requireRecoveryGrant(SysRole role, List<Long> targetMenuIds) {
+        if (!isSuperAdmin(role)) {
+            return;
+        }
+        List<Long> required = menuMapper.selectList(new LambdaQueryWrapper<SysMenu>().in(SysMenu::getPerms, RECOVERY_PERMS))
+                .stream()
+                .map(SysMenu::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (!targetMenuIds.containsAll(required)) {
+            throw new ServiceException("超级管理员角色必须保留「角色管理」的查看与编辑权限，否则将无法再修改任何授权");
+        }
     }
 
     @Override

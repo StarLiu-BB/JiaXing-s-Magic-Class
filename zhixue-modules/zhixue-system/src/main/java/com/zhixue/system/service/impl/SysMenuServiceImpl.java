@@ -66,7 +66,12 @@ public class SysMenuServiceImpl implements SysMenuService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean removeMenu(Long id) {
-        roleMenuMapper.delete(new LambdaQueryWrapper<SysRoleMenu>().eq(SysRoleMenu::getMenuId, id));
+        // 父菜单被删后子菜单与按钮权限成为孤儿：从菜单树消失，却仍被角色授权引用
+        Long children = menuMapper.selectCount(new LambdaQueryWrapper<SysMenu>().eq(SysMenu::getParentId, id));
+        if (children != null && children > 0) {
+            throw new ServiceException("存在子菜单，请先删除子菜单");
+        }
+        roleMenuMapper.physicalDeleteByMenuId(id);
         return menuMapper.deleteById(id) > 0;
     }
 

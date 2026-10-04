@@ -122,3 +122,38 @@ export function getCategoryList() {
     method: 'get'
   })
 }
+
+/**
+ * 新增分类（需 course:category:edit）
+ * @param {{name: string, parentId: number|string, sort: number}} data 分类数据
+ */
+export function addCategory(data) {
+  return request({
+    url: '/course/category',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 修改分类（需 course:category:edit）
+ * @param {{id: number|string, name: string, parentId: number|string, sort: number}} data 分类数据
+ */
+export function updateCategory(data) {
+  return request({
+    url: '/course/category',
+    method: 'put',
+    data
+  })
+}
+
+/**
+ * 删除分类（需 course:category:edit）。存在子分类或被课程引用时后端拒绝。
+ * @param {number|string} id 分类ID
+ */
+export function deleteCategory(id) {
+  return request({
+    url: `/course/category/${id}`,
+    method: 'delete'
+  })
+}

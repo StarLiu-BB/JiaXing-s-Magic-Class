@@ -1,8 +1,12 @@
 package com.zhixue.course.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zhixue.common.core.constant.HttpStatus;
+import com.zhixue.common.core.exception.ServiceException;
 import com.zhixue.course.domain.entity.Category;
+import com.zhixue.course.domain.entity.Course;
 import com.zhixue.course.mapper.CategoryMapper;
+import com.zhixue.course.mapper.CourseMapper;
 import com.zhixue.course.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +22,7 @@ import java.util.List;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryMapper categoryMapper;
+    private final CourseMapper courseMapper;
 
     /**
      * 查询所有启用的课程分类，按排序号升序排列。
@@ -68,6 +73,15 @@ public class CategoryServiceImpl implements CategoryService {
      */
     @Override
     public boolean remove(Long id) {
+        // 直接删除会让子分类成为孤儿、引用它的课程指向不存在的分类
+        Long children = categoryMapper.selectCount(new LambdaQueryWrapper<Category>().eq(Category::getParentId, id));
+        if (children != null && children > 0) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "存在子分类，请先删除子分类");
+        }
+        Long courses = courseMapper.selectCount(new LambdaQueryWrapper<Course>().eq(Course::getCategoryId, id));
+        if (courses != null && courses > 0) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "该分类下有 " + courses + " 门课程，请先调整课程分类");
+        }
         return categoryMapper.deleteById(id) > 0;
     }
 }

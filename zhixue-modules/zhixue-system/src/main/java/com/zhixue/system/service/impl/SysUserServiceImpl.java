@@ -126,7 +126,7 @@ public class SysUserServiceImpl implements SysUserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean removeUser(Long id) {
-        userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, id));
+        userRoleMapper.physicalDeleteByUserId(id);
         return userMapper.deleteById(id) > 0;
     }
 
@@ -140,7 +140,7 @@ public class SysUserServiceImpl implements SysUserService {
         if (roleIds == null) {
             return true;
         }
-        userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId));
+        userRoleMapper.physicalDeleteByUserId(userId);
         if (roleIds.isEmpty()) {
             return true;
         }

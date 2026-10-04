@@ -90,7 +90,7 @@ class SysUserServiceImplTest {
 
         when(roleMapper.selectBatchIds(eq(java.util.List.of(101L, 102L))))
                 .thenReturn(java.util.List.of(role101, role102));
-        when(userRoleMapper.delete(any())).thenReturn(1);
+        when(userRoleMapper.physicalDeleteByUserId(9L)).thenReturn(1);
         when(userRoleMapper.insert(any(SysUserRole.class))).thenReturn(1);
 
         userService.assignRoles(9L, java.util.Arrays.asList(101L, 101L, 102L));

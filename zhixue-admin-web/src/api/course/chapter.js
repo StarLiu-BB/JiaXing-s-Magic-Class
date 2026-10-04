@@ -89,15 +89,15 @@ export function getLesson(lessonId) {
 }
 
 /**
- * 新增课时
+ * 新增课时（字段与后端 Section 实体一致；是否可试看由课程的"试看节数"统一决定，课时本身没有免费标记）
  * @param {Object} data 课时数据
+ * @param {number} data.courseId 课程ID
  * @param {number} data.chapterId 章节ID
  * @param {string} data.title 课时标题
- * @param {number} data.duration 时长（分钟）
+ * @param {number} data.duration 时长（秒）
  * @param {string} data.videoUrl 视频地址
- * @param {boolean} data.isFree 是否免费
- * @param {number} data.sortOrder 排序
- * @param {string} data.description 课时描述
+ * @param {number} data.orderNum 排序
+ * @param {number} data.status 0未发布 1已发布
  */
 export function addLesson(data) {
   return request({
@@ -108,15 +108,8 @@ export function addLesson(data) {
 }
 
 /**
- * 修改课时
+ * 修改课时（字段同新增，另需 id）
  * @param {Object} data 课时数据
- * @param {number} data.id 课时ID
- * @param {string} data.title 课时标题
- * @param {number} data.duration 时长（分钟）
- * @param {string} data.videoUrl 视频地址
- * @param {boolean} data.isFree 是否免费
- * @param {number} data.sortOrder 排序
- * @param {string} data.description 课时描述
  */
 export function updateLesson(data) {
   return request({
