@@ -1,14 +1,24 @@
 package com.zhixue.interaction.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zhixue.common.core.constant.HttpStatus;
 import com.zhixue.common.core.domain.PageQuery;
 import com.zhixue.common.core.domain.PageResult;
 import com.zhixue.common.core.domain.R;
+import com.zhixue.common.core.exception.ServiceException;
+import com.zhixue.common.security.annotation.RequirePermission;
+import com.zhixue.interaction.domain.dto.DanmakuAuditDTO;
 import com.zhixue.interaction.domain.entity.Danmaku;
 import com.zhixue.interaction.mapper.DanmakuMapper;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,17 +26,24 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 历史弹幕 HTTP 接口。
+ * 弹幕 HTTP 接口。
+ *
+ * <p>弹幕发送时由 AI 自动审核（通过=1，不通过=2；AI 不可用时按通过处理），这里提供人工复核：
+ * 恢复被误拒的弹幕，或下架已通过的弹幕。</p>
  */
 @RestController
 @RequestMapping("/danmaku")
 @RequiredArgsConstructor
 public class DanmakuController {
 
+    /** 浏览全站弹幕（含被拒内容与发送者）：修复前任何登录用户都能翻看 */
+    static final String PERM_LIST = "interaction:danmaku:list";
+    static final String PERM_AUDIT = "interaction:danmaku:audit";
+
     private final DanmakuMapper danmakuMapper;
 
     /**
-     * 查询某个房间的历史弹幕（简单返回最近 N 条）。
+     * 播放页拉取某个房间已通过的历史弹幕（最近 N 条）；登录由网关校验，不需要额外权限。
      */
     @GetMapping("/history")
     public R<List<Danmaku>> history(@RequestParam Long roomId,
@@ -41,8 +58,9 @@ public class DanmakuController {
     }
 
     /**
-     * 分页查询弹幕（管理后台）。
+     * 分页查询弹幕（管理后台），最新的在前。
      */
+    @RequirePermission(PERM_LIST)
     @GetMapping("/page")
     public R<PageResult<Danmaku>> page(PageQuery query,
                                        @RequestParam(required = false) Long roomId,
@@ -54,8 +72,31 @@ public class DanmakuController {
         if (auditStatus != null) {
             qw.eq(Danmaku::getAuditStatus, auditStatus);
         }
+        qw.orderByDesc(Danmaku::getCreateTime);
         Page<Danmaku> page = danmakuMapper.selectPage(
                 new Page<>(query.getPageNum(), query.getPageSize()), qw);
         return R.ok(PageResult.of(page.getRecords(), page.getTotal(), page.getSize()));
+    }
+
+    /**
+     * 人工复核：通过则重新出现在历史弹幕中并清除拒绝原因；拒绝须填写原因。
+     */
+    @RequirePermission(PERM_AUDIT)
+    @PutMapping("/{id}/audit")
+    public R<Void> audit(@PathVariable Long id, @Valid @RequestBody DanmakuAuditDTO dto) {
+        Danmaku danmaku = danmakuMapper.selectById(id);
+        if (danmaku == null) {
+            throw new ServiceException(HttpStatus.NOT_FOUND, "弹幕不存在");
+        }
+        boolean reject = dto.getAuditStatus() == 2;
+        if (reject && !StringUtils.hasText(dto.getAuditRemark())) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "拒绝时请填写原因");
+        }
+        // 必须显式 SET：updateById 会跳过 null 字段，"通过"时拒绝原因清不掉（界面验证实测）
+        danmakuMapper.update(null, new LambdaUpdateWrapper<Danmaku>()
+                .eq(Danmaku::getId, id)
+                .set(Danmaku::getAuditStatus, dto.getAuditStatus())
+                .set(Danmaku::getAuditRemark, reject ? dto.getAuditRemark().trim() : null));
+        return R.ok();
     }
 }

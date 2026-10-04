@@ -50,7 +50,10 @@ insert into sys_menu (id, parent_id, menu_name, path, component, perms, icon, me
     (410, 400, '秒杀管理', 'seckill', 'marketing/seckill/index', 'marketing:seckill:list', 'Timer', 1, 1, 1, 0, now(), now(), 0),
     (411, 410, '秒杀编辑', '', '', 'marketing:seckill:edit', 'Edit', 2, 1, 1, 0, now(), now(), 0),
     (420, 400, '优惠券管理', 'coupon', 'marketing/coupon/index', 'marketing:coupon:list', 'Ticket', 1, 2, 1, 0, now(), now(), 0),
-    (421, 420, '优惠券编辑', '', '', 'marketing:coupon:edit', 'Edit', 2, 1, 1, 0, now(), now(), 0);
+    (421, 420, '优惠券编辑', '', '', 'marketing:coupon:edit', 'Edit', 2, 1, 1, 0, now(), now(), 0),
+    (500, 0, '学生互动', '/interaction', 'Layout', null, 'ChatLineSquare', 0, 5, 1, 0, now(), now(), 0),
+    (510, 500, '弹幕审核', 'comment', 'interaction/comment/index', 'interaction:danmaku:list', 'Comment', 1, 1, 1, 0, now(), now(), 0),
+    (511, 510, '弹幕复核', '', '', 'interaction:danmaku:audit', 'Check', 2, 1, 1, 0, now(), now(), 0);
 
 insert into sys_user_role (id, user_id, role_id, create_time, update_time, deleted) values
     (10001, 1001, 1, now(), now(), 0),
@@ -90,6 +93,9 @@ insert into sys_role_menu (id, role_id, menu_id, create_time, update_time, delet
     (20030, 1, 411, now(), now(), 0),
     (20031, 1, 420, now(), now(), 0),
     (20032, 1, 421, now(), now(), 0),
+    (20033, 1, 500, now(), now(), 0),
+    (20034, 1, 510, now(), now(), 0),
+    (20035, 1, 511, now(), now(), 0),
     (21001, 2, 200, now(), now(), 0),
     (21002, 2, 210, now(), now(), 0),
     (21003, 2, 211, now(), now(), 0),
