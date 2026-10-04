@@ -9,6 +9,8 @@
  *   POST /media/file/list
  *   GET  /media/file/page
  *
+ * 权限（后端强制校验）：上传需 course:edit 或 course:publish；查询需 media:file:list。
+ *
  * 此前本文件调用的 /upload/image、/upload/video、/upload/chunk/init、
  * /upload/chunk/complete、/upload/chunk/{id}/cancel、/upload/chunk/{id}/status
  * 在后端均不存在，导致封面上传、富文本配图、视频上传全部不可用。
@@ -103,13 +105,17 @@ export function mergeChunks(params) {
 }
 
 /**
- * 媒资分页查询
+ * 媒资分页查询（需 media:file:list），返回 { list, total }
+ * @param {{pageNum: number, pageSize: number, fileName?: string, status?: number}} query 查询参数
  */
 export function listMediaPage(query) {
   return request({
     url: '/media/file/page',
     method: 'get',
     params: query
+  }).then((res) => {
+    const page = res?.data || {}
+    return { list: page.records || [], total: Number(page.total || 0) }
   })
 }
 

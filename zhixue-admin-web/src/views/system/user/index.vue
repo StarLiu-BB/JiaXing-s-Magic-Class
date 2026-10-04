@@ -92,16 +92,16 @@
         </el-button>
       </el-col>
       <el-col :span="1.5">
-        <el-tooltip content="第一阶段暂不开放导出能力">
-          <el-button
-            type="warning"
-            plain
-            icon="Download"
-            disabled
-          >
-            导出
-          </el-button>
-        </el-tooltip>
+        <el-button
+          type="warning"
+          plain
+          icon="Download"
+          :loading="exporting"
+          v-hasPermi="['system:user:list']"
+          @click="handleExport"
+        >
+          导出
+        </el-button>
       </el-col>
     </el-row>
 
@@ -460,6 +460,63 @@ const getList = async () => {
     total.value = 0
   } finally {
     loading.value = false
+  }
+}
+
+// 导出：按当前筛选条件分页取全量，在浏览器生成 CSV（后端没有导出接口，数据范围与列表接口一致）
+const EXPORT_PAGE_SIZE = 200
+const EXPORT_MAX_ROWS = 5000
+const exporting = ref(false)
+
+/** 以 = + - @ 开头的单元格会被 Excel 当作公式执行，昵称等字段由用户填写，需转义 */
+const csvCell = (value) => {
+  let text = value === null || value === undefined ? '' : String(value)
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+const handleExport = async () => {
+  exporting.value = true
+  try {
+    const base = { ...queryParams }
+    if (dateRange.value && dateRange.value.length === 2) {
+      base.startTime = dateRange.value[0]
+      base.endTime = dateRange.value[1]
+    }
+    const rows = []
+    let expected = Infinity
+    for (let page = 1; rows.length < Math.min(expected, EXPORT_MAX_ROWS); page++) {
+      const response = await listUser({ ...base, pageNum: page, pageSize: EXPORT_PAGE_SIZE })
+      const list = normalizeList(response)
+      expected = normalizeTotal(response)
+      rows.push(...list)
+      if (list.length < EXPORT_PAGE_SIZE) break
+    }
+    if (rows.length === 0) {
+      ElMessage.warning('当前条件下没有可导出的用户')
+      return
+    }
+    const header = ['用户编号', '用户名', '昵称', '部门', '手机号', '状态', '创建时间']
+    const lines = rows.slice(0, EXPORT_MAX_ROWS).map((u) => [
+      u.id, u.username, u.nickname, u.deptName, u.phone,
+      Number(u.status) === 0 ? '正常' : '停用', parseTime(u.createTime)
+    ].map(csvCell).join(','))
+    const csv = '\uFEFF' + [header.map(csvCell).join(','), ...lines].join('\r\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `用户列表_${parseTime(new Date(), '{y}{m}{d}{h}{i}{s}')}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+    if (expected > EXPORT_MAX_ROWS) {
+      ElMessage.warning(`共 ${expected} 条，仅导出前 ${EXPORT_MAX_ROWS} 条，请缩小筛选范围`)
+    } else {
+      ElMessage.success(`已导出 ${Math.min(rows.length, expected)} 条`)
+    }
+  } catch (error) {
+    console.error('导出用户失败:', error)
+  } finally {
+    exporting.value = false
   }
 }
 
