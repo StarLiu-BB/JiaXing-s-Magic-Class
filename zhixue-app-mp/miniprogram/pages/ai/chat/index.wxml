@@ -1,0 +1,53 @@
+<view class="page">
+  <view class="scope" wx:if="{{courseTitle}}">
+    <text class="scope-label">答疑范围</text>
+    <text class="scope-value">{{courseTitle}}</text>
+  </view>
+
+  <scroll-view class="messages" scroll-y scroll-into-view="{{scrollTarget}}" scroll-with-animation>
+    <view class="welcome" wx:if="{{messages.length === 0}}">
+      <view class="welcome-title">有什么课程问题？</view>
+      <view class="welcome-desc">答案依据课程知识库由 AI 生成，仅供参考</view>
+      <view class="suggestions">
+        <view
+          class="suggestion"
+          wx:for="{{suggestions}}"
+          wx:key="*this"
+          data-text="{{item}}"
+          bindtap="onSuggestionTap"
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <view
+      wx:for="{{messages}}"
+      wx:key="id"
+      id="{{item.id}}"
+      class="msg {{item.role}} {{item.failed ? 'failed' : ''}}"
+    >
+      <view class="bubble">
+        <text user-select="{{true}}">{{item.content}}</text>
+        <view class="meta" wx:if="{{item.cost}}">用时 {{item.cost}} 秒</view>
+      </view>
+    </view>
+
+    <view class="msg assistant" wx:if="{{loading}}">
+      <view class="bubble thinking">AI 正在思考…</view>
+    </view>
+    <view id="bottom" class="bottom-spacer"></view>
+  </scroll-view>
+
+  <view class="composer">
+    <input
+      class="composer-input"
+      value="{{input}}"
+      placeholder="输入你的问题"
+      maxlength="500"
+      confirm-type="send"
+      disabled="{{loading}}"
+      bindinput="onInput"
+      bindconfirm="onSend"
+    />
+    <button class="composer-send" disabled="{{loading || !input}}" bindtap="onSend">发送</button>
+  </view>
+</view>

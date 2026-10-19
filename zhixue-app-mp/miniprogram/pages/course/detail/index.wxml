@@ -8,20 +8,21 @@
   <!-- 课程信息 -->
   <view class="info-section">
     <view class="course-title">{{courseInfo.title}}</view>
-    <view class="course-subtitle">{{courseInfo.description}}</view>
+    <view class="course-subtitle" wx:if="{{courseInfo.subtitle}}">{{courseInfo.subtitle}}</view>
     <view class="course-meta">
       <view class="meta-item">
         <text class="meta-label">价格</text>
         <text class="meta-value price">¥{{courseInfo.price}}</text>
         <text class="meta-value original-price" wx:if="{{courseInfo.originalPrice > courseInfo.price}}">¥{{courseInfo.originalPrice}}</text>
       </view>
-      <view class="meta-item">
+      <!-- 销量、评分只在后端有真实数据时展示；此前评分写死 5.0，销量显示为空 -->
+      <view class="meta-item" wx:if="{{courseInfo.sales != null}}">
         <text class="meta-label">销量</text>
         <text class="meta-value">{{courseInfo.sales}}人</text>
       </view>
-      <view class="meta-item">
+      <view class="meta-item" wx:if="{{courseInfo.rating}}">
         <text class="meta-label">评分</text>
-        <text class="meta-value">{{courseInfo.rating || 5.0}}分</text>
+        <text class="meta-value">{{courseInfo.rating}}分</text>
       </view>
     </view>
   </view>
@@ -45,7 +46,7 @@
       <view class="intro-content">
         <view class="intro-item">
           <text class="intro-label">课程简介</text>
-          <text class="intro-text">{{courseInfo.introduction || '暂无简介'}}</text>
+          <text class="intro-text">{{courseInfo.description || '暂无简介'}}</text>
         </view>
         <view class="intro-item" wx:if="{{courseInfo.objectives && courseInfo.objectives.length > 0}}">
           <text class="intro-label">学习目标</text>
@@ -112,6 +113,10 @@
       <view class="action-btn" bindtap="onFavoriteTap">
         <text class="iconfont {{isFavorite ? 'icon-favorite-fill' : 'icon-favorite'}}"></text>
         <text>{{isFavorite ? '已收藏' : '收藏'}}</text>
+      </view>
+      <view class="action-btn" bindtap="onAskAiTap">
+        <text class="action-ai">AI</text>
+        <text>问 AI</text>
       </view>
     </view>
     <view class="bar-right">

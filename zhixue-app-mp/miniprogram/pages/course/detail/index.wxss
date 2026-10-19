@@ -326,3 +326,19 @@
   font-size: 28rpx;
 }
 
+
+/* 问 AI 入口 */
+.bar-left {
+  display: flex;
+  gap: 40rpx;
+}
+
+.action-ai {
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 36rpx;
+  padding: 0 8rpx;
+  color: var(--primary-color);
+  border: 2rpx solid var(--primary-color);
+  border-radius: 8rpx;
+}

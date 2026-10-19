@@ -1,45 +1,29 @@
 const { get, post } = require('./request')
 
-const COUPON_CACHE_KEY = 'ZX_COUPON_CACHE'
+/**
+ * 优惠券：一律以服务端为准。
+ * 此前用本地缓存标记"已领取"：换设备或清缓存后已领的券又显示「领取」，一点就报"已达到领取上限"；
+ * 且缓存按领取记录 ID 存，和券 ID 对不上，列表里会多出一张无名的"优惠券"。
+ */
 
-function readCouponCache() {
-  return wx.getStorageSync(COUPON_CACHE_KEY) || []
-}
-
-function writeCouponCache(list) {
-  wx.setStorageSync(COUPON_CACHE_KEY, Array.isArray(list) ? list : [])
-}
-
-function saveClaimedCoupon(coupon) {
-  const id = coupon?.id || coupon?.couponId
-  if (!id) {
-    return
-  }
-  const list = readCouponCache()
-  const next = [
-    {
-      ...coupon,
-      id,
-      claimed: true,
-      claimedTime: coupon.claimedTime || new Date().toISOString()
-    },
-    ...list.filter((item) => String(item.id || item.couponId) !== String(id))
-  ]
-  writeCouponCache(next.slice(0, 200))
-}
-
-async function getAvailableCouponList() {
-  // 不再在失败时回退本地缓存并伪装成 code:200：
-  // 优惠券可用性由服务端判定，本机缓存可能已过期或被篡改。
+/** 当前可领取的优惠券（Coupon：name / discount / thresholdAmount / endTime / userLimit） */
+function getAvailableCouponList() {
   return get('/marketing/coupon/available')
 }
 
-async function claimCoupon(couponId, userId) {
-  const res = await post('/marketing/coupon/claim', { couponId, userId })
-  if (res?.code === 200) {
-    saveClaimedCoupon(res?.data || { id: couponId, couponId, userId })
-  }
-  return res
+/** 我领到的券（CouponUser：couponId / status 0未使用 1已使用 2已过期 / expireTime） */
+function getMyCoupons() {
+  return get('/marketing/coupon/user/list')
+}
+
+/** 券详情（用于展示已下线活动里我领过的券） */
+function getCoupon(couponId) {
+  return get(`/marketing/coupon/${couponId}`, {}, { showLoading: false })
+}
+
+/** 领取：领取人以服务端登录态为准，无需传 userId */
+function claimCoupon(couponId) {
+  return post('/marketing/coupon/claim', { couponId })
 }
 
 /**
@@ -68,10 +52,10 @@ function doSeckill(activityId, token) {
 
 module.exports = {
   getAvailableCouponList,
+  getMyCoupons,
+  getCoupon,
   claimCoupon,
   getOnlineSeckills,
   getSeckillToken,
-  doSeckill,
-  readCouponCache,
-  saveClaimedCoupon
+  doSeckill
 }

@@ -2,7 +2,7 @@
 const app = getApp()
 const { getOrderList } = require('../../api/order')
 const { getFavoriteList, getStudyRecords } = require('../../api/user')
-const { getAvailableCouponList } = require('../../api/marketing')
+const { getMyCoupons } = require('../../api/marketing')
 
 Page({
   /**
@@ -133,6 +133,15 @@ Page({
   /**
    * 点击学习记录
    */
+  onAiTap() {
+    if (!this.checkLogin()) {
+      return
+    }
+    wx.navigateTo({
+      url: '/pages/ai/chat/index'
+    })
+  },
+
   onStudyRecordTap() {
     if (!this.checkLogin()) {
       return
@@ -290,13 +299,16 @@ Page({
         settle('订单', getOrderList({ pageNum: 1, pageSize: 100 })),
         settle('收藏', getFavoriteList({ pageNum: 1, pageSize: 100 })),
         settle('学习记录', getStudyRecords({ pageNum: 1, pageSize: 100 })),
-        settle('优惠券', getAvailableCouponList())
+        settle('优惠券', getMyCoupons())
       ])
 
       const orders = orderRes.data?.list || orderRes.data?.records || orderRes.data || []
       const favorites = favoriteRes.data?.list || favoriteRes.data?.records || favoriteRes.data || []
       const studies = studyRes.data?.list || studyRes.data?.records || studyRes.data || []
-      const coupons = couponRes.data || []
+      const now = Date.now()
+      // 「我的」页显示的是我手里还能用的券，而不是平台可领取的券
+      const coupons = (couponRes.data || []).filter((c) =>
+        Number(c.status) === 0 && !(c.expireTime && new Date(c.expireTime).getTime() < now))
 
       const totalStudySeconds = studies.reduce((sum, item) => sum + Number(item.studyDuration || item.duration || 0), 0)
       const uniqueCourses = new Set(

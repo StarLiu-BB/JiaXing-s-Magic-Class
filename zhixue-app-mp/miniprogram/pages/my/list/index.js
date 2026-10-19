@@ -1,7 +1,45 @@
 const { getOrderList, cancelOrder } = require('../../../api/order')
 const { checkout } = require('../../../utils/pay')
 const { getFavoriteList, getStudyRecords, ERR_NOT_IMPLEMENTED } = require('../../../api/user')
-const { getAvailableCouponList, claimCoupon, readCouponCache } = require('../../../api/marketing')
+const { getAvailableCouponList, getMyCoupons, getCoupon, claimCoupon } = require('../../../api/marketing')
+
+const COUPON_STATUS = { 0: '未使用', 1: '已使用', 2: '已过期' }
+
+const formatDate = (value) => (value ? String(value).replace('T', ' ').slice(0, 10) : '')
+
+/** 可领取的券 + 我已领的券，按券合并；状态与到期时间全部以服务端为准 */
+async function loadCoupons() {
+  const [availableRes, mineRes] = await Promise.all([getAvailableCouponList(), getMyCoupons()])
+  const available = availableRes.data || []
+  const mine = mineRes.data || []
+  const byCoupon = new Map(available.map((c) => [String(c.id), c]))
+  // 已下线活动里我领过的券不在可领取列表中，单独取券面信息
+  const missing = mine.filter((m) => !byCoupon.has(String(m.couponId)))
+  const extra = await Promise.all(missing.map((m) => getCoupon(m.couponId).then((r) => r.data).catch(() => null)))
+  extra.filter(Boolean).forEach((c) => byCoupon.set(String(c.id), c))
+
+  const now = Date.now()
+  const owned = new Map(mine.map((m) => [String(m.couponId), m]))
+  return [...byCoupon.values()].map((c) => {
+    const record = owned.get(String(c.id))
+    let statusText = '可领取'
+    if (record) {
+      const expired = Number(record.status) === 0 && record.expireTime && new Date(record.expireTime).getTime() < now
+      statusText = expired ? '已过期' : (COUPON_STATUS[record.status] || '已领取')
+      if (statusText === '未使用' && record.expireTime) {
+        statusText += ` · ${formatDate(record.expireTime)} 到期`
+      }
+    }
+    return {
+      id: c.id,
+      name: c.name,
+      discount: c.discount,
+      thresholdText: Number(c.thresholdAmount) > 0 ? `满 ${c.thresholdAmount} 元可用` : '无门槛',
+      claimed: !!record,
+      statusText
+    }
+  }).sort((a, b) => Number(a.claimed) - Number(b.claimed))
+}
 
 const MODE_CONFIG = {
   orders: {
@@ -64,17 +102,7 @@ Page({
         })
         list = res.data?.list || res.data?.records || res.data || []
       } else if (mode === 'coupons') {
-        const remote = await getAvailableCouponList()
-        const remoteList = remote.data || []
-        const localList = readCouponCache()
-        const map = new Map()
-        ;[...localList, ...remoteList].forEach((item) => {
-          const id = item.id || item.couponId
-          if (id) {
-            map.set(String(id), { ...item, id })
-          }
-        })
-        list = [...map.values()]
+        list = await loadCoupons()
       } else if (mode === 'history') {
         const res = await getStudyRecords({ pageNum: 1, pageSize: 100 })
         list = res.data?.list || res.data?.records || res.data || []
@@ -146,10 +174,7 @@ Page({
   },
 
   async onClaimCoupon(e) {
-    const app = getApp()
-    const user = app.globalData.userInfo || {}
-    const userId = user.userId || user.id
-    if (!userId) {
+    if (!getApp().globalData.isLogin) {
       wx.showToast({
         title: '请先登录',
         icon: 'none'
@@ -158,7 +183,7 @@ Page({
     }
     const couponId = e.currentTarget.dataset.id
     try {
-      await claimCoupon(couponId, userId)
+      await claimCoupon(couponId)
       wx.showToast({
         title: '领取成功',
         icon: 'success'

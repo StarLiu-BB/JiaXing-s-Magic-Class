@@ -55,19 +55,18 @@
 
       <block wx:if="{{mode === 'coupons'}}">
         <view class="row">
-          <text class="title">{{item.name || item.couponName || '优惠券'}}</text>
-          <text class="value price" wx:if="{{item.discountAmount}}">¥{{item.discountAmount}}</text>
-          <text class="value price" wx:if="{{item.discountRate && !item.discountAmount}}">{{item.discountRate}}折</text>
+          <text class="title">{{item.name || '优惠券'}}</text>
+          <text class="value price">¥{{item.discount}}</text>
         </view>
         <view class="row">
           <text class="title">使用门槛</text>
-          <text class="value">满{{item.minAmount || 0}}可用</text>
+          <text class="value">{{item.thresholdText}}</text>
         </view>
         <view class="row">
           <text class="title">状态</text>
-          <text class="value">{{item.claimed ? '已领取' : '可领取'}}</text>
+          <text class="value">{{item.statusText}}</text>
         </view>
-        <button class="claim-btn" wx:if="{{!item.claimed}}" data-id="{{item.id || item.couponId}}" bindtap="onClaimCoupon">领取</button>
+        <button class="claim-btn" wx:if="{{!item.claimed}}" data-id="{{item.id}}" bindtap="onClaimCoupon">领取</button>
       </block>
 
       <block wx:if="{{mode === 'history'}}">

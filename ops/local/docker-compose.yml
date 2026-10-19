@@ -120,6 +120,9 @@ services:
       ZHIXUE_JWT_SECRET: ${ZHIXUE_JWT_SECRET}
       ZHIXUE_JWT_EXPIRATION: ${ZHIXUE_JWT_EXPIRATION}
       ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
+      # 小程序微信登录沙箱：不调用 code2session，所有微信用户映射到同一个本地账号，仅限联调；缺省关闭
+      ZHIXUE_AUTH_WECHAT_MODE: ${ZHIXUE_AUTH_WECHAT_MODE:-disabled}
+      ZHIXUE_AUTH_WECHAT_SANDBOX_USERNAME: ${ZHIXUE_AUTH_WECHAT_SANDBOX_USERNAME:-}
       JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
     ports:
       - "${ZHIXUE_AUTH_PORT:-19100}:9100"

@@ -1,0 +1,152 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--bg-color);
+}
+
+.scope {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 30rpx;
+  background-color: var(--white);
+  border-bottom: 1rpx solid var(--border-color);
+  font-size: 26rpx;
+}
+
+.scope-label {
+  color: var(--text-color-disabled);
+}
+
+.scope-value {
+  flex: 1;
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.messages {
+  flex: 1;
+  height: 0;
+  padding: 24rpx 30rpx 0;
+  box-sizing: border-box;
+}
+
+.welcome {
+  padding: 80rpx 20rpx 40rpx;
+  text-align: center;
+}
+
+.welcome-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.welcome-desc {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--text-color-disabled);
+}
+
+.suggestions {
+  margin-top: 40rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.suggestion {
+  padding: 20rpx 28rpx;
+  background-color: var(--white);
+  border: 1rpx solid var(--border-color);
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: var(--primary-color);
+}
+
+.msg {
+  display: flex;
+  margin-bottom: 28rpx;
+}
+
+.msg.user {
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: 80%;
+  padding: 20rpx 26rpx;
+  border-radius: 20rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.msg.user .bubble {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border-bottom-right-radius: 6rpx;
+}
+
+.msg.assistant .bubble {
+  background-color: var(--white);
+  color: var(--text-color);
+  border-bottom-left-radius: 6rpx;
+}
+
+.msg.failed .bubble {
+  background-color: #fff1f0;
+  color: var(--error-color);
+}
+
+.bubble.thinking {
+  color: var(--text-color-disabled);
+}
+
+.meta {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--text-color-disabled);
+}
+
+.bottom-spacer {
+  height: 24rpx;
+}
+
+.composer {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 24rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  background-color: var(--white);
+  border-top: 1rpx solid var(--border-color);
+}
+
+.composer-input {
+  flex: 1;
+  height: 72rpx;
+  padding: 0 24rpx;
+  background-color: var(--bg-color);
+  border-radius: 36rpx;
+  font-size: 28rpx;
+}
+
+.composer-send {
+  margin: 0;
+  padding: 0 32rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  font-size: 28rpx;
+  color: var(--white);
+  background-color: var(--primary-color);
+  border-radius: 36rpx;
+}
+
+.composer-send[disabled] {
+  color: var(--white) !important;
+  background-color: #a0cfff !important;
+}

@@ -8,7 +8,8 @@
     "pages/my/list/index",
     "pages/course/detail/index",
     "pages/course/player/index",
-    "pages/seckill/index"
+    "pages/seckill/index",
+    "pages/ai/chat/index"
   ],
   "window": {
     "navigationBarTitleText": "智学云",
