@@ -21,6 +21,6 @@ public interface CourseStatsMapper extends BaseMapper<CourseStats> {
     /**
      * 增加收藏数。
      */
-    @Update("UPDATE interaction_course_stats SET favorite_count = favorite_count + #{delta}, update_time = NOW() WHERE course_id = #{courseId} AND deleted = 0")
+    @Update("UPDATE interaction_course_stats SET favorite_count = GREATEST(favorite_count + #{delta}, 0), update_time = NOW() WHERE course_id = #{courseId} AND deleted = 0")
     int incrementFavoriteCount(@Param("courseId") Long courseId, @Param("delta") int delta);
 }

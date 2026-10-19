@@ -16,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -68,22 +67,15 @@ public class FavoriteServiceImpl implements FavoriteService {
             favorited = true;
             updateFavoriteCount(courseId, 1);
             log.info("用户 {} 收藏课程 {}", userId, courseId);
-        } else if (existing.getDeleted() == 0) {
-            // 取消收藏（逻辑删除）
-            existing.setDeleted(1);
-            existing.setUpdateTime(LocalDateTime.now());
-            courseFavoriteMapper.updateById(existing);
-            favorited = false;
-            updateFavoriteCount(courseId, -1);
-            log.info("用户 {} 取消收藏课程 {}", userId, courseId);
         } else {
-            // 恢复收藏
-            existing.setDeleted(0);
-            existing.setUpdateTime(LocalDateTime.now());
-            courseFavoriteMapper.updateById(existing);
-            favorited = true;
-            updateFavoriteCount(courseId, 1);
-            log.info("用户 {} 恢复收藏课程 {}", userId, courseId);
+            // 已收藏 -> 取消；已取消 -> 恢复。条件更新：只有状态真的变了才调整计数
+            int from = existing.getDeleted() == null ? 0 : existing.getDeleted();
+            int to = from == 0 ? 1 : 0;
+            favorited = to == 0;
+            if (courseFavoriteMapper.updateDeletedFlag(existing.getId(), from, to) == 1) {
+                updateFavoriteCount(courseId, favorited ? 1 : -1);
+            }
+            log.info("用户 {} {}课程 {}", userId, favorited ? "恢复收藏" : "取消收藏", courseId);
         }
 
         // 更新缓存

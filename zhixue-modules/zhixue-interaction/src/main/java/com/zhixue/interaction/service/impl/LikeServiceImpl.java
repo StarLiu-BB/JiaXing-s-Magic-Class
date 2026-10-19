@@ -13,7 +13,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Set;
 
 /**
@@ -168,10 +167,9 @@ public class LikeServiceImpl implements LikeService {
             like.setCourseId(courseId);
             courseLikeMapper.insert(like);
         } else if (existing != null) {
-            // 更新逻辑删除状态
-            existing.setDeleted(liked ? 0 : 1);
-            existing.setUpdateTime(LocalDateTime.now());
-            courseLikeMapper.updateById(existing);
+            // 更新逻辑删除状态（updateById 改不了 @TableLogic 字段，见 updateDeletedFlag）
+            int to = liked ? 0 : 1;
+            courseLikeMapper.updateDeletedFlag(existing.getId(), 1 - to, to);
         }
     }
 

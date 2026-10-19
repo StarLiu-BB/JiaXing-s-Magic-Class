@@ -4,7 +4,8 @@ const {
   getCourseDetail,
   getCourseChapters,
   getCourseReviews,
-  toggleFavoriteCourse
+  toggleFavoriteCourse,
+  getInteractionStatus
 } = require('../../../api/course')
 const { createOrder } = require('../../../api/order')
 const { checkout } = require('../../../utils/pay')
@@ -60,9 +61,11 @@ Page({
         const detail = detailRes.data || {}
         this.setData({
           courseInfo: detail,
-          chapters: chaptersRes.data || [],
-          isFavorite: detail.isFavorite || false
+          chapters: chaptersRes.data || []
         })
+        // 详情接口不含收藏状态（此前读 detail.isFavorite 恒为 false：已收藏的课显示「收藏」，
+        // 一点反而取消了），以互动服务为准
+        this.loadFavoriteStatus()
       }
     } catch (error) {
       console.error('加载课程详情失败:', error)
@@ -72,6 +75,19 @@ Page({
       })
     } finally {
       this.setData({ loading: false })
+    }
+  },
+
+  async loadFavoriteStatus() {
+    if (!app.globalData.isLogin) {
+      this.setData({ isFavorite: false })
+      return
+    }
+    try {
+      const res = await getInteractionStatus(this.data.courseId)
+      this.setData({ isFavorite: !!(res.data && res.data.favorited) })
+    } catch (error) {
+      console.error('获取收藏状态失败:', error)
     }
   },
 
@@ -106,6 +122,16 @@ Page({
     } catch (error) {
       console.error('加载评价失败:', error)
     }
+  },
+
+  /**
+   * 带着当前课程进入 AI 答疑，只检索本课程资料
+   */
+  onAskAiTap() {
+    const title = encodeURIComponent((this.data.courseInfo && this.data.courseInfo.title) || '')
+    wx.navigateTo({
+      url: `/pages/ai/chat/index?courseId=${this.data.courseId}&title=${title}`
+    })
   },
 
   /**
