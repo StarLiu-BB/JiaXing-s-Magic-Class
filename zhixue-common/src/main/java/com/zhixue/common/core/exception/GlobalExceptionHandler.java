@@ -3,9 +3,14 @@ package com.zhixue.common.core.exception;
 import com.zhixue.common.core.constant.HttpStatus;
 import com.zhixue.common.core.domain.R;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Optional;
 
@@ -35,6 +40,32 @@ public class GlobalExceptionHandler {
         return R.fail(HttpStatus.BAD_REQUEST, message);
     }
 
+    // 以下是调用方的错误（传错类型、漏传参数、JSON 格式错误、方法或路径不存在）：
+    // 返回 4xx 并只记 WARN，不能与真正的服务端故障混在一起报"系统异常"
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
+    public R<Void> handleBadParameter(Exception ex) {
+        log.warn("请求参数错误: {}", ex.getMessage());
+        return R.fail(HttpStatus.BAD_REQUEST, "请求参数错误");
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public R<Void> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        log.warn("请求体无法解析: {}", ex.getMessage());
+        return R.fail(HttpStatus.BAD_REQUEST, "请求体格式错误");
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public R<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        log.warn("请求方法不支持: {}", ex.getMessage());
+        return R.fail(HttpStatus.METHOD_NOT_ALLOWED, "请求方法不支持");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public R<Void> handleNotFound(NoResourceFoundException ex) {
+        log.warn("接口不存在: {}", ex.getResourcePath());
+        return R.fail(HttpStatus.NOT_FOUND, "接口不存在");
+    }
+
     // 处理所有其他异常，这是最后的保底，任何没被上面捕获的异常都会到这里
     @ExceptionHandler(Exception.class)
     public R<Void> handleException(Exception ex) {
@@ -42,4 +73,3 @@ public class GlobalExceptionHandler {
         return R.fail(HttpStatus.INTERNAL_SERVER_ERROR, "系统异常，请稍后再试");
     }
 }
-
