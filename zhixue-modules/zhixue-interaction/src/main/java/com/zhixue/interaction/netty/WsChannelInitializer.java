@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 public class WsChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private final HeartBeatHandler heartBeatHandler;
+    private final WsHandshakeAuthHandler wsHandshakeAuthHandler;
     private final DanmakuHandler danmakuHandler;
 
     /**
@@ -37,6 +38,8 @@ public class WsChannelInitializer extends ChannelInitializer<SocketChannel> {
         p.addLast(new ChunkedWriteHandler());
         // 心跳处理器，处理空闲连接检测
         p.addLast(heartBeatHandler);
+        // 握手鉴权：校验令牌、绑定用户与房间、去掉查询串（必须在协议处理器之前）
+        p.addLast(wsHandshakeAuthHandler);
         // WebSocket 协议处理器，处理握手和消息帧
         p.addLast(new WebSocketServerProtocolHandler("/ws", null, true, 65536));
         // 弹幕处理器，处理实际的弹幕业务逻辑

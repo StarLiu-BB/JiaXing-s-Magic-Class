@@ -135,7 +135,7 @@ Page({
     let targetLesson = null
 
     if (chapterId) {
-      targetChapter = chapters.find(ch => ch.id === chapterId)
+      targetChapter = chapters.find(ch => String(ch.id) === String(chapterId))
     } else {
       targetChapter = chapters[0]
     }
@@ -175,13 +175,13 @@ Page({
 
     // 下行消息就是 DanmakuMessageDTO：{ roomId, userId, content, timePoint }
     wsManager.on('message', (data) => {
-      if (data && data.content) {
+      if (data && data.content && !data.type) {
         this.addDanmaku(data.content, data.timePoint)
       }
     })
 
     wsManager.connect(this.data.courseId, userId).then(() => {
-      // 房间归属由后端在收到首条弹幕时按 roomId 登记，无需单独 join
+      // 握手时后端已校验登录态并登记房间，只看不发也能收到弹幕
       this.wsManager = wsManager
     }).catch((error) => {
       console.error('WebSocket连接失败:', error)

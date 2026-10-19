@@ -30,6 +30,8 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class DanmakuHandler extends SimpleChannelInboundHandler<TextWebSocketFrame> {
 
+    private static final String HEARTBEAT = "ping";
+
     private final RedisMessageListener redisMessageListener;
     private final RedisMessagePublisher redisMessagePublisher;
     private final DanmakuProducer danmakuProducer;
@@ -65,14 +67,25 @@ public class DanmakuHandler extends SimpleChannelInboundHandler<TextWebSocketFra
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame frame) throws Exception {
         String text = frame.text();
+        // 身份与房间在握手时由 WsHandshakeAuthHandler 校验并绑定；没有绑定说明未经鉴权
+        Long userId = ctx.channel().attr(WsHandshakeAuthHandler.USER_ID).get();
+        Long roomId = ctx.channel().attr(WsHandshakeAuthHandler.ROOM_ID).get();
+        if (userId == null || roomId == null) {
+            ctx.channel().writeAndFlush(new TextWebSocketFrame("{\"code\":401,\"msg\":\"未登录\"}"));
+            return;
+        }
         try {
-            // 把用户发送的 JSON 消息转换成 Java 对象
+            if (HEARTBEAT.equals(objectMapper.readTree(text).path("type").asText(null))) {
+                // 小程序没有原生 ping 帧，30 秒发一次 {"type":"ping"} 保活
+                ctx.channel().writeAndFlush(new TextWebSocketFrame("{\"type\":\"pong\"}"));
+                return;
+            }
             DanmakuMessageDTO dto = objectMapper.readValue(text, DanmakuMessageDTO.class);
+            // 不信任消息体：修复前 userId/roomId 取自客户端，任何人都能冒充他人、往任意房间发弹幕
+            dto.setUserId(userId);
+            dto.setRoomId(roomId);
             validateMessage(dto);
             dto.setSendTime(LocalDateTime.now());
-
-            // 按消息中的房间号登记连接，后续广播只投递给同房间成员
-            redisMessageListener.addChannel(ctx.channel(), dto.getRoomId());
 
             // 检查并过滤弹幕里的敏感词，把敏感词替换成 *
             dto.setContent(sensitiveWordFilter.filter(dto.getContent()));

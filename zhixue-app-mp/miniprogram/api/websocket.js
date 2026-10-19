@@ -2,17 +2,18 @@
  * WebSocket 封装（用于弹幕）。
  *
  * 与后端的契约（zhixue-interaction）：
- *  - 握手路径必须是 /ws。后端 WebSocketServerProtocolHandler("/ws", null, true, 65536)
- *    的 checkStartsWith=false，只接受精确匹配，/ws/danmaku 会被拒绝。
- *  - 上行消息体必须匹配 DanmakuMessageDTO：{ roomId, userId, content, timePoint }，
- *    缺少 roomId / userId / content 会被后端 validateMessage 拒绝。
- *  - 下行消息就是同结构的 DanmakuMessageDTO（由 Redis 按房间广播）。
+ *  - 握手：/ws?roomId={课程ID}，并在 header 中携带 Authorization: Bearer {token}。
+ *    后端握手时校验登录态、绑定用户与房间（只看不发也能收到弹幕），未登录返回 401。
+ *  - 上行消息：{ content, timePoint }。发送者与房间以握手时绑定的为准，消息体里的值会被忽略。
+ *  - 心跳：{ type: 'ping' }，后端回 { type: 'pong' }。
+ *  - 下行消息就是 DanmakuMessageDTO：{ roomId, userId, content, timePoint }（由 Redis 按房间广播）。
  *
  * 注意：小程序运行时没有浏览器的 WebSocket 全局对象，
  * 不能使用 WebSocket.OPEN 判断状态，必须自行维护连接标志。
  */
 
 const { getWsUrl } = require('../config')
+const { getToken } = require('../utils/auth')
 
 class WebSocketManager {
   constructor() {
@@ -52,9 +53,10 @@ class WebSocketManager {
         return
       }
 
-      const url = `${getWsUrl()}?roomId=${roomId}`
+      const url = `${getWsUrl()}?roomId=${encodeURIComponent(roomId)}`
       this.socket = wx.connectSocket({
         url,
+        header: { Authorization: `Bearer ${getToken()}` },
         fail: (err) => {
           this.isOpen = false
           reject(err)
@@ -130,8 +132,6 @@ class WebSocketManager {
    */
   sendDanmaku(content, timePoint) {
     return this.send({
-      roomId: Number(this.roomId),
-      userId: Number(this.userId),
       content,
       timePoint: Math.max(0, Math.floor(timePoint || 0))
     })
@@ -141,8 +141,7 @@ class WebSocketManager {
     this.stopHeartbeat()
     this.heartbeatTimer = setInterval(() => {
       if (this.socket && this.isOpen) {
-        // 后端 IdleStateHandler 读空闲 60s，这里 30s 一次即可保活。
-        // 使用 Netty 原生 ping 帧语义不可用，改发一次空操作由后端忽略。
+        // 后端 IdleStateHandler 读空闲 60s，这里 30s 一次即可保活；后端回 { type: 'pong' }
         this.socket.send({ data: JSON.stringify({ type: 'ping' }), fail: () => {} })
       }
     }, 30000)
