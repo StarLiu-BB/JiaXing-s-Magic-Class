@@ -36,6 +36,15 @@ mybatis-flex:
   configuration:
     map-underscore-to-camel-case: true
 
+# Feign 开启熔断后每次调用都套一层 TimeLimiter，默认只有 1 秒。
+# 审核改由本机模型完成（冷启动加载模型需数秒），1 秒内必然超时 → 走 fallback → 弹幕一律"未审核放行"。
+# 需大于 zhixue-ai 的 ai.llm.audit-timeout-seconds（20s）。
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: ${ZHIXUE_FEIGN_TIMEOUT:25s}
+
 interaction:
   websocket-port: 9999
   danmaku-queue: queue_danmaku

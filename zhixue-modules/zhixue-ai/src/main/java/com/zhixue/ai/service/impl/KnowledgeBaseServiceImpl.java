@@ -8,40 +8,37 @@ import com.zhixue.ai.mapper.KnowledgeDocumentMapper;
 import com.zhixue.ai.rag.TextSplitter;
 import com.zhixue.ai.service.KnowledgeBaseService;
 import com.zhixue.ai.service.VectorStoreService;
+import com.zhixue.ai.service.VectorStoreService.ChunkDoc;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
- * 知识库服务的实现类。
- * 这个类实现了知识库的管理功能，包括上传文档和检索内容。
- * 上传文档时会自动切成小段，并存入数据库和搜索引擎。
+ * 知识库：上传文档切分入库并写入向量索引；按问题检索相关资料。
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
+
+    /** 一次批量向量化的分片数：本地模型批量远快于逐条，但单批过大占用内存 */
+    private static final int REINDEX_BATCH = 32;
 
     private final KnowledgeDocumentMapper documentMapper;
     private final KnowledgeChunkMapper chunkMapper;
     private final TextSplitter textSplitter;
     private final VectorStoreService vectorStoreService;
 
-    /**
-     * 从文本内容创建知识库文档。
-     * 先保存文档信息，然后把内容切成小段，每段都存入数据库和搜索引擎。
-     * @param title 文档标题
-     * @param source 文档来源
-     * @param tags 文档标签
-     * @param content 文档的文本内容
-     * @return 创建成功的文档信息
-     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public KnowledgeDocument createFromText(String title, String source, String tags, String content) {
-        // 保存文档信息
         KnowledgeDocument doc = new KnowledgeDocument();
         doc.setTitle(title);
         doc.setSource(source);
@@ -49,48 +46,82 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         doc.setStatus(1);
         documentMapper.insert(doc);
 
-        // 把文档内容切成小段
-        List<String> chunks = textSplitter.split(content);
+        Long courseId = KnowledgeBaseService.courseIdOf(source);
+        List<ChunkDoc> pending = new ArrayList<>();
         int index = 0;
-        for (String chunkText : chunks) {
-            // 保存分片信息
+        for (String chunkText : textSplitter.split(content)) {
             KnowledgeChunk chunk = new KnowledgeChunk();
             chunk.setDocumentId(doc.getId());
             chunk.setChunkIndex(index++);
             chunk.setContent(chunkText);
+            chunk.setEsId(null);
             chunkMapper.insert(chunk);
-            // 把分片存入搜索引擎
-            String esId = vectorStoreService.indexChunk(chunk.getId(), chunkText);
-            chunk.setEsId(esId);
-            chunkMapper.updateById(chunk);
+            pending.add(new ChunkDoc(chunk.getId(), doc.getId(), courseId, chunkText));
         }
+        // 一次批量向量化；real 模式失败会抛出并回滚上面的写库
+        int indexed = vectorStoreService.indexChunks(pending);
+        markIndexed(pending, indexed);
+        log.info("知识库文档入库 id={} 分片={} 已写入向量索引={}", doc.getId(), pending.size(), indexed);
         return doc;
     }
 
-    /**
-     * 从知识库中检索相关内容。
-     * 根据问题在搜索引擎中找最相似的分片，然后从数据库取出分片内容。
-     * @param query 用户的问题
-     * @param topK 返回最相关的前几条内容
-     * @return 相关内容的文本列表
-     */
     @Override
-    public List<String> retrieveContext(String query, int topK) {
-        // 在搜索引擎中查找最相关的分片编号
-        List<Long> chunkIds = vectorStoreService.search(query, topK);
+    public List<String> retrieveContext(String query, int topK, Long courseId) {
+        List<Long> chunkIds = vectorStoreService.search(query, topK, courseId);
         if (chunkIds.isEmpty()) {
             return List.of();
         }
-        // 从数据库取出分片内容
+        Map<Long, KnowledgeChunk> chunks = chunkMapper.selectBatchIds(chunkIds).stream()
+                .collect(Collectors.toMap(KnowledgeChunk::getId, Function.identity()));
+        Map<Long, KnowledgeDocument> docs = chunks.isEmpty() ? Map.of() : documentMapper
+                .selectBatchIds(chunks.values().stream().map(KnowledgeChunk::getDocumentId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(KnowledgeDocument::getId, Function.identity()));
         List<String> texts = new ArrayList<>();
         for (Long id : chunkIds) {
-            KnowledgeChunk chunk = chunkMapper.selectById(id);
-            if (chunk != null) {
-                texts.add(chunk.getContent());
+            KnowledgeChunk chunk = chunks.get(id);
+            KnowledgeDocument doc = chunk == null ? null : docs.get(chunk.getDocumentId());
+            // 检索结果里可能残留已删除/停用文档的分片，以数据库为准
+            if (doc != null && Integer.valueOf(1).equals(doc.getStatus())) {
+                texts.add("《" + doc.getTitle() + "》" + chunk.getContent());
             }
         }
         return texts;
     }
+
+    @Override
+    public int reindexAll() {
+        List<KnowledgeDocument> documents = documentMapper.selectList(
+                new LambdaQueryWrapper<KnowledgeDocument>().eq(KnowledgeDocument::getStatus, 1));
+        int indexed = 0;
+        for (KnowledgeDocument doc : documents) {
+            Long courseId = KnowledgeBaseService.courseIdOf(doc.getSource());
+            List<KnowledgeChunk> chunks = chunkMapper.selectList(new LambdaQueryWrapper<KnowledgeChunk>()
+                    .eq(KnowledgeChunk::getDocumentId, doc.getId())
+                    .orderByAsc(KnowledgeChunk::getChunkIndex));
+            for (int from = 0; from < chunks.size(); from += REINDEX_BATCH) {
+                List<ChunkDoc> batch = chunks.subList(from, Math.min(from + REINDEX_BATCH, chunks.size())).stream()
+                        .map(c -> new ChunkDoc(c.getId(), doc.getId(), courseId, c.getContent()))
+                        .toList();
+                int n = vectorStoreService.indexChunks(batch);
+                markIndexed(batch, n);
+                indexed += n;
+            }
+        }
+        log.info("知识库向量索引重建完成：文档 {} 篇，写入分片 {} 个", documents.size(), indexed);
+        return indexed;
+    }
+
+    /** es_id 与 ES 文档 ID 一致（即 chunkId）；未写入向量索引的保持为空，便于排查 */
+    private void markIndexed(List<ChunkDoc> batch, int indexed) {
+        if (indexed != batch.size()) {
+            return;
+        }
+        for (ChunkDoc c : batch) {
+            KnowledgeChunk update = new KnowledgeChunk();
+            update.setId(c.chunkId());
+            update.setEsId(String.valueOf(c.chunkId()));
+            chunkMapper.updateById(update);
+        }
+    }
 }
-
-

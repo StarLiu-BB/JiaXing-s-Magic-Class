@@ -2,10 +2,13 @@ package com.zhixue.ai.controller;
 
 import com.zhixue.ai.domain.entity.KnowledgeDocument;
 import com.zhixue.ai.service.KnowledgeBaseService;
+import com.zhixue.common.core.constant.HttpStatus;
 import com.zhixue.common.core.domain.R;
-import jakarta.validation.constraints.NotBlank;
+import com.zhixue.common.core.exception.ServiceException;
+import com.zhixue.common.security.annotation.RequirePermission;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -13,11 +16,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 /**
- * 知识库管理控制器。
- * 这个类提供知识库的管理接口，主要是上传文档的功能。
- * 上传的文档会被切成小段，然后存入知识库，方便 AI 查询时使用。
+ * 知识库管理。
+ *
+ * <p>修复前没有任何权限校验：只要登录（包括学生）就能往知识库写内容，
+ * 而知识库内容会被原样拼进所有学生的答疑提示词。</p>
  */
 @Slf4j
 @RestController
@@ -25,39 +30,41 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class KnowledgeBaseController {
 
+    static final String PERM_KB_EDIT = "ai:kb:edit";
+    /** 纯文本，按 UTF-8 读取；过大的文档会占满一次批量向量化 */
+    static final long MAX_FILE_BYTES = 1024 * 1024;
+
     private final KnowledgeBaseService knowledgeBaseService;
 
-    /**
-     * 上传文档到知识库。
-     * 接收文本文件，把文件内容切成小段，然后存入知识库。
-     * 这样 AI 在回答问题时，就可以从知识库中找到相关内容来参考。
-     * @param file 上传的文件，目前支持 TXT 文本文件
-     * @param title 文档标题，不能为空
-     * @param source 文档来源，比如 manual 表示手动上传
-     * @param tags 文档标签，用于分类和检索，可选参数
-     * @return 存入知识库后的文档信息
-     */
+    @RequirePermission(PERM_KB_EDIT)
     @PostMapping("/upload")
     public R<KnowledgeDocument> upload(@RequestParam("file") MultipartFile file,
-                                       @RequestParam @NotBlank String title,
-                                       @RequestParam(defaultValue = "manual") String source,
+                                       @RequestParam(required = false) String title,
+                                       @RequestParam(required = false) Long courseId,
                                        @RequestParam(required = false) String tags) {
+        if (file == null || file.isEmpty()) {
+            return R.fail(HttpStatus.BAD_REQUEST, "上传文件不能为空");
+        }
+        String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase(Locale.ROOT);
+        if (!name.endsWith(".txt") && !name.endsWith(".md")) {
+            return R.fail(HttpStatus.BAD_REQUEST, "只支持 .txt / .md 纯文本文件");
+        }
+        if (file.getSize() > MAX_FILE_BYTES) {
+            return R.fail(HttpStatus.BAD_REQUEST, "文件不能超过 1MB");
+        }
+        String docTitle = StringUtils.hasText(title) ? title.trim() : file.getOriginalFilename();
         try {
-            if (file.isEmpty()) {
-                return R.fail("上传文件不能为空");
-            }
-            // 读取文件内容
             String text = new String(file.getBytes(), StandardCharsets.UTF_8);
             if (text.isBlank()) {
-                return R.fail("文档内容不能为空");
+                return R.fail(HttpStatus.BAD_REQUEST, "文档内容不能为空");
             }
-            // 把文档内容存入知识库，会自动切成小段
-            KnowledgeDocument doc = knowledgeBaseService.createFromText(title, source, tags, text);
-            return R.ok(doc);
+            String source = courseId == null ? "manual" : KnowledgeBaseService.COURSE_SOURCE_PREFIX + courseId;
+            return R.ok(knowledgeBaseService.createFromText(docTitle, source, tags, text));
+        } catch (ServiceException e) {
+            return R.fail(e.getCode(), e.getMessage());
         } catch (Exception e) {
-            log.error("上传文档失败", e);
-            return R.fail("上传失败: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getName()));
+            log.error("上传知识库文档失败", e);
+            return R.fail("上传失败，请稍后再试");
         }
     }
 }
-

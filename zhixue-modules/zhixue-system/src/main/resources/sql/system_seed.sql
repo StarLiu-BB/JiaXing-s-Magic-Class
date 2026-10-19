@@ -55,7 +55,10 @@ insert into sys_menu (id, parent_id, menu_name, path, component, perms, icon, me
     (510, 500, '弹幕审核', 'comment', 'interaction/comment/index', 'interaction:danmaku:list', 'Comment', 1, 1, 1, 0, now(), now(), 0),
     (511, 510, '弹幕复核', '', '', 'interaction:danmaku:audit', 'Check', 2, 1, 1, 0, now(), now(), 0),
     (600, 0, '媒资管理', '/media', 'Layout', null, 'Files', 0, 6, 1, 0, now(), now(), 0),
-    (610, 600, '文件列表', 'file', 'media/file/index', 'media:file:list', 'Document', 1, 1, 1, 0, now(), now(), 0);
+    (610, 600, '文件列表', 'file', 'media/file/index', 'media:file:list', 'Document', 1, 1, 1, 0, now(), now(), 0),
+    (700, 0, 'AI 助手', '/ai', 'Layout', null, 'ChatDotRound', 0, 7, 1, 0, now(), now(), 0),
+    (710, 700, 'AI 对话', 'chat', 'ai/chat/index', null, 'ChatLineRound', 1, 1, 1, 0, now(), now(), 0),
+    (711, 710, '知识库上传', '', '', 'ai:kb:edit', 'Upload', 2, 1, 1, 0, now(), now(), 0);
 
 insert into sys_user_role (id, user_id, role_id, create_time, update_time, deleted) values
     (10001, 1001, 1, now(), now(), 0),
@@ -100,6 +103,9 @@ insert into sys_role_menu (id, role_id, menu_id, create_time, update_time, delet
     (20035, 1, 511, now(), now(), 0),
     (20036, 1, 600, now(), now(), 0),
     (20037, 1, 610, now(), now(), 0),
+    (20038, 1, 700, now(), now(), 0),
+    (20039, 1, 710, now(), now(), 0),
+    (20040, 1, 711, now(), now(), 0),
     (21001, 2, 200, now(), now(), 0),
     (21002, 2, 210, now(), now(), 0),
     (21003, 2, 211, now(), now(), 0),

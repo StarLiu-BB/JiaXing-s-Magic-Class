@@ -2,6 +2,7 @@ package com.zhixue.interaction.service;
 
 import com.zhixue.api.ai.RemoteAiService;
 import com.zhixue.common.core.domain.R;
+import com.zhixue.common.security.config.SecurityProperties;
 import com.zhixue.interaction.domain.dto.DanmakuMessageDTO;
 import com.zhixue.interaction.domain.entity.Danmaku;
 import com.zhixue.interaction.mapper.DanmakuMapper;
@@ -21,6 +22,7 @@ public class DanmakuPersistenceService {
 
     private final DanmakuMapper danmakuMapper;
     private final RemoteAiService remoteAiService;
+    private final SecurityProperties securityProperties;
 
     public void persist(DanmakuMessageDTO dto) {
         Danmaku entity = new Danmaku();
@@ -32,7 +34,9 @@ public class DanmakuPersistenceService {
         int status = 1;
         String remark = null;
         try {
-            R<String> auditResult = remoteAiService.auditText(Map.of("content", dto.getContent()));
+            // 审核接口仅限内部调用：不带内部凭据会被 AI 服务拒绝（403），弹幕将一律按"审核失败"放行
+            R<String> auditResult = remoteAiService.auditText(Map.of("content", dto.getContent()),
+                    "true", securityProperties.getInternalToken());
             if (auditResult != null && auditResult.isSuccess()) {
                 String result = auditResult.getData();
                 if (result != null && !"OK".equalsIgnoreCase(result.trim())) {

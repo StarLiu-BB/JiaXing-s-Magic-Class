@@ -20,7 +20,7 @@ public class RemoteAiFallbackFactory implements FallbackFactory<RemoteAiService>
         log.error("AI 服务调用失败: {}", cause.getMessage());
         return new RemoteAiService() {
             @Override
-            public R<String> auditText(Map<String, String> body) {
+            public R<String> auditText(Map<String, String> body, String innerHeader, String internalToken) {
                 return R.fail("AI 服务暂不可用: " + cause.getMessage());
             }
         };

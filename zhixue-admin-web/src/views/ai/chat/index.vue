@@ -1,64 +1,82 @@
 <template>
   <div class="ai-chat-container">
-    <!-- 左侧知识库管理 -->
+    <!-- 左侧：答疑范围 + 知识库上传 -->
     <div class="sidebar">
       <div class="sidebar-header">
-        <h3>知识库管理</h3>
+        <h3>答疑范围</h3>
       </div>
       <div class="upload-section">
-        <el-upload
-          ref="uploadRef"
-          :auto-upload="false"
-          :on-change="handleFileChange"
-          accept=".txt,.md"
+        <el-select
+          v-model="courseId"
+          clearable
+          filterable
+          placeholder="全部课程"
+          style="width: 100%"
+          :loading="coursesLoading"
         >
-          <template #trigger>
-            <el-button type="primary" size="small">选择文件</el-button>
-          </template>
-        </el-upload>
-        <el-input
-          v-model="uploadForm.title"
-          placeholder="文档标题"
-          size="small"
-          style="margin-top: 10px"
-        />
-        <el-input
-          v-model="uploadForm.tags"
-          placeholder="标签（逗号分隔）"
-          size="small"
-          style="margin-top: 10px"
-        />
-        <el-button
-          type="success"
-          size="small"
-          style="margin-top: 10px; width: 100%"
-          :loading="uploading"
-          @click="handleUpload"
-        >
-          上传到知识库
-        </el-button>
+          <el-option v-for="c in courses" :key="c.id" :label="c.title" :value="c.id" />
+        </el-select>
+        <p class="hint">选择课程后只检索该课程资料与通用资料；不选则检索全部知识库。</p>
       </div>
+
+      <template v-if="canUpload">
+        <div class="sidebar-header">
+          <h3>上传知识</h3>
+        </div>
+        <div class="upload-section">
+          <el-upload
+            ref="uploadRef"
+            :auto-upload="false"
+            :limit="1"
+            :on-change="handleFileChange"
+            :on-remove="() => (uploadForm.file = null)"
+            accept=".txt,.md"
+          >
+            <template #trigger>
+              <el-button size="small">选择 .txt / .md 文件</el-button>
+            </template>
+          </el-upload>
+          <el-input
+            v-model="uploadForm.title"
+            placeholder="文档标题（默认用文件名）"
+            size="small"
+            maxlength="100"
+            style="margin-top: 10px"
+          />
+          <p class="hint">
+            {{ courseId ? `归属课程：${courseTitle}` : '未选择课程：作为通用知识，所有课程都可检索到' }}
+          </p>
+          <el-button
+            type="primary"
+            size="small"
+            style="margin-top: 10px; width: 100%"
+            :loading="uploading"
+            @click="handleUpload"
+          >
+            上传到知识库
+          </el-button>
+        </div>
+      </template>
     </div>
 
     <!-- 右侧对话区域 -->
     <div class="chat-area">
       <div class="chat-header">
-        <h2>AI 智能助手</h2>
-        <span class="subtitle">基于通义千问，为您提供课程答疑服务</span>
+        <h2>AI 课程助教</h2>
+        <span class="subtitle">由本机部署的开源模型回答，答案依据课程知识库生成，仅供参考</span>
       </div>
 
-      <!-- 对话消息列表 -->
-      <div class="chat-messages" ref="messagesRef">
+      <div ref="messagesRef" class="chat-messages">
         <div v-if="messages.length === 0" class="welcome-message">
           <div class="welcome-icon"><el-icon :size="24"><ChatDotRound /></el-icon></div>
-          <h3>欢迎使用 AI 智能助手</h3>
-          <p>您可以问我任何关于课程的问题，例如：</p>
+          <h3>有什么课程问题？</h3>
+          <p>可以试试这些问题：</p>
           <div class="suggestions">
-            <el-tag 
-              v-for="suggestion in suggestions" 
+            <el-tag
+              v-for="suggestion in suggestions"
               :key="suggestion"
-              @click="askQuestion(suggestion)"
               class="suggestion-tag"
+              @click="askQuestion(suggestion)"
             >
               {{ suggestion }}
             </el-tag>
@@ -68,14 +86,14 @@
         <div
           v-for="(msg, index) in messages"
           :key="index"
-          :class="['message', msg.role]"
+          :class="['message', msg.role, { failed: msg.failed }]"
         >
           <div class="avatar" :aria-label="msg.role === 'user' ? '我' : 'AI 助手'">
             <el-icon :size="18"><User v-if="msg.role === 'user'" /><Cpu v-else /></el-icon>
           </div>
           <div class="content">
             <div class="text" v-html="formatMessage(msg.content)"></div>
-            <div class="time">{{ msg.time }}</div>
+            <div class="time">{{ msg.time }}<template v-if="msg.cost"> · 用时 {{ msg.cost }} 秒</template></div>
           </div>
         </div>
 
@@ -91,22 +109,16 @@
         </div>
       </div>
 
-      <!-- 输入区域 -->
       <div class="chat-input">
         <el-input
           v-model="inputMessage"
-          placeholder="请输入您的问题..."
+          placeholder="输入问题，回车发送"
+          maxlength="500"
           :disabled="loading"
           @keyup.enter="sendMessage"
         >
           <template #append>
-            <el-button
-              type="primary"
-              :loading="loading"
-              @click="sendMessage"
-            >
-              发送
-            </el-button>
+            <el-button type="primary" :loading="loading" @click="sendMessage">发送</el-button>
           </template>
         </el-input>
       </div>
@@ -115,32 +127,39 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound, User, Cpu } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import { askCourse, uploadKnowledge } from '@/api/ai/chat'
+import { listCourse } from '@/api/course/course'
+import { useUserStore } from '@/stores/modules/user'
 
-// 对话消息
+defineOptions({ name: 'AiChat' })
+
+const userStore = useUserStore()
+const canUpload = computed(() => (userStore.permissions || []).includes('ai:kb:edit'))
+
 const messages = ref([])
 const inputMessage = ref('')
 const loading = ref(false)
 const messagesRef = ref(null)
 
+// 答疑范围
+const courses = ref([])
+const coursesLoading = ref(false)
+const courseId = ref(null)
+const courseTitle = computed(() => courses.value.find((c) => c.id === courseId.value)?.title || '')
+
 // 知识库上传
 const uploadRef = ref(null)
 const uploading = ref(false)
-const uploadForm = ref({
-  title: '',
-  tags: '',
-  file: null
-})
+const uploadForm = ref({ title: '', file: null })
 
-// 建议问题
 const suggestions = [
-  '什么是 Java？',
-  '如何学习 Spring Boot？',
-  'MySQL 和 Redis 有什么区别？',
-  '什么是微服务架构？'
+  '网关在微服务里起什么作用？',
+  'RBAC 权限模型是怎么落地的？',
+  'Pinia 适合管理哪些状态？',
+  '购买课程后怎么开始学习？'
 ]
 
 // 格式化消息（支持换行与 **加粗**）。
@@ -160,7 +179,6 @@ const formatMessage = (text) => {
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 }
 
-// 滚动到底部
 const scrollToBottom = () => {
   nextTick(() => {
     if (messagesRef.value) {
@@ -169,46 +187,44 @@ const scrollToBottom = () => {
   })
 }
 
-// 获取当前时间
-const getCurrentTime = () => {
-  const now = new Date()
-  return now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+const getCurrentTime = () => new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+
+const loadCourses = async () => {
+  coursesLoading.value = true
+  try {
+    const res = await listCourse({ pageNum: 1, pageSize: 100 })
+    courses.value = res?.data?.records || []
+  } catch (error) {
+    // 无课程查看权限时不提供课程筛选，仍可按全部知识库提问
+    courses.value = []
+  } finally {
+    coursesLoading.value = false
+  }
 }
 
-// 发送消息
 const sendMessage = async () => {
-  if (!inputMessage.value.trim() || loading.value) return
-
   const question = inputMessage.value.trim()
+  if (!question || loading.value) return
   inputMessage.value = ''
-
-  // 添加用户消息
-  messages.value.push({
-    role: 'user',
-    content: question,
-    time: getCurrentTime()
-  })
+  messages.value.push({ role: 'user', content: question, time: getCurrentTime() })
   scrollToBottom()
 
-  // 调用 AI 接口
   loading.value = true
+  const start = Date.now()
   try {
-    const res = await request({
-      url: '/ai/chat/course',
-      method: 'get',
-      params: { question }
-    })
-    
-    // 添加 AI 回复
+    const answer = await askCourse(question, courseId.value)
     messages.value.push({
       role: 'assistant',
-      content: res.data || res || '抱歉，我暂时无法回答这个问题。',
-      time: getCurrentTime()
+      content: answer || '模型没有给出回答，请换个问法再试。',
+      time: getCurrentTime(),
+      cost: ((Date.now() - start) / 1000).toFixed(1)
     })
   } catch (error) {
+    // 失败如实显示原因，不伪装成 AI 的回答
     messages.value.push({
       role: 'assistant',
-      content: '抱歉，服务暂时不可用，请稍后再试。',
+      failed: true,
+      content: `没有拿到回答：${error?.message || '服务暂时不可用'}`,
       time: getCurrentTime()
     })
   } finally {
@@ -217,52 +233,38 @@ const sendMessage = async () => {
   }
 }
 
-// 点击建议问题
 const askQuestion = (question) => {
   inputMessage.value = question
   sendMessage()
 }
 
-// 处理文件选择
 const handleFileChange = (file) => {
   uploadForm.value.file = file.raw
 }
 
-// 上传文件到知识库
 const handleUpload = async () => {
   if (!uploadForm.value.file) {
     ElMessage.warning('请先选择文件')
     return
   }
-  if (!uploadForm.value.title) {
-    ElMessage.warning('请输入文档标题')
-    return
-  }
-
   uploading.value = true
   try {
-    const formData = new FormData()
-    formData.append('file', uploadForm.value.file)
-    formData.append('title', uploadForm.value.title)
-    formData.append('source', 'manual')
-    formData.append('tags', uploadForm.value.tags || '')
-
-    await request({
-      url: '/ai/kb/upload',
-      method: 'post',
-      data: formData,
-      headers: { 'Content-Type': 'multipart/form-data' }
+    await uploadKnowledge({
+      file: uploadForm.value.file,
+      title: uploadForm.value.title.trim(),
+      courseId: courseId.value
     })
-
-    ElMessage.success('文档上传成功')
-    uploadForm.value = { title: '', tags: '', file: null }
+    ElMessage.success('已上传，可以立即提问')
+    uploadForm.value = { title: '', file: null }
     uploadRef.value?.clearFiles()
   } catch (error) {
-    ElMessage.error('上传失败，请重试')
+    // 失败原因已由请求拦截器提示
   } finally {
     uploading.value = false
   }
 }
+
+onMounted(loadCourses)
 </script>
 
 <style lang="scss" scoped>
@@ -278,23 +280,32 @@ const handleUpload = async () => {
 
 .sidebar {
   width: 280px;
+  flex-shrink: 0;
   background: var(--el-fill-color-lighter);
   border-right: 1px solid var(--el-border-color-lighter);
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 
   .sidebar-header {
-    padding: 20px;
-    border-bottom: 1px solid var(--el-border-color-lighter);
+    padding: 16px 20px 0;
     h3 {
       margin: 0;
-      font-size: 15px;
+      font-size: 14px;
       color: var(--el-text-color-primary);
     }
   }
 
   .upload-section {
-    padding: 20px;
+    padding: 12px 20px 16px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .hint {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--el-text-color-secondary);
   }
 }
 
@@ -386,7 +397,7 @@ const handleUpload = async () => {
       }
       .time {
         text-align: right;
-        color: rgba(255,255,255,0.7);
+        color: rgba(255, 255, 255, 0.7);
       }
     }
 
@@ -396,6 +407,11 @@ const handleUpload = async () => {
         color: var(--el-text-color-primary);
         border-radius: 12px 12px 12px 4px;
       }
+    }
+
+    &.failed .content {
+      background: var(--el-color-danger-light-9);
+      color: var(--el-color-danger);
     }
 
     .avatar {

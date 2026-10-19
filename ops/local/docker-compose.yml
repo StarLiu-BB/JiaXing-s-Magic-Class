@@ -363,12 +363,17 @@ services:
       ZHIXUE_NACOS_GROUP: ${ZHIXUE_NACOS_GROUP}
       ZHIXUE_NACOS_CONFIG_ENABLED: ${ZHIXUE_NACOS_CONFIG_ENABLED}
       ZHIXUE_ES_URIS: http://elasticsearch:9200
-      ZHIXUE_AI_MODE: ${ZHIXUE_AI_MODE}
-      ZHIXUE_DASHSCOPE_API_KEY: ${ZHIXUE_DASHSCOPE_API_KEY:-}
-      ZHIXUE_DASHSCOPE_MODEL: ${ZHIXUE_DASHSCOPE_MODEL:-qwen-plus}
-      ZHIXUE_DASHSCOPE_EMBEDDING_MODEL: ${ZHIXUE_DASHSCOPE_EMBEDDING_MODEL:-text-embedding-v2}
-      ZHIXUE_EMBEDDING_DIMENSION: ${ZHIXUE_EMBEDDING_DIMENSION:-1536}
+      ZHIXUE_INTERNAL_TOKEN: ${ZHIXUE_INTERNAL_TOKEN}
+      ZHIXUE_AI_MODE: ${ZHIXUE_AI_MODE:-real}
+      # 模型由宿主机上的 Ollama 提供（需 GPU/Metal 加速，不放进容器）
+      ZHIXUE_AI_BASE_URL: ${ZHIXUE_AI_BASE_URL:-http://host.docker.internal:11434}
+      ZHIXUE_AI_CHAT_MODEL: ${ZHIXUE_AI_CHAT_MODEL:-qwen3.5:9b}
+      ZHIXUE_AI_EMBEDDING_MODEL: ${ZHIXUE_AI_EMBEDDING_MODEL:-qwen3-embedding:0.6b}
+      ZHIXUE_EMBEDDING_DIMENSION: ${ZHIXUE_EMBEDDING_DIMENSION:-1024}
       JAVA_OPTS: -Xms64m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
+    extra_hosts:
+      # Docker Desktop 自带该解析；Linux 需显式映射到宿主机
+      - "host.docker.internal:host-gateway"
     ports:
       - "${ZHIXUE_AI_PORT:-19208}:9208"
     volumes:

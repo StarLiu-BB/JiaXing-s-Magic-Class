@@ -2,8 +2,11 @@ package com.zhixue.ai.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhixue.ai.config.KnowledgeIndexInitializer;
 import com.zhixue.ai.service.EmbeddingService;
 import com.zhixue.ai.service.VectorStoreService;
+import com.zhixue.common.core.constant.HttpStatus;
+import com.zhixue.common.core.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.Request;
@@ -15,6 +18,8 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,123 +27,127 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 /**
- * 向量检索服务的实现类。
- * 这个类实现了基于 Elasticsearch 的向量存储和检索功能。
- * 需要在 Elasticsearch 中预先创建带向量字段的索引，比如 zhixue_kb。
+ * 基于 Elasticsearch dense_vector 的知识分片存储与 kNN 检索。
+ *
+ * <p>stub/sandbox 下取不到向量时退回进程内的词法匹配（明确标注的降级）；
+ * real 模式下向量化或 ES 失败直接抛出，不再静默降级。</p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class VectorStoreServiceImpl implements VectorStoreService {
 
+    private static final String INDEX = KnowledgeIndexInitializer.INDEX;
+
     private final RestClient restClient;
     private final EmbeddingService embeddingService;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    @Value("${zhixue.integration.ai.mode:sandbox}")
+
+    /** 词法降级用的本地副本：chunkId -> (courseId, content) */
+    private final ConcurrentMap<Long, ChunkDoc> localChunks = new ConcurrentHashMap<>();
+
+    @Value("${zhixue.integration.ai.mode:real}")
     private String aiMode;
 
     /**
-     * Elasticsearch 索引名称
+     * kNN 最低余弦相似度。实测 qwen3-embedding:0.6b 相关问答约 0.75、无关约 0.21；
+     * 低于阈值的"最近邻"只会把无关资料塞给模型，诱导它胡乱引用。
      */
-    private static final String INDEX = "zhixue_kb";
-    private final ConcurrentMap<Long, String> localChunks = new ConcurrentHashMap<>();
+    @Value("${ai.rag.min-similarity:0.45}")
+    private double minSimilarity;
 
-    /**
-     * 把知识分片存入搜索引擎。
-     * 先把文字转换成向量，然后一起存入 Elasticsearch。
-     * @param chunkId 本地数据库中的分片编号
-     * @param text 分片的文本内容
-     * @return 在 Elasticsearch 中的文档编号
-     */
     @Override
-    public String indexChunk(Long chunkId, String text) {
-        if (chunkId == null || !StringUtils.hasText(text)) {
-            return "invalid";
+    public int indexChunks(List<ChunkDoc> chunks) {
+        List<ChunkDoc> valid = chunks == null ? List.of() : chunks.stream()
+                .filter(c -> c.chunkId() != null && StringUtils.hasText(c.content()))
+                .toList();
+        if (valid.isEmpty()) {
+            return 0;
         }
+        valid.forEach(c -> localChunks.put(c.chunkId(), c));
         if (isStubMode()) {
-            localChunks.put(chunkId, text);
-            return "stub-" + chunkId;
+            return 0;
+        }
+        List<List<Float>> vectors = embeddingService.embedBatch(valid.stream().map(ChunkDoc::content).toList());
+        if (vectors.isEmpty()) {
+            // sandbox 下模型不可用：保留本地词法副本
+            return 0;
         }
         try {
-            log.info("准备索引分片: chunkId={}, ES Nodes: {}", chunkId, restClient.getNodes());
-            // 把文字转换成向量
-            List<Float> vec = embeddingService.embed(text);
-            if (vec == null || vec.isEmpty()) {
-                localChunks.put(chunkId, text);
-                return "local-" + chunkId;
+            StringBuilder bulk = new StringBuilder();
+            for (int i = 0; i < valid.size(); i++) {
+                ChunkDoc c = valid.get(i);
+                bulk.append(objectMapper.writeValueAsString(
+                        Map.of("index", Map.of("_index", INDEX, "_id", String.valueOf(c.chunkId()))))).append('\n');
+                Map<String, Object> doc = new HashMap<>();
+                doc.put("chunkId", c.chunkId());
+                doc.put("documentId", c.documentId());
+                doc.put("courseId", c.courseId());
+                doc.put("content", c.content());
+                doc.put("vector", vectors.get(i));
+                bulk.append(objectMapper.writeValueAsString(doc)).append('\n');
             }
-            // 构造要存入的文档数据
-            Map<String, Object> doc = Map.of(
-                    "chunkId", chunkId,
-                    "content", text,
-                    "vector", vec
-            );
-            Request req = new Request("POST", "/" + INDEX + "/_doc");
-            req.setJsonEntity(objectMapper.writeValueAsString(doc));
-            Response resp = restClient.performRequest(req);
-            JsonNode root = objectMapper.readTree(resp.getEntity().getContent());
-            return root.path("_id").asText();
+            Request req = new Request("POST", "/_bulk");
+            req.addParameter("refresh", "true");
+            req.setJsonEntity(bulk.toString());
+            JsonNode root = objectMapper.readTree(restClient.performRequest(req).getEntity().getContent());
+            if (root.path("errors").asBoolean(false)) {
+                throw new IllegalStateException("ES 批量写入部分失败: " + abbreviate(root.toString()));
+            }
+            return valid.size();
         } catch (Exception e) {
-            log.error("向 ES 索引知识分片失败 chunkId={}", chunkId, e);
-            localChunks.put(chunkId, text);
-            return "local-" + chunkId;
+            return fail("向知识库索引写入失败", e, 0);
         }
     }
 
-    /**
-     * 按向量相似度搜索知识库。
-     * 先把问题转换成向量，然后在 Elasticsearch 中找最相似的内容。
-     * @param query 用户的问题
-     * @param topK 返回最相似的前几条结果
-     * @return 匹配的分片编号列表，按相似度从高到低排序
-     */
     @Override
-    public List<Long> search(String query, int topK) {
+    public List<Long> search(String query, int topK, Long courseId) {
         if (!StringUtils.hasText(query) || topK <= 0) {
             return List.of();
         }
         if (isStubMode()) {
-            return localSearch(query, topK);
+            return localSearch(query, topK, courseId);
         }
-        // 把问题转换成向量
         List<Float> vec = embeddingService.embed(query);
-        if (vec == null || vec.isEmpty()) {
-            return localSearch(query, topK);
+        if (vec.isEmpty()) {
+            return localSearch(query, topK, courseId);
         }
         try {
-            log.info("开始向量检索, 目标 ES 节点: {}", restClient.getNodes());
-            // 构造向量搜索参数
-            Map<String, Object> knn = Map.of(
-                    "field", "vector",
-                    "query_vector", vec,
-                    "k", topK,
-                    "num_candidates", Math.max(50, topK * 5)
-            );
-            Map<String, Object> body = Map.of("knn", knn,
-                    "_source", List.of("chunkId"));
+            Map<String, Object> knn = new LinkedHashMap<>();
+            knn.put("field", "vector");
+            knn.put("query_vector", vec);
+            knn.put("k", topK);
+            knn.put("num_candidates", Math.max(50, topK * 10));
+            knn.put("similarity", minSimilarity);
+            if (courseId != null) {
+                // 本课程的资料 + 不属于任何课程的通用资料
+                knn.put("filter", Map.of("bool", Map.of(
+                        "should", List.of(
+                                Map.of("term", Map.of("courseId", courseId)),
+                                Map.of("bool", Map.of("must_not", Map.of("exists", Map.of("field", "courseId"))))),
+                        "minimum_should_match", 1)));
+            }
             Request req = new Request("POST", "/" + INDEX + "/_search");
-            req.setJsonEntity(objectMapper.writeValueAsString(body));
+            req.setJsonEntity(objectMapper.writeValueAsString(Map.of("knn", knn, "_source", List.of("chunkId"))));
             Response resp = restClient.performRequest(req);
-            JsonNode root = objectMapper.readTree(resp.getEntity().getContent());
-            JsonNode hits = root.path("hits").path("hits");
+            JsonNode hits = objectMapper.readTree(resp.getEntity().getContent()).path("hits").path("hits");
             List<Long> ids = new ArrayList<>();
             for (JsonNode hit : hits) {
-                long chunkId = hit.path("_source").path("chunkId").asLong();
-                ids.add(chunkId);
+                ids.add(hit.path("_source").path("chunkId").asLong());
             }
             return ids.stream().distinct().collect(Collectors.toList());
         } catch (Exception e) {
-            log.error("向量检索失败 query={}", query, e);
-            return localSearch(query, topK);
+            return fail("知识库检索失败", e, localSearch(query, topK, courseId));
         }
     }
 
-    private List<Long> localSearch(String query, int topK) {
+    private List<Long> localSearch(String query, int topK, Long courseId) {
         String normalized = query.toLowerCase();
-        return localChunks.entrySet().stream()
-                .filter(entry -> entry.getValue() != null)
-                .sorted(Comparator.<Map.Entry<Long, String>>comparingInt(entry ->
-                        lexicalScore(entry.getValue().toLowerCase(), normalized)).reversed())
+        return localChunks.values().stream()
+                .filter(c -> courseId == null || c.courseId() == null || courseId.equals(c.courseId()))
+                .map(c -> Map.entry(c.chunkId(), lexicalScore(c.content().toLowerCase(), normalized)))
+                .filter(e -> e.getValue() > 0)
+                .sorted(Comparator.<Map.Entry<Long, Integer>>comparingInt(Map.Entry::getValue).reversed())
                 .limit(topK)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
@@ -150,15 +159,34 @@ public class VectorStoreServiceImpl implements VectorStoreService {
         }
         int score = 0;
         for (char c : query.toCharArray()) {
-            if (text.indexOf(c) >= 0) {
+            if (!Character.isWhitespace(c) && text.indexOf(c) >= 0) {
                 score++;
             }
         }
         return score;
     }
 
+    private <T> T fail(String message, Exception e, T degraded) {
+        if (isRealMode()) {
+            if (e instanceof ServiceException se) {
+                throw se;
+            }
+            log.error(message, e);
+            throw new ServiceException(HttpStatus.SERVICE_UNAVAILABLE, "AI 服务暂不可用，请稍后再试", e);
+        }
+        log.warn("{}，降级为本地词法检索：{}", message, e.getMessage());
+        return degraded;
+    }
+
+    private static String abbreviate(String s) {
+        return s.length() <= 300 ? s : s.substring(0, 300) + "…";
+    }
+
     private boolean isStubMode() {
         return "stub".equalsIgnoreCase(aiMode);
     }
-}
 
+    private boolean isRealMode() {
+        return "real".equalsIgnoreCase(aiMode);
+    }
+}

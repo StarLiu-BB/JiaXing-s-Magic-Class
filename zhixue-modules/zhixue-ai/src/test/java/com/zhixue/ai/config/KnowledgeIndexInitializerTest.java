@@ -1,79 +1,146 @@
 package com.zhixue.ai.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhixue.ai.service.KnowledgeBaseService;
+import org.apache.http.HttpEntity;
+import org.apache.http.ProtocolVersion;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.message.BasicStatusLine;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.ResponseException;
+import org.elasticsearch.client.RestClient;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
- * 知识库索引初始化测试。
+ * 知识库索引初始化。
  *
- * <p>覆盖 D34 的第二半：全仓库没有任何 {@code dense_vector} 映射定义。
- * 首次写入时 ES 会把 vector 字段动态映射为普通 {@code float[]}，
- * 随后的 {@code knn} 查询报错并被 catch 后静默降级为词法匹配 ——
- * 所谓"向量检索"从未真正执行过。</p>
+ * <p>D34：项目最初没有任何 dense_vector 映射，knn 查询从未真正执行。
+ * 本次又出现两个问题：换成本地 1024 维模型后，已存在的 1536 维索引若"存在即跳过"就会让所有写入被 ES 拒绝；
+ * 种子知识只写进了 MySQL、从未写入 ES，永远检索不到。</p>
  */
 class KnowledgeIndexInitializerTest {
 
-    private Path mainJava() {
-        return Paths.get("src/main/java/com/zhixue/ai");
+    private RestClient restClient;
+    private KnowledgeBaseService knowledgeBaseService;
+    private KnowledgeIndexInitializer initializer;
+    private final List<String> calls = new ArrayList<>();
+
+    @BeforeEach
+    void setUp() {
+        restClient = mock(RestClient.class);
+        knowledgeBaseService = mock(KnowledgeBaseService.class);
+        initializer = new KnowledgeIndexInitializer(restClient, new ObjectMapper(), knowledgeBaseService);
+        ReflectionTestUtils.setField(initializer, "dimension", 1024);
+        ReflectionTestUtils.setField(initializer, "aiMode", "real");
     }
 
-    private String initializerSource() throws Exception {
-        Path path = mainJava().resolve("config/KnowledgeIndexInitializer.java");
-        assertThat(Files.exists(path))
-                .as("缺少索引初始化器，knn 查询会因字段类型不对而始终失败: %s", path)
-                .isTrue();
-        return Files.readString(path, StandardCharsets.UTF_8);
+    private static Response response(int status, String json) {
+        Response response = mock(Response.class);
+        HttpEntity entity = new StringEntity(json, ContentType.APPLICATION_JSON);
+        when(response.getEntity()).thenReturn(entity);
+        when(response.getStatusLine()).thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), status, ""));
+        return response;
     }
 
-    @Test
-    void mustDeclareDenseVectorMapping() throws Exception {
-        String source = initializerSource();
-
-        assertThat(source)
-                .as("vector 字段必须声明为 dense_vector，否则 knn 查询不可用")
-                .contains("dense_vector");
-        assertThat(source)
-                .as("必须开启索引以支持 knn 检索")
-                .contains("\"index\", true");
+    /** 按 "METHOD /path" 返回预设响应，并记录调用顺序 */
+    private void es(Map<String, Object> routes) throws Exception {
+        // 预先构造好所有响应：在 thenAnswer 内部再调用 when() 会破坏 Mockito 的打桩状态
+        Response notFound = response(404, "{}");
+        Response empty = response(200, "{}");
+        ResponseException notFoundException = mock(ResponseException.class);
+        when(notFoundException.getResponse()).thenReturn(notFound);
+        when(restClient.performRequest(any(Request.class))).thenAnswer(inv -> {
+            Request r = inv.getArgument(0);
+            String key = r.getMethod() + " " + r.getEndpoint();
+            calls.add(key);
+            Object reply = routes.get(key);
+            if (reply instanceof Integer status && status == 404) {
+                throw notFoundException;
+            }
+            return reply == null ? empty : reply;
+        });
     }
 
-    @Test
-    void mustUseCosineSimilarityForTextEmbedding() throws Exception {
-        // 文本向量检索的常规选择；与相似度计算方式必须显式声明，
-        // 否则默认值可能与业务预期不一致
-        assertThat(initializerSource()).contains("cosine");
-    }
-
-    @Test
-    void dimensionMustComeFromConfigurationNotHardcoded() throws Exception {
-        String source = initializerSource();
-
-        assertThat(source)
-                .as("维度必须与 EmbeddingService 使用同一配置项，避免两处不一致导致写入被拒")
-                .contains("ai.dashscope.embedding.dimension");
-    }
-
-    @Test
-    void mustNotRecreateExistingIndex() throws Exception {
-        String source = initializerSource();
-
-        assertThat(source)
-                .as("已存在时不得重建，否则每次重启都会清空知识库")
-                .containsAnyOf("HEAD", "exists");
+    private static String mapping(int dims) {
+        return "{\"zhixue_kb\":{\"mappings\":{\"properties\":{\"vector\":{\"type\":\"dense_vector\",\"dims\":" + dims + "}}}}}";
     }
 
     @Test
-    void initializationFailureMustNotBlockStartup() throws Exception {
-        String source = initializerSource();
+    void createsIndexWithConfiguredDimsAndBackfillsFromDatabaseWhenMissing() throws Exception {
+        es(Map.of("GET /zhixue_kb/_mapping", 404));
 
-        // ES 是可选依赖（sandbox/stub 模式下可能未部署），
-        // 索引创建失败只应告警，不应让整个 AI 服务起不来
-        assertThat(source).contains("catch");
+        initializer.ensureIndex();
+
+        ArgumentCaptor<Request> captor = ArgumentCaptor.forClass(Request.class);
+        verify(restClient, times(2)).performRequest(captor.capture());
+        Request put = captor.getAllValues().get(1);
+        assertThat(put.getMethod() + " " + put.getEndpoint()).isEqualTo("PUT /zhixue_kb");
+        String body = new String(put.getEntity().getContent().readAllBytes());
+        assertThat(body).contains("\"dense_vector\"").contains("\"dims\":1024").contains("\"cosine\"")
+                .contains("\"courseId\"");
+        verify(knowledgeBaseService).reindexAll();
+    }
+
+    @Test
+    void recreatesIndexWhenDimensionChanged() throws Exception {
+        es(Map.of("GET /zhixue_kb/_mapping", response(200, mapping(1536))));
+
+        initializer.ensureIndex();
+
+        assertThat(calls).containsExactly("GET /zhixue_kb/_mapping", "DELETE /zhixue_kb", "PUT /zhixue_kb");
+        verify(knowledgeBaseService).reindexAll();
+    }
+
+    @Test
+    void keepsExistingIndexWithMatchingDimension() throws Exception {
+        es(Map.of("GET /zhixue_kb/_mapping", response(200, mapping(1024)),
+                "GET /zhixue_kb/_count", response(200, "{\"count\":12}")));
+
+        initializer.ensureIndex();
+
+        assertThat(calls).doesNotContain("DELETE /zhixue_kb", "PUT /zhixue_kb");
+        verify(knowledgeBaseService, never()).reindexAll();
+    }
+
+    @Test
+    void backfillsEmptyIndexWithMatchingDimension() throws Exception {
+        es(Map.of("GET /zhixue_kb/_mapping", response(200, mapping(1024)),
+                "GET /zhixue_kb/_count", response(200, "{\"count\":0}")));
+
+        initializer.ensureIndex();
+
+        assertThat(calls).doesNotContain("DELETE /zhixue_kb");
+        verify(knowledgeBaseService).reindexAll();
+    }
+
+    @Test
+    void failureMustNotBlockStartup() throws Exception {
+        when(restClient.performRequest(any(Request.class))).thenThrow(new java.io.IOException("ES down"));
+        initializer.ensureIndex();
+        verify(knowledgeBaseService, never()).reindexAll();
+    }
+
+    @Test
+    void stubModeSkipsEverything() throws Exception {
+        ReflectionTestUtils.setField(initializer, "aiMode", "stub");
+        initializer.ensureIndex();
+        verify(restClient, never()).performRequest(any(Request.class));
     }
 }

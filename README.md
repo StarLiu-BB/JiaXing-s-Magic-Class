@@ -9,8 +9,8 @@
 ## 🌟 核心亮点 (Core Features)
 
 ### 1. 🤖 AI 智能助手 (RAG & Audit)
-- **检索增强生成 (RAG)**：基于 Elasticsearch 向量检索课程知识库，结合大模型（通义千问/智谱 GLM-4）实现精准的课程答疑。
-- **智能内容审核**：集成 AI 审核能力，对弹幕、评论进行实时违规检测，保障平台内容安全。
+- **检索增强生成 (RAG)**：基于 Elasticsearch 向量检索课程知识库（按课程隔离），结合本机部署的开源大模型（Ollama + Qwen3.5）实现课程答疑，无需任何外部 API Key。
+- **智能内容审核**：弹幕落库前经本地模型实时审核（关键词兜底），违规弹幕不展示，管理端可人工复核。
 
 ### 2. 🎬 高性能媒资系统
 - **大文件处理**：支持 GB 级视频文件的 **分片上传**、**断点续传** 和 **秒传**。
@@ -78,6 +78,7 @@ zhixue-cloud
 - RabbitMQ
 - MinIO
 - Elasticsearch 8.x (可选，AI 功能依赖)
+- Ollama (可选，AI 功能依赖，见下方「本地 AI」)
 
 ### 启动步骤
 
@@ -105,6 +106,27 @@ zhixue-cloud
     npm install
     npm run dev
     ```
+
+### 本地 AI（Ollama）
+
+AI 答疑、知识库向量化、弹幕审核全部由本机的 [Ollama](https://ollama.com) 提供，免费、离线、数据不出本机。
+
+```bash
+brew install ollama && brew services start ollama   # 只监听 127.0.0.1:11434
+ollama pull qwen3.5:9b             # 对话与审核，约 6.6GB
+ollama pull qwen3-embedding:0.6b   # 中文向量模型，1024 维，约 639MB
+```
+
+| 配置项（`ops/local/local.env`） | 默认值 | 说明 |
+|---|---|---|
+| `ZHIXUE_AI_BASE_URL` | `http://host.docker.internal:11434` | 容器内访问宿主机上的 Ollama |
+| `ZHIXUE_AI_CHAT_MODEL` | `qwen3.5:9b` | 对话与审核模型 |
+| `ZHIXUE_AI_EMBEDDING_MODEL` | `qwen3-embedding:0.6b` | 向量模型 |
+| `ZHIXUE_EMBEDDING_DIMENSION` | `1024` | 必须与向量模型输出一致；变更后 AI 服务启动时自动重建 ES 索引并从数据库写回 |
+| `ZHIXUE_AI_MODE` | `real` | `real` 失败如实报错；`sandbox` 检索退化为词法匹配；`stub` 不调用模型（测试用） |
+
+在 Apple M5 Pro / 48GB 上实测：冷启动加载约 6s；答疑 3–11s（约 56 token/s）；弹幕审核约 0.4s/条，12 条典型弹幕判断全部正确。
+模型不可用时答疑返回「AI 服务暂不可用」，弹幕审核按通过处理（不阻塞发送）。
 
 ## 🤝 贡献 (Contributing)
 欢迎提交 Issue 或 Pull Request 来完善项目！
