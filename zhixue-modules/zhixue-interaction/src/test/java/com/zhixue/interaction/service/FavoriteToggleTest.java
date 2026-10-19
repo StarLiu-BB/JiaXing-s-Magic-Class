@@ -34,8 +34,9 @@ class FavoriteToggleTest {
 
     private final CourseFavoriteMapper favoriteMapper = mock(CourseFavoriteMapper.class);
     private final CourseStatsMapper statsMapper = mock(CourseStatsMapper.class);
+    private final RedisService redisService = mock(RedisService.class);
     private final FavoriteServiceImpl service =
-            new FavoriteServiceImpl(favoriteMapper, statsMapper, mock(RedisService.class));
+            new FavoriteServiceImpl(favoriteMapper, statsMapper, redisService);
 
     @BeforeEach
     void loginAsStudent() {
@@ -92,5 +93,15 @@ class FavoriteToggleTest {
         service.toggleFavorite(2001L);
 
         verify(statsMapper, never()).incrementFavoriteCount(eq(2001L), anyInt());
+    }
+
+    /**
+     * Redis 用 JSON 序列化，小数值读回来是 Integer：直接赋给 Long 抛 ClassCastException。
+     * 修复前计数缓存一旦命中（即任何课程第二次被查看），收藏状态接口就 500（学生端详情页实测）。
+     */
+    @Test
+    void favoriteCountToleratesIntegerFromRedisCache() {
+        when(redisService.get("favorite:count:2001")).thenReturn(Integer.valueOf(1));
+        assertThat(service.getFavoriteCount(2001L)).isEqualTo(1L);
     }
 }

@@ -113,10 +113,10 @@ public class FavoriteServiceImpl implements FavoriteService {
     public long getFavoriteCount(Long courseId) {
         String countKey = FAVORITE_COUNT_PREFIX + courseId;
 
-        // 先查缓存
-        Long cached = redisService.get(countKey);
-        if (cached != null) {
-            return cached;
+        // 先查缓存。Redis 用 JSON 序列化，小数值读回来是 Integer，必须按 Number 取
+        Object cached = redisService.get(countKey);
+        if (cached instanceof Number number) {
+            return number.longValue();
         }
 
         // 查数据库
