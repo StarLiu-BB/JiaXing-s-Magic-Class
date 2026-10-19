@@ -48,8 +48,8 @@ public class ChapterController {
      */
     @PostMapping("/chapter")
     @RequirePermission("course:edit")
-    public R<Void> create(@RequestBody Chapter chapter) {
-        return chapterService.saveChapter(chapter) ? R.ok() : R.fail("新增失败");
+    public R<Chapter> create(@RequestBody Chapter chapter) {
+        return chapterService.saveChapter(chapter) ? R.ok(chapter) : R.fail("新增失败");
     }
 
     /**

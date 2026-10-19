@@ -48,14 +48,14 @@ public class SectionController {
      */
     @PostMapping("/section")
     @RequirePermission("course:edit")
-    public R<Void> createCompat(@RequestBody Section section) {
+    public R<Section> createCompat(@RequestBody Section section) {
         return create(section);
     }
 
     @PostMapping("/lesson")
     @RequirePermission("course:edit")
-    public R<Void> create(@RequestBody Section section) {
-        return sectionService.saveSection(section) ? R.ok() : R.fail("新增失败");
+    public R<Section> create(@RequestBody Section section) {
+        return sectionService.saveSection(section) ? R.ok(section) : R.fail("新增失败");
     }
 
     /**

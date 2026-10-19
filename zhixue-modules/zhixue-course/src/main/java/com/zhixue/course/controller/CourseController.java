@@ -122,8 +122,9 @@ public class CourseController {
      */
     @PostMapping
     @RequirePermission("course:edit")
-    public R<Void> create(@Valid @RequestBody Course course) {
-        return courseService.saveCourse(course) ? R.ok() : R.fail("新增失败");
+    public R<Course> create(@Valid @RequestBody Course course) {
+        // 返回新课程（含 ID）：发布页要用它继续添加章节、课时
+        return courseService.saveCourse(course) ? R.ok(course) : R.fail("新增失败");
     }
 
     /**

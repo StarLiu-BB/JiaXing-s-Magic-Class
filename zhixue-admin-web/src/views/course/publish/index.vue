@@ -3,14 +3,13 @@
     <el-card shadow="never" class="page-card">
       <el-steps :active="activeStep" finish-status="success" align-center class="steps">
         <el-step title="基本信息" />
-        <el-step title="课程内容" />
         <el-step title="章节管理" />
-        <el-step title="课程设置" />
+        <el-step title="试看设置" />
         <el-step title="完成发布" />
       </el-steps>
 
       <div class="step-content">
-        <!-- 步骤1：基本信息 -->
+        <!-- 步骤1：基本信息（离开本步时保存，新课程以草稿创建） -->
         <el-form
           v-show="activeStep === 0"
           ref="step1FormRef"
@@ -20,6 +19,9 @@
         >
           <el-form-item label="课程标题" prop="title">
             <el-input v-model="form.title" placeholder="请输入课程标题" maxlength="100" show-word-limit />
+          </el-form-item>
+          <el-form-item label="副标题" prop="subtitle">
+            <el-input v-model="form.subtitle" placeholder="一句话说明课程卖点（可选）" maxlength="100" show-word-limit />
           </el-form-item>
           <el-form-item label="课程分类" prop="categoryId">
             <el-select v-model="form.categoryId" placeholder="请选择分类" style="width: 100%">
@@ -32,108 +34,71 @@
             </el-select>
           </el-form-item>
           <el-form-item label="课程封面" prop="cover">
-            <el-upload
-              class="cover-uploader"
-              :action="uploadUrl"
-              :show-file-list="false"
-              :on-success="handleCoverSuccess"
-              :before-upload="beforeCoverUpload"
-            >
-              <img v-if="form.cover" :src="form.cover" class="cover-image" />
-              <el-icon v-else class="cover-uploader-icon"><Plus /></el-icon>
-            </el-upload>
-            <div class="upload-tip">建议尺寸：750x422px，支持 JPG、PNG 格式</div>
+            <div class="cover-field">
+              <el-upload
+                class="cover-uploader"
+                :action="uploadUrl"
+                :headers="uploadHeaders"
+                :show-file-list="false"
+                :on-success="handleCoverSuccess"
+                :on-error="handleCoverError"
+                :before-upload="beforeCoverUpload"
+              >
+                <img v-if="form.cover" :src="form.cover" class="cover-image" alt="课程封面" />
+                <el-icon v-else class="cover-uploader-icon"><Plus /></el-icon>
+              </el-upload>
+              <el-input v-model="form.cover" placeholder="或直接填写图片地址 https://..." clearable class="cover-url" />
+            </div>
+            <div class="upload-tip">建议尺寸 750×422，JPG / PNG，不超过 2MB</div>
           </el-form-item>
           <el-form-item label="课程价格" prop="price">
-            <el-input-number
-              v-model="form.price"
-              :min="0"
-              :precision="2"
-              placeholder="请输入价格"
-              style="width: 200px"
-            />
+            <el-input-number v-model="form.price" :min="0" :precision="2" style="width: 200px" />
             <span style="margin-left: 10px">元</span>
           </el-form-item>
           <el-form-item label="原价" prop="originalPrice">
-            <el-input-number
-              v-model="form.originalPrice"
-              :min="0"
-              :precision="2"
-              placeholder="请输入原价（可选）"
-              style="width: 200px"
-            />
-            <span style="margin-left: 10px">元</span>
+            <el-input-number v-model="form.originalPrice" :min="0" :precision="2" style="width: 200px" />
+            <span style="margin-left: 10px">元（划线价，可选）</span>
           </el-form-item>
           <el-form-item label="课程简介" prop="description">
             <el-input
               v-model="form.description"
               type="textarea"
               :rows="5"
-              placeholder="请输入课程简介"
+              placeholder="请输入课程简介，学生端详情页展示"
               maxlength="500"
               show-word-limit
             />
           </el-form-item>
-          <el-form-item label="学习目标">
-            <el-input
-              v-model="objectivesInput"
-              type="textarea"
-              :rows="3"
-              placeholder="每行一个目标，例如：&#10;掌握Vue3基础语法&#10;学会使用组合式API"
-              @blur="handleObjectivesBlur"
-            />
-          </el-form-item>
-          <el-form-item label="适合人群">
-            <el-input
-              v-model="suitableInput"
-              type="textarea"
-              :rows="3"
-              placeholder="每行一个人群，例如：&#10;前端开发者&#10;Vue初学者"
-              @blur="handleSuitableBlur"
-            />
-          </el-form-item>
         </el-form>
 
-        <!-- 步骤2：课程内容 -->
-        <div v-show="activeStep === 1" class="rich-text-editor">
-          <el-form-item label="课程详情" prop="content">
-            <div id="editor-container" style="height: 500px"></div>
-          </el-form-item>
-        </div>
-
-        <!-- 步骤3：章节管理 -->
-        <div v-show="activeStep === 2" class="chapter-management">
+        <!-- 步骤2：章节管理（课程已保存，章节与课时实时保存） -->
+        <div v-show="activeStep === 1" class="chapter-management">
           <div class="chapter-toolbar">
             <el-button type="primary" icon="Plus" @click="handleAddChapter">添加章节</el-button>
+            <span class="upload-tip">章节与课时保存后立即生效</span>
           </div>
+          <el-empty v-if="chapterTree.length === 0" description="还没有章节，先添加一个章节" :image-size="80" />
           <el-tree
+            v-else
             :data="chapterTree"
             :props="{ children: 'lessons', label: 'title' }"
             default-expand-all
             :expand-on-click-node="false"
-            node-key="id"
-            draggable
-            @node-drop="handleNodeDrop"
+            node-key="nodeKey"
           >
-            <template #default="{ node, data }">
+            <template #default="{ data }">
               <div class="tree-node">
-                <span v-if="!data.lessonId" class="node-label">
+                <span v-if="!data.isLesson" class="node-label">
                   <el-icon><Folder /></el-icon>
                   {{ data.title }}
                 </span>
                 <span v-else class="node-label">
                   <el-icon><VideoPlay /></el-icon>
                   {{ data.title }}
-                  <el-tag v-if="data.isFree" type="success" size="small" style="margin-left: 10px">免费</el-tag>
+                  <span class="lesson-meta">{{ formatMinutes(data.duration) }}</span>
                 </span>
                 <span class="node-actions">
-                  <el-button
-                    v-if="!data.lessonId"
-                    link
-                    type="primary"
-                    icon="Plus"
-                    @click="handleAddLesson(data)"
-                  >
+                  <el-button v-if="!data.isLesson" link type="primary" icon="Plus" @click="handleAddLesson(data)">
                     添加课时
                   </el-button>
                   <el-button link type="primary" icon="Edit" @click="handleEditNode(data)">编辑</el-button>
@@ -144,388 +109,286 @@
           </el-tree>
         </div>
 
-        <!-- 步骤4：课程设置 -->
-        <el-form
-          v-show="activeStep === 3"
-          ref="step4FormRef"
-          :model="form"
-          :rules="step4Rules"
-          label-width="120px"
-        >
-          <el-form-item label="有效期" prop="validityDays">
-            <el-radio-group v-model="form.validityType">
-              <el-radio :label="0">永久有效</el-radio>
-              <el-radio :label="1">购买后有效</el-radio>
-            </el-radio-group>
-            <el-input-number
-              v-if="form.validityType === 1"
-              v-model="form.validityDays"
-              :min="1"
-              placeholder="天数"
-              style="width: 150px; margin-left: 20px"
-            />
-            <span v-if="form.validityType === 1" style="margin-left: 10px">天</span>
-          </el-form-item>
-          <el-form-item label="试看设置">
+        <!-- 步骤3：试看设置 -->
+        <el-form v-show="activeStep === 2" :model="form" label-width="120px">
+          <el-form-item label="允许试看">
             <el-switch v-model="form.allowPreview" />
-            <span style="margin-left: 10px">允许试看</span>
           </el-form-item>
           <el-form-item v-if="form.allowPreview" label="试看课时数">
-            <el-input-number
-              v-model="form.previewLessons"
-              :min="0"
-              placeholder="试看课时数"
-              style="width: 150px"
-            />
-          </el-form-item>
-          <el-form-item label="学习模式">
-            <el-radio-group v-model="form.studyMode">
-              <el-radio :label="0">自由学习</el-radio>
-              <el-radio :label="1">顺序学习</el-radio>
-            </el-radio-group>
+            <el-input-number v-model="form.previewLessons" :min="1" :max="Math.max(totalLessons, 1)" style="width: 150px" />
+            <span class="upload-tip" style="margin-left: 12px">未购买的学生可观看按顺序排列的前 N 个课时</span>
           </el-form-item>
         </el-form>
 
-        <!-- 步骤5：完成发布 -->
-        <div v-show="activeStep === 4" class="publish-summary">
-          <el-result icon="success" title="课程信息已保存" sub-title="请确认信息无误后发布课程">
-            <template #extra>
-              <el-button type="primary" @click="handlePublish">立即发布</el-button>
-              <el-button @click="handleSaveDraft">保存草稿</el-button>
-            </template>
-          </el-result>
-          <el-descriptions title="课程信息" :column="2" border style="margin-top: 30px">
+        <!-- 步骤4：完成发布 -->
+        <div v-show="activeStep === 3" class="publish-summary">
+          <el-result icon="success" title="课程信息已保存" :sub-title="summaryText" />
+          <el-descriptions title="课程信息" :column="2" border style="margin-top: 12px">
             <el-descriptions-item label="课程标题">{{ form.title }}</el-descriptions-item>
-            <el-descriptions-item label="课程分类">
-              {{ getCategoryName(form.categoryId) }}
-            </el-descriptions-item>
+            <el-descriptions-item label="课程分类">{{ getCategoryName(form.categoryId) }}</el-descriptions-item>
             <el-descriptions-item label="课程价格">¥{{ form.price }}</el-descriptions-item>
-            <el-descriptions-item label="原价">¥{{ form.originalPrice || '无' }}</el-descriptions-item>
+            <el-descriptions-item label="原价">{{ form.originalPrice ? `¥${form.originalPrice}` : '无' }}</el-descriptions-item>
             <el-descriptions-item label="章节数">{{ chapterTree.length }}</el-descriptions-item>
             <el-descriptions-item label="课时数">{{ totalLessons }}</el-descriptions-item>
+            <el-descriptions-item label="试看">
+              {{ form.allowPreview ? `前 ${form.previewLessons} 个课时` : '不允许试看' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="当前状态">{{ isPublished ? '已发布' : '草稿' }}</el-descriptions-item>
           </el-descriptions>
         </div>
       </div>
 
       <div class="step-actions">
         <el-button v-if="activeStep > 0" @click="prevStep">上一步</el-button>
-        <el-button v-if="activeStep < 4" type="primary" @click="nextStep">下一步</el-button>
-        <el-button v-if="activeStep === 4" type="success" @click="handlePublish">发布课程</el-button>
+        <el-button v-if="activeStep < 3" type="primary" :loading="saving" @click="nextStep">下一步</el-button>
+        <template v-if="activeStep === 3">
+          <el-button v-if="canPublish" type="success" :loading="saving" @click="handlePublish">
+            {{ isPublished ? '重新上架' : '发布课程' }}
+          </el-button>
+          <el-button @click="handleSaveDraft">{{ isPublished ? '完成' : '保存为草稿' }}</el-button>
+        </template>
         <el-button @click="handleCancel">取消</el-button>
       </div>
     </el-card>
 
     <!-- 章节/课时编辑弹窗 -->
-    <el-dialog
-      :title="nodeDialogTitle"
-      v-model="nodeDialogVisible"
-      width="600px"
-      append-to-body
-    >
-      <el-form
-        ref="nodeFormRef"
-        :model="nodeForm"
-        :rules="nodeRules"
-        label-width="100px"
-      >
-        <el-form-item v-if="!nodeForm.lessonId" label="章节标题" prop="title">
-          <el-input v-model="nodeForm.title" placeholder="请输入章节标题" />
+    <el-dialog :title="nodeDialogTitle" v-model="nodeDialogVisible" width="560px" append-to-body>
+      <el-form ref="nodeFormRef" :model="nodeForm" :rules="nodeRules" label-width="100px">
+        <el-form-item :label="nodeForm.isLesson ? '课时标题' : '章节标题'" prop="title">
+          <el-input v-model="nodeForm.title" maxlength="100" :placeholder="nodeForm.isLesson ? '请输入课时标题' : '请输入章节标题'" />
         </el-form-item>
-        <el-form-item v-else label="课时标题" prop="title">
-          <el-input v-model="nodeForm.title" placeholder="请输入课时标题" />
+        <el-form-item v-if="nodeForm.isLesson" label="视频地址" prop="videoUrl">
+          <el-input v-model="nodeForm.videoUrl" placeholder="https://..." />
         </el-form-item>
-        <el-form-item v-if="nodeForm.lessonId" label="视频地址" prop="videoUrl">
-          <el-input v-model="nodeForm.videoUrl" placeholder="请输入视频地址" />
+        <el-form-item v-if="nodeForm.isLesson" label="时长（分钟）" prop="minutes">
+          <el-input-number v-model="nodeForm.minutes" :min="1" :max="600" />
         </el-form-item>
-        <el-form-item v-if="nodeForm.lessonId" label="时长（分钟）" prop="duration">
-          <el-input-number v-model="nodeForm.duration" :min="1" placeholder="时长" />
-        </el-form-item>
-        <el-form-item v-if="nodeForm.lessonId" label="是否免费">
-          <el-switch v-model="nodeForm.isFree" />
-        </el-form-item>
-        <el-form-item v-if="nodeForm.lessonId" label="课时描述">
-          <el-input
-            v-model="nodeForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入课时描述"
-          />
+        <el-form-item label="排序">
+          <el-input-number v-model="nodeForm.orderNum" :min="1" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="nodeDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitNodeForm">确定</el-button>
+        <el-button type="primary" :loading="saving" @click="submitNodeForm">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Folder, VideoPlay } from '@element-plus/icons-vue'
-import { getCourse, addCourse, updateCourse } from '@/api/course/course'
-import { getCategoryList } from '@/api/course/course'
+import { getCourse, addCourse, updateCourse, publishCourse, getCategoryList } from '@/api/course/course'
 import { listChapter, addChapter, updateChapter, deleteChapter, addLesson, updateLesson, deleteLesson } from '@/api/course/chapter'
-import { uploadImage } from '@/api/media/upload'
+import { getToken } from '@/utils/auth'
+import { useUserStore } from '@/stores/modules/user'
+
+// 说明：此前页面还收集「课程详情富文本 / 学习目标 / 适合人群 / 有效期天数 / 学习模式 / 课时是否免费」，
+// 但后端 course、section 表没有这些字段，保存时全部被静默丢弃。现只保留能真正存下来的字段，
+// 试看改为课程级的「前 N 个课时」（与后端 LessonAccessPolicy 一致）。
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
-// 步骤控制
 const activeStep = ref(0)
+// 雪花 ID 必须保持字符串：parseInt 会丢精度，编辑时打开的是另一门（或不存在的）课程
 const courseId = ref(null)
+const isPublished = ref(false)
+const saving = ref(false)
+const canPublish = computed(() => (userStore.permissions || []).includes('course:publish'))
 
-// 表单引用
 const step1FormRef = ref(null)
-const step4FormRef = ref(null)
 const nodeFormRef = ref(null)
 
-// 数据
 const categoryOptions = ref([])
 const chapterTree = ref([])
-const objectivesInput = ref('')
-const suitableInput = ref('')
-// 后端只提供 /media/upload（单文件直传），不存在 /media/upload/image
-const uploadUrl = ref(import.meta.env.VITE_APP_BASE_API + '/media/upload')
+// 后端只提供 /media/upload（单文件直传）；el-upload 不走 axios，必须手动带上令牌，否则网关 401
+const uploadUrl = import.meta.env.VITE_APP_BASE_API + '/media/upload'
+const uploadHeaders = computed(() => ({ Authorization: `Bearer ${getToken()}` }))
 
-// 富文本编辑器实例
-let editorInstance = null
-
-// 表单数据
 const form = reactive({
-  id: undefined,
   title: '',
+  subtitle: '',
   categoryId: undefined,
   cover: '',
   price: 0,
   originalPrice: 0,
   description: '',
-  objectives: [],
-  suitable: [],
-  content: '',
-  validityType: 0,
-  validityDays: 365,
   allowPreview: true,
-  previewLessons: 3,
-  studyMode: 0,
-  status: 0
+  previewLessons: 1
 })
 
-// 节点表单
 const nodeDialogVisible = ref(false)
 const nodeDialogTitle = ref('')
-const nodeForm = reactive({
-  id: undefined,
-  chapterId: undefined,
-  lessonId: undefined,
-  title: '',
-  videoUrl: '',
-  duration: 0,
-  isFree: false,
-  description: '',
-  sortOrder: 0
-})
+const nodeForm = reactive({ id: undefined, chapterId: undefined, isLesson: false, title: '', videoUrl: '', minutes: 10, orderNum: 1 })
 
-// 表单验证规则
-const step1Rules = reactive({
+const step1Rules = {
   title: [{ required: true, message: '请输入课程标题', trigger: 'blur' }],
   categoryId: [{ required: true, message: '请选择课程分类', trigger: 'change' }],
-  cover: [{ required: true, message: '请上传课程封面', trigger: 'change' }],
+  cover: [{ required: true, message: '请上传封面或填写图片地址', trigger: 'change' }],
   price: [{ required: true, message: '请输入课程价格', trigger: 'blur' }]
-})
-
-const step4Rules = reactive({
-  validityDays: [
-    {
-      validator: (rule, value, callback) => {
-        if (form.validityType === 1 && !value) {
-          callback(new Error('请输入有效期天数'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
-  ]
-})
-
-const nodeRules = reactive({
-  title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  videoUrl: [
-    {
-      validator: (rule, value, callback) => {
-        if (nodeForm.lessonId && !value) {
-          callback(new Error('请输入视频地址'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
-  ],
-  duration: [
-    {
-      validator: (rule, value, callback) => {
-        if (nodeForm.lessonId && !value) {
-          callback(new Error('请输入时长'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
-  ]
-})
-
-// 计算属性
-const totalLessons = computed(() => {
-  let count = 0
-  chapterTree.value.forEach(chapter => {
-    count += (chapter.lessons || []).length
-  })
-  return count
-})
-
-// 获取分类名称
-const getCategoryName = (categoryId) => {
-  const category = categoryOptions.value.find(c => c.id === categoryId)
-  return category ? category.name : ''
 }
 
-// 获取分类列表
+const nodeRules = {
+  title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
+  videoUrl: [{ required: true, message: '请输入视频地址', trigger: 'blur' }],
+  minutes: [{ required: true, message: '请输入时长', trigger: 'blur' }]
+}
+
+const totalLessons = computed(() => chapterTree.value.reduce((n, c) => n + (c.lessons || []).length, 0))
+const summaryText = computed(() =>
+  isPublished.value ? '课程已发布，修改已保存' : '课程目前是草稿，发布后学生才能看到'
+)
+
+const getCategoryName = (id) => categoryOptions.value.find((c) => c.id === id)?.name || ''
+const formatMinutes = (seconds) => (seconds ? `${Math.round(seconds / 60)} 分钟` : '')
+
 const getCategoryOptions = async () => {
   try {
     const response = await getCategoryList()
-    categoryOptions.value = response?.data || response || []
+    categoryOptions.value = response?.data || []
   } catch (error) {
     console.error('获取分类列表失败:', error)
   }
 }
 
-// 初始化富文本编辑器
-const initEditor = async () => {
-  // 这里使用简单的 textarea，实际项目中可以使用 Quill、TinyMCE 等富文本编辑器
-  // 示例：使用 textarea 代替
-  await nextTick()
-  const container = document.getElementById('editor-container')
-  if (container && !editorInstance) {
-    // 创建简单的文本编辑器
-    const textarea = document.createElement('textarea')
-    textarea.className = 'el-textarea__inner'
-    textarea.style.width = '100%'
-    textarea.style.height = '100%'
-    textarea.style.border = 'none'
-    textarea.style.boxShadow = 'none'
-    textarea.style.padding = '10px 14px'
-    textarea.placeholder = '请输入课程详情内容...'
-    textarea.value = form.content
-    textarea.addEventListener('input', (e) => {
-      form.content = e.target.value
-    })
-    container.appendChild(textarea)
-    editorInstance = textarea
-  }
-}
-
-// 学习目标处理
-const handleObjectivesBlur = () => {
-  form.objectives = objectivesInput.value
-    .split('\n')
-    .map(item => item.trim())
-    .filter(item => item)
-}
-
-// 适合人群处理
-const handleSuitableBlur = () => {
-  form.suitable = suitableInput.value
-    .split('\n')
-    .map(item => item.trim())
-    .filter(item => item)
-}
-
-// 封面上传
+// ---------- 封面 ----------
 const beforeCoverUpload = (file) => {
-  const isImage = file.type.startsWith('image/')
-  const isLt2M = file.size / 1024 / 1024 < 2
-
-  if (!isImage) {
-    ElMessage.error('只能上传图片文件!')
+  if (!file.type.startsWith('image/')) {
+    ElMessage.error('只能上传图片文件')
     return false
   }
-  if (!isLt2M) {
-    ElMessage.error('图片大小不能超过 2MB!')
+  if (file.size / 1024 / 1024 >= 2) {
+    ElMessage.error('图片大小不能超过 2MB')
     return false
   }
   return true
 }
 
 const handleCoverSuccess = (response) => {
-  if (response.code === 200 || response.data) {
-    form.cover = response.data?.url || response.data || response.url || response.img
+  // /media/upload 返回 R<MediaFile>，地址在 data.fileUrl
+  const url = response?.code === 200 ? response.data?.fileUrl : ''
+  if (url) {
+    form.cover = url
+    step1FormRef.value?.clearValidate('cover')
     ElMessage.success('封面上传成功')
   } else {
-    ElMessage.error('封面上传失败')
+    ElMessage.error(response?.msg || '封面上传失败，可直接填写图片地址')
   }
 }
 
-// 步骤控制
+const handleCoverError = () => {
+  ElMessage.error('封面上传失败，可直接填写图片地址')
+}
+
+// ---------- 保存 ----------
+const coursePayload = () => ({
+  title: form.title.trim(),
+  subtitle: form.subtitle.trim() || undefined,
+  categoryId: form.categoryId,
+  coverUrl: form.cover,
+  price: form.price,
+  originalPrice: form.originalPrice || form.price,
+  description: form.description,
+  allowPreview: form.allowPreview ? 1 : 0,
+  previewLessonCount: form.previewLessons
+})
+
+/** 新课程以草稿创建并拿回 ID；已有课程直接更新（发布/上下架状态后端不会被编辑接口改动） */
+const saveCourse = async () => {
+  if (courseId.value) {
+    await updateCourse({ id: courseId.value, ...coursePayload() })
+    return
+  }
+  const response = await addCourse(coursePayload())
+  const id = response?.data?.id
+  if (!id) {
+    throw new Error('保存课程后未返回课程 ID')
+  }
+  courseId.value = String(id)
+  // 刷新或回退时仍能继续编辑同一门课，而不是再新建一门
+  router.replace({ query: { ...route.query, id: courseId.value } })
+}
+
+const withSaving = async (fn) => {
+  saving.value = true
+  try {
+    return await fn()
+  } finally {
+    saving.value = false
+  }
+}
+
 const nextStep = async () => {
   if (activeStep.value === 0) {
-    // 验证第一步
-    step1FormRef.value.validate(async (valid) => {
-      if (valid) {
-        handleObjectivesBlur()
-        handleSuitableBlur()
-        activeStep.value++
-        await nextTick()
-        if (activeStep.value === 1) {
-          initEditor()
-        }
-      }
-    })
+    const valid = await step1FormRef.value.validate().catch(() => false)
+    if (!valid) return
+    try {
+      await withSaving(saveCourse)
+      activeStep.value = 1
+    } catch (error) {
+      console.error('保存课程失败:', error)
+    }
   } else if (activeStep.value === 1) {
-    // 验证第二步
-    if (!form.content.trim()) {
-      ElMessage.warning('请输入课程详情内容')
+    if (totalLessons.value === 0) {
+      ElMessage.warning('请至少添加一个章节和一个课时')
       return
     }
-    activeStep.value++
+    activeStep.value = 2
   } else if (activeStep.value === 2) {
-    // 验证第三步
-    if (chapterTree.value.length === 0) {
-      ElMessage.warning('请至少添加一个章节')
-      return
+    try {
+      await withSaving(saveCourse)
+      activeStep.value = 3
+    } catch (error) {
+      console.error('保存试看设置失败:', error)
     }
-    // 检查是否有课时
-    const hasLessons = chapterTree.value.some(chapter => chapter.lessons && chapter.lessons.length > 0)
-    if (!hasLessons) {
-      ElMessage.warning('请至少添加一个课时')
-      return
-    }
-    activeStep.value++
-  } else if (activeStep.value === 3) {
-    // 验证第四步
-    step4FormRef.value.validate((valid) => {
-      if (valid) {
-        activeStep.value++
-      }
-    })
   }
 }
 
 const prevStep = () => {
-  if (activeStep.value > 0) {
-    activeStep.value--
+  if (activeStep.value > 0) activeStep.value--
+}
+
+const handlePublish = async () => {
+  try {
+    await ElMessageBox.confirm('发布后学生即可在学生端看到并购买该课程，确定发布吗？', '发布课程', {
+      confirmButtonText: '发布',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch {
+    return
+  }
+  try {
+    await withSaving(() => publishCourse(courseId.value))
+    ElMessage.success('课程已发布')
+    router.push('/course/list')
+  } catch (error) {
+    console.error('发布失败:', error)
   }
 }
 
-// 章节管理
+const handleSaveDraft = () => {
+  ElMessage.success(isPublished.value ? '已保存' : '已保存为草稿，可在课程列表中继续发布')
+  router.push('/course/list')
+}
+
+const handleCancel = () => {
+  router.back()
+}
+
+// ---------- 章节 / 课时（实时保存） ----------
+const resetNodeForm = () => {
+  Object.assign(nodeForm, { id: undefined, chapterId: undefined, isLesson: false, title: '', videoUrl: '', minutes: 10, orderNum: 1 })
+  nodeFormRef.value?.clearValidate()
+}
+
 const handleAddChapter = () => {
   resetNodeForm()
-  nodeForm.chapterId = undefined
-  nodeForm.lessonId = undefined
+  nodeForm.orderNum = chapterTree.value.length + 1
   nodeDialogTitle.value = '添加章节'
   nodeDialogVisible.value = true
 }
@@ -533,368 +396,130 @@ const handleAddChapter = () => {
 const handleAddLesson = (chapter) => {
   resetNodeForm()
   nodeForm.chapterId = chapter.id
-  nodeForm.lessonId = 'new'
-  nodeDialogTitle.value = '添加课时'
+  nodeForm.isLesson = true
+  nodeForm.orderNum = (chapter.lessons || []).length + 1
+  nodeDialogTitle.value = `添加课时 · ${chapter.title}`
   nodeDialogVisible.value = true
 }
 
 const handleEditNode = (data) => {
   resetNodeForm()
-  if (data.lessonId) {
-    // 编辑课时
-    nodeForm.id = data.id
-    nodeForm.chapterId = data.chapterId
-    nodeForm.lessonId = data.lessonId
-    nodeForm.title = data.title
-    nodeForm.videoUrl = data.videoUrl || ''
-    nodeForm.duration = data.duration || 0
-    nodeForm.isFree = data.isFree || false
-    nodeForm.description = data.description || ''
-    nodeDialogTitle.value = '编辑课时'
-  } else {
-    // 编辑章节
-    nodeForm.id = data.id
-    nodeForm.title = data.title
-    nodeDialogTitle.value = '编辑章节'
-  }
+  Object.assign(nodeForm, {
+    id: data.id,
+    chapterId: data.chapterId,
+    isLesson: data.isLesson,
+    title: data.title,
+    videoUrl: data.videoUrl || '',
+    minutes: data.isLesson ? Math.max(1, Math.round((data.duration || 60) / 60)) : 10,
+    orderNum: data.orderNum || 1
+  })
+  nodeDialogTitle.value = data.isLesson ? '编辑课时' : '编辑章节'
   nodeDialogVisible.value = true
 }
 
 const handleDeleteNode = async (data) => {
+  const lessons = data.isLesson ? 0 : (data.lessons || []).length
   try {
-    await ElMessageBox.confirm('确定要删除吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-
-    if (data.lessonId) {
-      // 删除课时
+    await ElMessageBox.confirm(
+      lessons ? `删除章节「${data.title}」会同时删除其中 ${lessons} 个课时，确定吗？` : `确定删除「${data.title}」吗？`,
+      '删除确认',
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+  try {
+    if (data.isLesson) {
       await deleteLesson(data.id)
-      // 从树中移除
-      const chapter = chapterTree.value.find(c => c.id === data.chapterId)
-      if (chapter && chapter.lessons) {
-        const index = chapter.lessons.findIndex(l => l.id === data.id)
-        if (index > -1) {
-          chapter.lessons.splice(index, 1)
-        }
-      }
     } else {
-      // 删除章节
       await deleteChapter(data.id)
-      const index = chapterTree.value.findIndex(c => c.id === data.id)
-      if (index > -1) {
-        chapterTree.value.splice(index, 1)
-      }
     }
-    ElMessage.success('删除成功')
+    await loadChapters()
+    ElMessage.success('已删除')
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除失败:', error)
-    }
+    console.error('删除失败:', error)
   }
 }
 
 const submitNodeForm = async () => {
-  nodeFormRef.value.validate(async (valid) => {
-    if (valid) {
-      try {
-        if (nodeForm.lessonId) {
-          // 保存课时
-          const lessonData = {
-            courseId: courseId.value,
-            chapterId: nodeForm.chapterId,
-            title: nodeForm.title,
-            videoUrl: nodeForm.videoUrl,
-            duration: nodeForm.duration,
-            isFree: nodeForm.isFree,
-            description: nodeForm.description,
-            orderNum: nodeForm.sortOrder || 0
-          }
-
-          if (nodeForm.id) {
-            // 更新
-            lessonData.id = nodeForm.id
-            await updateLesson(lessonData)
-            // 更新树中数据
-            const chapter = chapterTree.value.find(c => c.id === nodeForm.chapterId)
-            if (chapter && chapter.lessons) {
-              const lesson = chapter.lessons.find(l => l.id === nodeForm.id)
-              if (lesson) {
-                Object.assign(lesson, lessonData)
-              }
-            }
-          } else {
-            // 新增
-            const response = await addLesson(lessonData)
-            const newLesson = {
-              id: response.id || response.data?.id,
-              chapterId: nodeForm.chapterId,
-              lessonId: 'lesson',
-              ...lessonData
-            }
-            const chapter = chapterTree.value.find(c => c.id === nodeForm.chapterId)
-            if (chapter) {
-              if (!chapter.lessons) {
-                chapter.lessons = []
-              }
-              chapter.lessons.push(newLesson)
-            }
-          }
-        } else {
-          // 保存章节
-          const chapterData = {
-            courseId: courseId.value,
-            title: nodeForm.title,
-            orderNum: nodeForm.sortOrder || 0
-          }
-
-          if (nodeForm.id) {
-            // 更新
-            chapterData.id = nodeForm.id
-            await updateChapter(chapterData)
-            // 更新树中数据
-            const chapter = chapterTree.value.find(c => c.id === nodeForm.id)
-            if (chapter) {
-              chapter.title = nodeForm.title
-            }
-          } else {
-            // 新增
-            if (!courseId.value) {
-              ElMessage.warning('请先保存课程基本信息')
-              return
-            }
-            chapterData.courseId = courseId.value
-            const response = await addChapter(chapterData)
-            const newChapter = {
-              id: response.id || response.data?.id,
-              title: nodeForm.title,
-              lessons: []
-            }
-            chapterTree.value.push(newChapter)
-          }
-        }
-
-        nodeDialogVisible.value = false
-        ElMessage.success('保存成功')
-      } catch (error) {
-        console.error('保存失败:', error)
-      }
-    }
-  })
-}
-
-const handleNodeDrop = () => {
-  // 拖拽后更新排序
-  // 这里可以调用API更新排序
-}
-
-const resetNodeForm = () => {
-  nodeForm.id = undefined
-  nodeForm.chapterId = undefined
-  nodeForm.lessonId = undefined
-  nodeForm.title = ''
-  nodeForm.videoUrl = ''
-  nodeForm.duration = 0
-  nodeForm.isFree = false
-  nodeForm.description = ''
-  nodeForm.sortOrder = 0
-  nodeFormRef.value?.resetFields()
-}
-
-// 发布/保存
-const handlePublish = async () => {
+  const valid = await nodeFormRef.value.validate().catch(() => false)
+  if (!valid) return
   try {
-    await ElMessageBox.confirm('确定要发布该课程吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-
-    form.status = 1 // 已发布
-    await saveCourse()
-    if (courseId.value) {
-      await saveChaptersAndLessons()
-    }
-    ElMessage.success('发布成功')
-    router.push('/course/list')
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('发布失败:', error)
-      ElMessage.error('发布失败，请重试')
-    }
-  }
-}
-
-const handleSaveDraft = async () => {
-  try {
-    form.status = 0 // 草稿
-    await saveCourse()
-    if (courseId.value) {
-      await saveChaptersAndLessons()
-    }
-    ElMessage.success('保存草稿成功')
-    router.push('/course/list')
-  } catch (error) {
-    console.error('保存草稿失败:', error)
-    ElMessage.error('保存草稿失败，请重试')
-  }
-}
-
-const saveCourse = async () => {
-  const courseData = {
-    title: form.title,
-    categoryId: form.categoryId,
-    coverUrl: form.cover,
-    price: form.price,
-    description: form.description,
-    teacherId: form.teacherId || undefined,
-    status: form.status
-  }
-
-  if (courseId.value) {
-    courseData.id = courseId.value
-    await updateCourse(courseData)
-  } else {
-    const response = await addCourse(courseData)
-    courseId.value = response.id || response.data?.id
-    // 保存章节和课时
-    await saveChaptersAndLessons()
-  }
-}
-
-// 保存章节和课时
-const saveChaptersAndLessons = async () => {
-  if (!courseId.value || chapterTree.value.length === 0) {
-    return
-  }
-
-  for (let i = 0; i < chapterTree.value.length; i++) {
-    const chapter = chapterTree.value[i]
-    let chapterId = chapter.id
-
-    // 保存章节
-    if (!chapterId) {
-      const chapterData = {
-        courseId: courseId.value,
-        title: chapter.title,
-        orderNum: i + 1
-      }
-      const chapterResponse = await addChapter(chapterData)
-      chapterId = chapterResponse?.data?.id || chapterResponse?.id
-      chapter.id = chapterId
-    } else {
-      await updateChapter({
-        id: chapterId,
-        title: chapter.title,
-        orderNum: i + 1
-      })
-    }
-
-    // 保存课时
-    if (chapter.lessons && chapter.lessons.length > 0) {
-      for (let j = 0; j < chapter.lessons.length; j++) {
-        const lesson = chapter.lessons[j]
-        const lessonData = {
+    await withSaving(async () => {
+      if (nodeForm.isLesson) {
+        const lesson = {
           courseId: courseId.value,
-          chapterId: chapterId,
-          title: lesson.title,
-          videoUrl: lesson.videoUrl,
-          duration: lesson.duration,
-          isFree: lesson.isFree,
-          description: lesson.description,
-          orderNum: j + 1
+          chapterId: nodeForm.chapterId,
+          title: nodeForm.title.trim(),
+          videoUrl: nodeForm.videoUrl.trim(),
+          duration: nodeForm.minutes * 60, // 后端以秒存储
+          orderNum: nodeForm.orderNum,
+          status: 1
         }
-
-        if (lesson.id && lesson.id !== 'lesson') {
-          lessonData.id = lesson.id
-          await updateLesson(lessonData)
-        } else {
-          const lessonResponse = await addLesson(lessonData)
-          lesson.id = lessonResponse?.data?.id || lessonResponse?.id
-        }
+        await (nodeForm.id ? updateLesson({ id: nodeForm.id, ...lesson }) : addLesson(lesson))
+      } else {
+        const chapter = { courseId: courseId.value, title: nodeForm.title.trim(), orderNum: nodeForm.orderNum }
+        await (nodeForm.id ? updateChapter({ id: nodeForm.id, ...chapter }) : addChapter(chapter))
       }
-    }
+    })
+    nodeDialogVisible.value = false
+    await loadChapters()
+    ElMessage.success('已保存')
+  } catch (error) {
+    console.error('保存失败:', error)
   }
 }
 
-const handleCancel = () => {
-  router.back()
+/** 以服务端为准重新加载章节树（章节列表接口自带课时） */
+const loadChapters = async () => {
+  if (!courseId.value) return
+  const response = await listChapter(courseId.value)
+  chapterTree.value = (response?.data || []).map((chapter) => ({
+    nodeKey: `c-${chapter.id}`,
+    id: chapter.id,
+    title: chapter.title,
+    orderNum: chapter.orderNum,
+    isLesson: false,
+    lessons: (chapter.lessons || []).map((lesson) => ({
+      nodeKey: `l-${lesson.id}`,
+      id: lesson.id,
+      chapterId: chapter.id,
+      isLesson: true,
+      title: lesson.title,
+      videoUrl: lesson.videoUrl,
+      duration: lesson.duration,
+      orderNum: lesson.orderNum
+    }))
+  }))
 }
 
-// 加载课程数据（编辑模式）
 const loadCourseData = async () => {
   const id = route.query.id
-  if (id) {
-    courseId.value = parseInt(id)
-    try {
-      const response = await getCourse(courseId.value)
-      const courseData = response?.data || response || {}
-      Object.assign(form, {
-        ...courseData,
-        cover: courseData.coverUrl || courseData.cover || ''
-      })
-      objectivesInput.value = (courseData.objectives || []).join('\n')
-      suitableInput.value = (courseData.suitable || []).join('\n')
-      
-      // 加载章节数据
-      try {
-        const chaptersResponse = await listChapter(courseId.value)
-        const chapterList = chaptersResponse?.data || chaptersResponse || []
-        if (Array.isArray(chapterList) && chapterList.length > 0) {
-          const sectionList = await Promise.all(chapterList.map(async (chapter) => {
-            const sectionResponse = await listLesson(chapter.id)
-            return {
-              chapterId: chapter.id,
-              rows: sectionResponse?.data || sectionResponse || []
-            }
-          }))
-
-          chapterTree.value = chapterList.map(chapter => {
-            const current = sectionList.find(item => item.chapterId === chapter.id)
-            const lessons = Array.isArray(current?.rows) ? current.rows : []
-            return {
-              id: chapter.id,
-              title: chapter.title,
-              sortOrder: chapter.orderNum || 0,
-              lessons: lessons.map(lesson => ({
-                id: lesson.id,
-                chapterId: chapter.id,
-                lessonId: lesson.id,
-                title: lesson.title,
-                videoUrl: lesson.videoUrl || '',
-                duration: lesson.duration || 0,
-                isFree: lesson.isFree || false,
-                description: lesson.description || '',
-                sortOrder: lesson.orderNum || 0,
-                status: lesson.status || 0
-              }))
-            }
-          })
-        }
-      } catch (chapterError) {
-        console.error('加载章节数据失败:', chapterError)
-      }
-    } catch (error) {
-      console.error('加载课程数据失败:', error)
-    }
+  if (!id) return
+  courseId.value = String(id)
+  try {
+    const course = (await getCourse(courseId.value))?.data || {}
+    Object.assign(form, {
+      title: course.title || '',
+      subtitle: course.subtitle || '',
+      categoryId: course.categoryId,
+      cover: course.coverUrl || '',
+      price: Number(course.price || 0),
+      originalPrice: Number(course.originalPrice || 0),
+      description: course.description || '',
+      allowPreview: course.allowPreview !== 0,
+      previewLessons: course.previewLessonCount || 1
+    })
+    isPublished.value = Number(course.status) === 1 && Number(course.shelfStatus) === 1
+    await loadChapters()
+  } catch (error) {
+    console.error('加载课程失败:', error)
   }
 }
 
-// 组件挂载
 onMounted(async () => {
   await getCategoryOptions()
   await loadCourseData()
-  if (activeStep.value === 1) {
-    await initEditor()
-  }
-})
-
-// 组件卸载
-onUnmounted(() => {
-  if (editorInstance) {
-    editorInstance = null
-  }
 })
 </script>
 
@@ -909,8 +534,22 @@ onUnmounted(() => {
 }
 
 .step-content {
-  min-height: 500px;
+  min-height: 460px;
+  max-width: 880px;
+  margin: 0 auto;
   padding: 20px 0;
+}
+
+.cover-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+
+  .cover-url {
+    flex: 1;
+    max-width: 420px;
+  }
 }
 
 .cover-uploader {
@@ -951,16 +590,16 @@ onUnmounted(() => {
   margin-top: 6px;
 }
 
-.rich-text-editor {
-  :deep(#editor-container) {
-    border: 1px solid var(--el-border-color);
-    border-radius: var(--el-border-radius-base);
-  }
-}
-
 .chapter-management {
   .chapter-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 20px;
+
+    .upload-tip {
+      margin-top: 0;
+    }
   }
 
   .tree-node {
@@ -977,9 +616,18 @@ onUnmounted(() => {
       gap: 8px;
     }
 
+    .lesson-meta {
+      font-size: 12px;
+      color: var(--el-text-color-secondary);
+    }
+
     .node-actions {
       margin-left: auto;
     }
+  }
+
+  :deep(.el-tree-node__content) {
+    height: 38px;
   }
 }
 

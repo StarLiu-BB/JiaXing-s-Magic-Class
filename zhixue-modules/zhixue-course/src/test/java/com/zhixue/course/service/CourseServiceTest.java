@@ -134,6 +134,37 @@ class CourseServiceTest {
         verify(courseMapper).updateById(any(Course.class));
     }
 
+    /**
+     * 修复前 PUT /course 会原样写入请求体里的 status/shelfStatus：只有 course:edit 的账号
+     * 也能上下架、发布课程，绕开 course:publish / course:offline（经网关实测老师把已上架课程改成了草稿+下架）。
+     */
+    @Test
+    void updateCourseMustNotChangePublishOrShelfStatus() {
+        Course existing = new Course();
+        existing.setId(1L);
+        existing.setStatus(1);
+        existing.setShelfStatus(1);
+        existing.setPublishTime(LocalDateTime.of(2026, 10, 1, 9, 0));
+        when(courseAccessGuard.requireWritableCourse(1L)).thenReturn(existing);
+        when(courseAccessGuard.isTeacherScoped()).thenReturn(true);
+        when(courseMapper.updateById(any(Course.class))).thenReturn(1);
+
+        Course incoming = new Course();
+        incoming.setId(1L);
+        incoming.setTitle("改个标题");
+        incoming.setStatus(0);
+        incoming.setShelfStatus(0);
+        incoming.setPublishTime(LocalDateTime.of(2000, 1, 1, 0, 0));
+        courseService.updateCourse(incoming);
+
+        org.mockito.ArgumentCaptor<Course> captor = org.mockito.ArgumentCaptor.forClass(Course.class);
+        verify(courseMapper).updateById(captor.capture());
+        assertThat(captor.getValue().getTitle()).isEqualTo("改个标题");
+        assertThat(captor.getValue().getStatus()).isEqualTo(1);
+        assertThat(captor.getValue().getShelfStatus()).isEqualTo(1);
+        assertThat(captor.getValue().getPublishTime()).isEqualTo(LocalDateTime.of(2026, 10, 1, 9, 0));
+    }
+
     @Test
     void shouldReturnTrue_WhenPublish() {
         when(courseAccessGuard.requireWritableCourse(1L)).thenReturn(course);

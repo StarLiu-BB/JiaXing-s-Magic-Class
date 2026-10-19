@@ -115,6 +115,11 @@ public class CourseServiceImpl implements CourseService {
         } else if (course.getTeacherId() == null) {
             course.setTeacherId(existing.getTeacherId());
         }
+        // 发布/上下架只能走 publish、shelf 接口（各自校验 course:publish / course:offline），
+        // 编辑接口不得改动；否则只有 course:edit 也能上下架
+        course.setStatus(existing.getStatus());
+        course.setShelfStatus(existing.getShelfStatus());
+        course.setPublishTime(existing.getPublishTime());
         applyCourseDefaults(course, existing);
         return courseMapper.updateById(course) > 0;
     }
