@@ -125,19 +125,41 @@ ollama pull qwen3-embedding:0.6b   # 中文向量模型，1024 维，约 639MB
 | `ZHIXUE_EMBEDDING_DIMENSION` | `1024` | 必须与向量模型输出一致；变更后 AI 服务启动时自动重建 ES 索引并从数据库写回 |
 | `ZHIXUE_AI_MODE` | `real` | `real` 失败如实报错；`sandbox` 检索退化为词法匹配；`stub` 不调用模型（测试用） |
 
-在 Apple M5 Pro / 48GB 上实测：冷启动加载约 6s；答疑 3–11s（约 56 token/s）；弹幕审核约 0.4s/条，12 条典型弹幕判断全部正确。
+在 Apple M5 Pro / 48GB 上实测：冷启动加载约 6s；答疑 3–11s（约 56 token/s）；流式回答首字 0.1–0.2s（模型已就绪时），
+回答结束到推荐出现 0.01–0.12s；弹幕审核约 0.4s/条，12 条典型弹幕判断全部正确。
 模型不可用时答疑返回「AI 服务暂不可用」，弹幕审核按通过处理（不阻塞发送）。
+
+> 冷启动（模型尚未加载进显存）时第一次提问的首字可达 1.5s 以上，属正常现象；验收脚本会先预热两次再计时。
 
 ### 本地回归
 
 ```bash
-bash scripts/local/smoke.sh      # 接口冒烟（45 项）
-bash scripts/local/journeys.sh   # 三端联合旅程：老师建课发布 -> 管理员建秒杀 -> 学生抢购支付、学习、
-                                 # 发弹幕（本地模型审核）、问 AI -> 管理员退款（26 项，需 Node.js 22+）
+bash scripts/local/smoke.sh        # 接口冒烟（45 项）
+bash scripts/local/journeys.sh     # 三端联合旅程：老师建课发布 -> 管理员建秒杀 -> 学生抢购支付、学习、发弹幕
+                                   #（本地模型审核）-> 学生 AI 对话（流式、推荐卡片、追问、并发 409）->
+                                   # 管理员退款（需 Node.js 22+）
+bash scripts/local/ai-reco-check.sh  # 推荐效果验收：打印每门课/每个课时的真实余弦分数，并校验 5 个验收
+                                     # 用例与时延（首字 ≤ 1.5s、回答结束到推荐 ≤ 0.5s，需 Node.js 22+）
+bash scripts/local/contract-check.sh # 前端接口路径与网关路由的契约检查
 ```
 
 学生端在本地以微信沙箱登录（`ZHIXUE_AUTH_WECHAT_MODE=sandbox`，所有微信用户映射为 `student`，仅限联调）。
 已知功能缺口与遗留风险见 [docs/three-ends-gap-list.md](docs/three-ends-gap-list.md)。
+
+#### 已有数据的环境升级（不要执行 `db-init.sh`，它会清空全库）
+
+```bash
+source scripts/local/common.sh && load_env
+for f in zhixue-modules/zhixue-course/src/main/resources/sql/upgrade/2026-10-20-java-courses.sql \
+         zhixue-modules/zhixue-ai/src/main/resources/sql/upgrade/2026-10-20-java-knowledge.sql \
+         zhixue-modules/zhixue-ai/src/main/resources/sql/upgrade/2026-10-20-ai-conversation.sql; do
+  docker exec -i zhixue-local-mysql mysql --default-character-set=utf8mb4 -uroot -p"$ZHIXUE_DB_PASSWORD" < "$f"
+done
+compose up -d --force-recreate --no-deps course ai   # AI 服务启动时会把新资料补进向量索引
+bash scripts/local/ai-reco-check.sh                  # 推荐效果验收（5 个用例 + 实测分数）
+```
+
+增量脚本只插入缺失的行或建缺失的表，可以重复执行。
 
 ## 🤝 贡献 (Contributing)
 欢迎提交 Issue 或 Pull Request 来完善项目！

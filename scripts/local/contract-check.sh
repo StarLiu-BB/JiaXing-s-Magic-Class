@@ -81,6 +81,7 @@ scan_dir() {
 
 scan_dir "admin-web" "$ROOT_DIR/zhixue-admin-web/src"
 scan_dir "app-mp" "$ROOT_DIR/zhixue-app-mp/miniprogram"
+scan_dir "student-web" "$ROOT_DIR/zhixue-student-web/src"
 
 echo "================ 契约检查结果 ================"
 echo "已检查路径数: $check_count"

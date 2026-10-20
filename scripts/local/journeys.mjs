@@ -4,6 +4,7 @@
 //
 // 用法：scripts/local/journeys.sh（由它加载 local.env 并提供 compose 路径）
 import { execFileSync } from 'node:child_process'
+import { askStream } from './lib/ai-sse.mjs'
 
 const GW = `http://127.0.0.1:${process.env.ZHIXUE_GATEWAY_PORT || 19001}`
 const WS = `ws://127.0.0.1:${process.env.ZHIXUE_INTERACTION_WS_PORT || 19999}/ws`
@@ -55,7 +56,7 @@ function socket(roomId, token) {
   })
 }
 
-const created = { courseId: null, seckillId: null }
+const created = { courseId: null, seckillId: null, conversations: [] }
 
 async function main() {
   const admin = await passwordLogin('admin', '123456')
@@ -140,6 +141,33 @@ async function main() {
   const upload = await fetch(`${GW}/ai/kb/upload`, { method: 'POST', headers: { Authorization: `Bearer ${student}` }, body: form }).then((r) => r.json())
   check('学生不能上传知识库', upload.code, 403)
 
+  console.log('===== 学生 AI 对话：流式回答 → 推荐卡片 → 追问 → 并发与隔离 =====')
+  const first = await askStream(GW, student, { question: 'HashMap 为什么线程不安全？' })
+  const conversationId = first.events.find((e) => e.event === 'meta')?.data?.conversationId
+  if (conversationId) created.conversations.push(conversationId)
+  const names = first.events.map((e) => e.event)
+  check('流式事件：先 meta、多个 delta、最后 done',
+    [names[0], names.filter((n) => n === 'delta').length > 1, names.at(-1)], ['meta', true, 'done'])
+  check('流式响应关闭代理缓冲', first.headers.get('x-accel-buffering'), 'no')
+  const cards = first.events.at(-1)?.data?.recommendations || []
+  check('回答下方推荐了《Java 并发编程实战》', cards.some((c) => c.courseId === '2007'), true)
+  const follow = await askStream(GW, student, { conversationId, question: '那 ConcurrentHashMap 是怎么解决的？' })
+  check('同一会话追问正常完成', follow.events.at(-1)?.event, 'done')
+  const history = await api('GET', `/ai/conversations/${conversationId}/messages`, student)
+  check('历史是两问两答', (history.data || []).map((m) => m.role), ['user', 'assistant', 'user', 'assistant'])
+  check('老师读不到学生的会话（404）', (await api('GET', `/ai/conversations/${conversationId}/messages`, teacher)).code, 404)
+  // 并发：第一个回答还在生成时再问，必须 409，且不留下任何会话
+  const before = (await api('GET', '/ai/conversations?pageNum=1&pageSize=50', student)).data?.total
+  const slow = askStream(GW, student, { question: '详细讲讲 HashMap 的扩容过程，分步骤说明' })
+  await new Promise((resolve) => setTimeout(resolve, 400))
+  const busy = await askStream(GW, student, { question: '第二个问题' })
+  const slowResult = await slow
+  const slowId = slowResult.events.find((e) => e.event === 'meta')?.data?.conversationId
+  if (slowId) created.conversations.push(slowId)
+  check('生成中再问返回 409', busy.error?.code, 409)
+  const after = (await api('GET', '/ai/conversations?pageNum=1&pageSize=50', student)).data?.total
+  check('被拒绝的提问没有留下会话', after - before, 1)
+
   console.log('===== 管理员查订单、退款 -> 学生课时重新锁定 =====')
   const orders = await api('GET', `/order/list?pageNum=1&pageSize=10&userId=${studentId}`, admin)
   const mine = (orders.data?.records || []).find((o) => o.orderNo === order.data.orderNo)
@@ -150,6 +178,12 @@ async function main() {
 }
 
 async function cleanup() {
+  if (created.conversations.length) {
+    const ids = created.conversations.join(',')
+    compose('exec', '-T', 'mysql', 'mysql', '--default-character-set=utf8mb4', '-uroot',
+      `-p${process.env.ZHIXUE_DB_PASSWORD}`, 'zhixue_ai', '-e',
+      `DELETE FROM ai_message WHERE conversation_id IN (${ids}); DELETE FROM ai_conversation WHERE id IN (${ids});`)
+  }
   const admin = await passwordLogin('admin', '123456').catch(() => null)
   if (!admin) return
   if (created.seckillId) await api('DELETE', `/marketing/seckill/${created.seckillId}`, admin).catch(() => {})
