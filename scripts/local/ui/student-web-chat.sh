@@ -134,9 +134,12 @@ async page => {
   await page.goto('http://localhost:3001/chat')
   await page.locator('.recent-link', { hasText: 'HashMap 为什么线程不安全' }).first().click()
   await page.locator('.reco').first().waitFor({ timeout: 10000 })
+  // 卡片按相关度排序：「HashMap 为什么线程不安全」时 2006 排在 2007 前面，
+  // 验收只买了 2007，所以按课程标题定位，不能取第一张
+  const card = page.locator('.reco .card', { hasText: 'Java 并发编程实战' }).first()
   return JSON.stringify({
-    badge: await page.locator('.reco .badge').first().innerText(),
-    locked: await page.locator('.reco .lesson.locked').count(),
+    badge: await card.locator('.badge').first().innerText(),
+    locked: await card.locator('.lesson.locked').count(),
     statuses: await page.locator('.answer').evaluateAll((list) => list.map((a) => a.getAttribute('data-status')))
   })
 }
