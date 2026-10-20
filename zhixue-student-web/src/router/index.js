@@ -12,7 +12,8 @@ const routes = [
     component: AppShell,
     children: [
       { path: '', redirect: { name: 'chat' } },
-      { path: 'chat', name: 'chat', component: ChatView }
+      { path: 'chat', name: 'chat', component: ChatView },
+      { path: 'course/:id', name: 'course', component: () => import('@/views/course/CourseDetail.vue') }
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: { name: 'chat' } }
