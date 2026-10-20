@@ -58,7 +58,9 @@ public class KnowledgeIndexInitializer {
                     log.info("知识库索引为空，从数据库写入分片 index={}", INDEX);
                     knowledgeBaseService.reindexAll();
                 } else {
-                    log.info("知识库索引已存在且维度一致，跳过 index={} dims={}", INDEX, dimension);
+                    // 已有数据的环境只能跑增量脚本（只写 MySQL），这里把新分片补进索引
+                    int filled = knowledgeBaseService.indexPending();
+                    log.info("知识库索引已存在且维度一致 index={} dims={}，补齐分片 {} 个", INDEX, dimension, filled);
                 }
                 return;
             }

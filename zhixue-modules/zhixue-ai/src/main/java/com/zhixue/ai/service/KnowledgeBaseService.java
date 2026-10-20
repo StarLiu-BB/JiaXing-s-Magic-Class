@@ -32,6 +32,16 @@ public interface KnowledgeBaseService {
      */
     int reindexAll();
 
+    /**
+     * 把数据库中存在、但还没写入向量索引（{@code es_id} 为空）且所属文档启用的分片补写进索引。
+     *
+     * <p>增量脚本只写 MySQL；索引已存在时启动流程不重建，不补齐的话新资料永远检索不到。
+     * 分片以 chunkId 作 ES 文档 ID，重复执行没有副作用。</p>
+     *
+     * @return 本次写入向量索引的分片数
+     */
+    int indexPending();
+
     static Long courseIdOf(String source) {
         if (source == null || !source.startsWith(COURSE_SOURCE_PREFIX)) {
             return null;

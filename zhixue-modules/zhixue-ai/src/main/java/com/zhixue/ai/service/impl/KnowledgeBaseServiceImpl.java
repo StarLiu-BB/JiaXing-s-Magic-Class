@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -109,6 +110,45 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             }
         }
         log.info("知识库向量索引重建完成：文档 {} 篇，写入分片 {} 个", documents.size(), indexed);
+        return indexed;
+    }
+
+    @Override
+    public int indexPending() {
+        List<KnowledgeChunk> pending = chunkMapper.selectList(new LambdaQueryWrapper<KnowledgeChunk>()
+                .isNull(KnowledgeChunk::getEsId)
+                .orderByAsc(KnowledgeChunk::getDocumentId)
+                .orderByAsc(KnowledgeChunk::getChunkIndex));
+        if (pending.isEmpty()) {
+            return 0;
+        }
+        Map<Long, KnowledgeDocument> enabled = documentMapper
+                .selectBatchIds(pending.stream().map(KnowledgeChunk::getDocumentId).distinct().toList())
+                .stream()
+                .filter(doc -> Integer.valueOf(1).equals(doc.getStatus()))
+                .collect(Collectors.toMap(KnowledgeDocument::getId, Function.identity()));
+        List<ChunkDoc> docs = pending.stream()
+                .filter(c -> enabled.containsKey(c.getDocumentId()))
+                .filter(c -> {
+                    // 空内容写不进向量索引；留在批里会让整批都不回填 es_id，每次启动重复向量化
+                    if (StringUtils.hasText(c.getContent())) {
+                        return true;
+                    }
+                    log.warn("分片内容为空，跳过写入向量索引 chunkId={} documentId={}", c.getId(), c.getDocumentId());
+                    return false;
+                })
+                .map(c -> new ChunkDoc(c.getId(), c.getDocumentId(),
+                        KnowledgeBaseService.courseIdOf(enabled.get(c.getDocumentId()).getSource()), c.getContent()))
+                .toList();
+        int indexed = 0;
+        for (int from = 0; from < docs.size(); from += REINDEX_BATCH) {
+            List<ChunkDoc> batch = docs.subList(from, Math.min(from + REINDEX_BATCH, docs.size()));
+            int n = vectorStoreService.indexChunks(batch);
+            markIndexed(batch, n);
+            indexed += n;
+        }
+        log.info("补齐向量索引：待补分片 {} 个（其中属于启用文档且有内容的 {} 个），写入 {} 个",
+                pending.size(), docs.size(), indexed);
         return indexed;
     }
 

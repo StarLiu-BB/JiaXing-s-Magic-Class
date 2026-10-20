@@ -120,6 +120,19 @@ class KnowledgeIndexInitializerTest {
     }
 
     @Test
+    void existingNonEmptyIndexBackfillsChunksMissingFromIt() throws Exception {
+        es(Map.of(
+                "GET /zhixue_kb/_mapping", response(200, mapping(1024)),
+                "GET /zhixue_kb/_count", response(200, "{\"count\":9}")));
+
+        initializer.ensureIndex();
+
+        // 不重建（避免每次重启都清空），但要把增量脚本新写入 MySQL 的分片补进索引
+        verify(knowledgeBaseService, never()).reindexAll();
+        verify(knowledgeBaseService).indexPending();
+    }
+
+    @Test
     void backfillsEmptyIndexWithMatchingDimension() throws Exception {
         es(Map.of("GET /zhixue_kb/_mapping", response(200, mapping(1024)),
                 "GET /zhixue_kb/_count", response(200, "{\"count\":0}")));
@@ -135,6 +148,22 @@ class KnowledgeIndexInitializerTest {
         when(restClient.performRequest(any(Request.class))).thenThrow(new java.io.IOException("ES down"));
         initializer.ensureIndex();
         verify(knowledgeBaseService, never()).reindexAll();
+    }
+
+    /** 补齐失败（如向量模型不可用）只能影响新资料，已有索引照常可用，启动不能因此中断 */
+    @Test
+    void backfillFailureMustNotBlockStartup() throws Exception {
+        es(Map.of(
+                "GET /zhixue_kb/_mapping", response(200, mapping(1024)),
+                "GET /zhixue_kb/_count", response(200, "{\"count\":9}")));
+        when(knowledgeBaseService.indexPending()).thenThrow(new IllegalStateException("向量模型不可用"));
+
+        initializer.ensureIndex();
+
+        // 确实走到了补齐分支，且失败后既不删索引也不改为全量重建
+        verify(knowledgeBaseService).indexPending();
+        verify(knowledgeBaseService, never()).reindexAll();
+        assertThat(calls).doesNotContain("DELETE /zhixue_kb");
     }
 
     @Test
