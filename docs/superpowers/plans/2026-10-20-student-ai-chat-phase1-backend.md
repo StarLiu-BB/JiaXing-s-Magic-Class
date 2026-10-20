@@ -3129,7 +3129,7 @@ git commit -m "feat(ai): 本地模型真流式输出，跨块过滤 think，首�
   - `List<AiMessage> messagesOf(Long conversationId)`、`List<Source> sourcesOf(AiMessage)`、`List<StoredRecommendation> recommendationsOf(AiMessage)`
   - `void rename(Long conversationId, Long userId, String title)`、`void delete(Long conversationId, Long userId)`
   - `static String titleOf(String question)`
-- Produces（REST，网关前缀 `/ai`）：`GET /conversations`、`GET /conversations/{id}/messages`、`PUT /conversations/{id}`、`DELETE /conversations/{id}`
+- Produces（REST，网关前缀 `/ai`）：`GET /conversations`、`GET /conversations/{id}`（单个会话，学生网页版据此显示「正在问：某课程」）、`GET /conversations/{id}/messages`、`PUT /conversations/{id}`、`DELETE /conversations/{id}`
 - `MessageStatus.COMPLETED=1`、`STOPPED=2`、`FAILED=3`；`record Source(String title)`
 
 - [ ] **Step 1: 写失败测试（表结构与增量脚本）**
@@ -3347,6 +3347,7 @@ import com.zhixue.ai.chat.CourseRecommender;
 import com.zhixue.ai.chat.RecommendationCard;
 import com.zhixue.ai.chat.StoredRecommendation;
 import com.zhixue.ai.chat.Viewer;
+import com.zhixue.ai.domain.entity.AiConversation;
 import com.zhixue.ai.domain.entity.AiMessage;
 import com.zhixue.common.core.constant.HttpStatus;
 import com.zhixue.common.core.domain.PageResult;
@@ -3412,6 +3413,24 @@ class ConversationControllerTest {
         mockMvc.perform(asStudent(get("/conversations")))
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.records[0].id").value("2112171801568825346"));
+    }
+
+    @Test
+    void detailReturnsOwnCourseScopeAndHidesOthers() throws Exception {
+        AiConversation owned = new AiConversation();
+        owned.setId(5L);
+        owned.setUserId(1003L);
+        owned.setTitle("并发笔记");
+        owned.setCourseId(2007L);
+        owned.setLastMessageTime(LocalDateTime.now());
+        when(store.requireOwned(5L, 1003L)).thenReturn(owned);
+        when(store.requireOwned(6L, 1003L)).thenThrow(new ServiceException(HttpStatus.NOT_FOUND, "会话不存在或已删除"));
+
+        mockMvc.perform(asStudent(get("/conversations/5")))
+                .andExpect(jsonPath("$.data.id").value("5"))
+                .andExpect(jsonPath("$.data.courseId").value("2007"));
+        mockMvc.perform(asStudent(get("/conversations/6")))
+                .andExpect(jsonPath("$.code").value(404));
     }
 
     @Test
@@ -3983,6 +4002,13 @@ public class ConversationController {
         return R.ok(store.listRecent(Viewer.current().userId(), pageNum, pageSize));
     }
 
+    /** 单个会话：学生网页版打开不在「最近」前 50 条里的会话时，用它取课程范围 */
+    @RequireLogin
+    @GetMapping("/{id}")
+    public R<ConversationView> detail(@PathVariable Long id) {
+        return R.ok(ConversationView.of(store.requireOwned(id, Viewer.current().userId())));
+    }
+
     @RequireLogin
     @GetMapping("/{id}/messages")
     public R<List<MessageView>> messages(@PathVariable Long id) {
@@ -4039,6 +4065,7 @@ GW="http://127.0.0.1:${ZHIXUE_GATEWAY_PORT:-19001}"
 ST=$(curl -s -X POST "$GW/auth/login" -H 'Content-Type: application/json' \
   -d '{"loginType":"wechat","wechatCode":"plan-check"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["data"]["token"])')
 curl -s "$GW/ai/conversations" -H "Authorization: Bearer $ST"; echo
+curl -s "$GW/ai/conversations/1" -H "Authorization: Bearer $ST"; echo
 curl -s -o /dev/null -w "未登录 HTTP=%{http_code}\n" "$GW/ai/conversations"
 ```
 
@@ -4474,10 +4501,26 @@ class ConversationStreamControllerTest {
     void errorBeforeStreamingIsPlainJsonWithCodeInBody() throws Exception {
         when(chatService.ask(any(), any())).thenThrow(new ServiceException(HttpStatus.CONFLICT, "上一个回答还在生成"));
 
-        mockMvc.perform(asStudent(post("/conversations/messages")))
+        // 前端同时接受两种类型（见学生网页版计划任务 4）：流前错误仍须按 JSON 返回，不能 406
+        mockMvc.perform(asStudent(post("/conversations/messages")).accept("text/event-stream, application/json"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(409))
                 .andExpect(jsonPath("$.msg").value("上一个回答还在生成"));
+    }
+
+    /** 反过来：Accept 里同时有 application/json 时，成功路径仍必须是 text/event-stream */
+    @Test
+    void streamsEvenWhenClientAlsoAcceptsJson() throws Exception {
+        when(chatService.ask(eq(new Viewer(1003L, false)), any())).thenReturn(Flux.just(
+                ServerSentEvent.builder("{\"text\":\"答\"}").event("delta").build()));
+
+        MvcResult result = mockMvc.perform(asStudent(post("/conversations/messages"))
+                        .accept("text/event-stream, application/json"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        result.getAsyncResult(5000);
+
+        assertThat(result.getResponse().getContentType()).startsWith("text/event-stream");
     }
 
     @Test
@@ -5301,7 +5344,7 @@ node --check scripts/local/journeys.mjs && echo ok
 
 - [ ] **Step 4: 契约检查追加学生网页版目录**
 
-`scripts/local/contract-check.sh` 第 83 行（`scan_dir "app-mp" ...`）之后追加一行；目录不存在时 `scan_dir` 会直接返回，下一份计划建好目录后自动生效：
+`scripts/local/contract-check.sh` 第 83 行（`scan_dir "app-mp" ...`）之后追加一行（若网页版计划任务 1 已经加过，跳过本步）；目录不存在时 `scan_dir` 会直接返回，网页版建好目录后自动生效：
 
 ```bash
 scan_dir "student-web" "$ROOT_DIR/zhixue-student-web/src"
