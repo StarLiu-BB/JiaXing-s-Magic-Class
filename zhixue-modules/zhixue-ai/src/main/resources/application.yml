@@ -46,6 +46,13 @@ ai:
   rag:
     # kNN 最低余弦相似度，低于此值的资料不会交给模型
     min-similarity: ${ZHIXUE_AI_RAG_MIN_SIMILARITY:0.45}
+  recommend:
+    # 均为余弦值（ES _score 已换算），由 scripts/local/ai-reco-check.sh 实测校准，见设计文档 4.4
+    course-min-cos: ${ZHIXUE_AI_RECO_COURSE_MIN_COS:0.55}
+    lesson-min-cos: ${ZHIXUE_AI_RECO_LESSON_MIN_COS:0.50}
+    max-courses: 3
+    max-lessons: 2
+    lesson-cache-size: 1000
 
 logging:
   level:
