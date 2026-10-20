@@ -25,12 +25,14 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -254,5 +256,47 @@ class LessonAccessPolicyTest {
         loginAs(BUYER, "STUDENT");
         when(remoteOrderService.hasPurchased(BUYER, 2001L, "true", TOKEN)).thenReturn(R.ok(true));
         assertThat(policy.canStudyAll(paidCourse())).as("已购").isTrue();
+    }
+
+    /**
+     * AI 服务为推荐卡片查询大纲时没有学生的请求头：若仍按请求上下文取身份，userId 是 null，
+     * 所有付费课都会被判成「未购买」，买了课的学生看到的推荐卡片仍是锁定（不报错，只是结果错）。
+     */
+    @Test
+    void explicitBuyerWithoutRequestContextCanStudyAll() {
+        when(remoteOrderService.hasPurchased(eq(BUYER), eq(2001L), eq("true"), eq(TOKEN))).thenReturn(R.ok(true));
+        List<Section> lessons = new ArrayList<>(List.of(
+                section(4001L, 3001L, 1), section(4002L, 3002L, 1), section(4003L, 3002L, 2)));
+
+        boolean full = policy.mask(paidCourse(), lessons, new LessonAccessPolicy.Viewer(BUYER, false));
+
+        assertThat(full).isTrue();
+        assertThat(lessons).allSatisfy(lesson -> assertThat(lesson.getLocked()).isFalse());
+    }
+
+    @Test
+    void explicitNonBuyerOnlyGetsPreviewLessons() {
+        when(remoteOrderService.hasPurchased(eq(1004L), eq(2001L), eq("true"), eq(TOKEN))).thenReturn(R.ok(false));
+        List<Section> lessons = new ArrayList<>(List.of(
+                section(4001L, 3001L, 1), section(4002L, 3002L, 1), section(4003L, 3002L, 2)));
+
+        boolean full = policy.mask(paidCourse(), lessons, new LessonAccessPolicy.Viewer(1004L, false));
+
+        assertThat(full).isFalse();
+        // 试看前 2 节：章节序 1 的 4001、章节序 2 的第 1 课 4002
+        assertThat(lessons).filteredOn(Section::getLocked).extracting(Section::getId).containsExactly(4003L);
+        assertThat(lessons).filteredOn(s -> s.getVideoUrl() == null).extracting(Section::getId).containsExactly(4003L);
+    }
+
+    @Test
+    void explicitAdminSkipsPurchaseQuery() {
+        assertThat(policy.canStudyAll(paidCourse(), new LessonAccessPolicy.Viewer(1001L, true))).isTrue();
+        verify(remoteOrderService, never()).hasPurchased(anyLong(), anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void anonymousViewerCannotStudyPaidCourse() {
+        assertThat(policy.canStudyAll(paidCourse(), new LessonAccessPolicy.Viewer(null, false))).isFalse();
+        verify(remoteOrderService, never()).hasPurchased(anyLong(), anyLong(), anyString(), anyString());
     }
 }

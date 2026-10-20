@@ -44,21 +44,41 @@ public class LessonAccessPolicy {
     private final SecurityProperties securityProperties;
 
     /**
+     * 观看者身份。
+     *
+     * <p>服务间调用（例如 AI 服务为推荐卡片查询课程大纲）没有学生的请求头，
+     * 必须把身份显式传进来；按当前请求上下文取，userId 恒为 null，所有付费课都会被判为未购买。</p>
+     */
+    public record Viewer(Long userId, boolean admin) {
+
+        /** 当前请求的用户（来自网关注入的请求头）；没有请求上下文时为匿名 */
+        public static Viewer current() {
+            return new Viewer(SecurityUtils.getUserId(), SecurityUtils.hasAnyRole("ADMIN"));
+        }
+    }
+
+    /**
      * 当前用户能否观看该课程的全部课时。
      */
     public boolean canStudyAll(Course course) {
+        return canStudyAll(course, Viewer.current());
+    }
+
+    /**
+     * 指定观看者能否观看该课程的全部课时：免费课、管理员、本课教师、已购买用户。
+     */
+    public boolean canStudyAll(Course course, Viewer viewer) {
         if (course.getPrice() == null || course.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
             return true;
         }
-        Long userId = SecurityUtils.getUserId();
-        if (userId == null) {
+        if (viewer == null || viewer.userId() == null) {
             return false;
         }
         // 只有本课教师豁免；持有课程管理权限的其他教师不能借此白看
-        if (SecurityUtils.hasAnyRole("ADMIN") || Objects.equals(course.getTeacherId(), userId)) {
+        if (viewer.admin() || Objects.equals(course.getTeacherId(), viewer.userId())) {
             return true;
         }
-        return hasPurchased(userId, course.getId());
+        return hasPurchased(viewer.userId(), course.getId());
     }
 
     /**
@@ -68,7 +88,19 @@ public class LessonAccessPolicy {
         if (lessons == null || lessons.isEmpty()) {
             return;
         }
-        boolean full = canStudyAll(course);
+        mask(course, lessons, Viewer.current());
+    }
+
+    /**
+     * 指定观看者的版本。
+     *
+     * @return viewer 能否观看全部课时（调用方据此显示「已购 / 可学习」）
+     */
+    public boolean mask(Course course, Collection<Section> lessons, Viewer viewer) {
+        boolean full = canStudyAll(course, viewer);
+        if (lessons == null || lessons.isEmpty()) {
+            return full;
+        }
         Set<Long> previewIds = previewLessonIds(course);
         for (Section lesson : lessons) {
             boolean preview = previewIds.contains(lesson.getId());
@@ -79,6 +111,7 @@ public class LessonAccessPolicy {
                 lesson.setVideoUrl(null);
             }
         }
+        return full;
     }
 
     /**
