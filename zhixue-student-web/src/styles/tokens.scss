@@ -1,0 +1,85 @@
+// 设计令牌
+//
+// 方向（ui-ux-pro-max 为"教育平台运营后台"生成的设计系统 + redesign 审计）：
+// Minimalism & Swiss —— 冷灰（slate）单一灰阶 + 唯一强调色，高对比、克制动效、紧凑信息密度。
+// 所有文字色与白底对比度 >= 4.5:1；实心按钮上的白字同样 >= 4.5:1。
+//
+// 使用 html:root（特异性 0,1,1）而非 :root：Element Plus 按需引入的组件样式会在路由懒加载时
+// 再次注入带 :root 变量的 base.css，若同为 :root 则后注入者胜出，主题会被冲掉。
+@use 'sass:color';
+
+$palette: (
+  primary: #2563eb,
+  success: #15803d,
+  warning: #b45309,
+  danger: #dc2626,
+  error: #dc2626,
+  info: #64748b
+);
+
+html:root {
+  // 色阶与 Element Plus 自身算法一致：light-N = 与白色混合 N*10%，dark-2 = 与黑色混合 20%
+  @each $type, $base in $palette {
+    --el-color-#{$type}: #{$base};
+    @each $level in (3, 5, 7, 8, 9) {
+      --el-color-#{$type}-light-#{$level}: #{color.mix(#fff, $base, $level * 10%)};
+    }
+    --el-color-#{$type}-dark-2: #{color.mix(#000, $base, 20%)};
+  }
+
+  --el-color-white: #ffffff;
+  --el-color-black: #0f172a;
+
+  // 文字（slate）
+  --el-text-color-primary: #0f172a;
+  --el-text-color-regular: #334155;
+  --el-text-color-secondary: #64748b;
+  --el-text-color-placeholder: #94a3b8;
+  --el-text-color-disabled: #a9b4c2;
+
+  // 边框
+  --el-border-color-darker: #b6c2d1;
+  --el-border-color-dark: #cbd5e1;
+  --el-border-color: #dde3ea;
+  --el-border-color-light: #e5eaf0;
+  --el-border-color-lighter: #edf1f5;
+  --el-border-color-extra-light: #f3f5f8;
+  --el-border-color-hover: var(--el-text-color-disabled);
+
+  // 填充与背景
+  --el-fill-color-darker: #d5dde6;
+  --el-fill-color-dark: #e2e8f0;
+  --el-fill-color: #eef2f6;
+  --el-fill-color-light: #f4f6f9;
+  --el-fill-color-lighter: #f8fafc;
+  --el-fill-color-extra-light: #fafbfc;
+  --el-fill-color-blank: #ffffff;
+  --el-bg-color: #ffffff;
+  --el-bg-color-overlay: #ffffff;
+  --el-bg-color-page: #f4f6f9;
+  --el-mask-color: rgba(255, 255, 255, 0.85);
+  --el-overlay-color-lighter: rgba(15, 23, 42, 0.45);
+
+  // 阴影：带 slate 色相，而不是纯黑
+  --el-box-shadow: 0 12px 32px 4px rgba(15, 23, 42, 0.05), 0 8px 20px rgba(15, 23, 42, 0.08);
+  --el-box-shadow-light: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.06);
+  --el-box-shadow-lighter: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --el-box-shadow-dark: 0 16px 48px 16px rgba(15, 23, 42, 0.08), 0 12px 32px rgba(15, 23, 42, 0.12);
+
+  // 字体：拉丁字符与数字用 Geist，中文回落到各平台的系统黑体
+  --el-font-family: 'Geist Variable', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'HarmonyOS Sans SC',
+    'Microsoft YaHei', 'Noto Sans SC', 'Segoe UI', sans-serif;
+  --el-font-size-base: 14px;
+
+  // 圆角：内层元素更紧，容器更柔
+  --el-border-radius-small: 4px;
+  --el-border-radius-base: 6px;
+  --el-border-radius-round: 20px;
+
+  // 应用级令牌
+  --zx-radius-card: 10px;
+  --zx-surface: #ffffff;
+  --zx-canvas: var(--el-bg-color-page);
+  --zx-ring: 0 0 0 3px color-mix(in srgb, var(--el-color-primary) 22%, transparent);
+  --zx-ease: cubic-bezier(0.2, 0, 0, 1);
+}

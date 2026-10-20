@@ -1762,15 +1762,17 @@ async page => {
 JS
 )" "null"
 
+  # 这里只验证「带着失效令牌访问受保护页面 → 记住地址去登录页」；带参数的课程地址
+  # 在任务 2 的课程分段里验证（本任务还没有课程路由，/course/2007 会被兜底规则改写成 /chat）
   check "令牌失效：带上原地址去登录页" "$(pwf <<'JS'
 async page => {
   await page.evaluate(() => localStorage.setItem('zx_student_token', 'expired-token'))
-  await page.goto('http://localhost:3001/course/2007')
+  await page.goto('http://localhost:3001/chat')
   await page.waitForURL(/\/login/)
   return page.url().replace('http://localhost:3001', '')
 }
 JS
-)" "/login?redirect=/course/2007"
+)" "/login?redirect=/chat"
 }
 ```
 
@@ -2612,6 +2614,18 @@ async page => {
 }
 JS
 )" "3"
+
+  # 课程路由在任务 2 才加入：带参数的课程地址也要能把原地址带到登录页
+  check "令牌失效：课程地址被带到登录页" "$(pwf <<'JS'
+async page => {
+  await page.evaluate(() => localStorage.setItem('zx_student_token', 'expired-token'))
+  await page.goto('http://localhost:3001/course/2007')
+  await page.waitForURL(/\/login/)
+  return page.url().replace('http://localhost:3001', '')
+}
+JS
+)" "/login?redirect=/course/2007"
+  login_as_student
 }
 ```
 

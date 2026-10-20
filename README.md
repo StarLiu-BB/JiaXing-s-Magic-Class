@@ -105,6 +105,11 @@ zhixue-cloud
     cd zhixue-admin-web
     npm install
     npm run dev
+
+    # 学生端网页版（AI 课程助教对话与视频课推荐，端口 3001）
+    cd zhixue-student-web
+    npm install
+    npm run dev
     ```
 
 ### 本地 AI（Ollama）
@@ -142,6 +147,8 @@ bash scripts/local/journeys.sh     # 三端联合旅程：老师建课发布 -> 
 bash scripts/local/ai-reco-check.sh  # 推荐效果验收：打印每门课/每个课时的真实余弦分数，并校验 5 个验收
                                      # 用例与时延（首字 ≤ 1.5s、回答结束到推荐 ≤ 0.5s，需 Node.js 22+）
 bash scripts/local/contract-check.sh # 前端接口路径与网关路由的契约检查
+bash scripts/local/student-web-check.sh  # 学生端网页版界面验收（真实浏览器、真实网关、本机模型，
+                                         # 需 playwright-cli；分段执行，见脚本开头的说明）
 ```
 
 学生端在本地以微信沙箱登录（`ZHIXUE_AUTH_WECHAT_MODE=sandbox`，所有微信用户映射为 `student`，仅限联调）。
