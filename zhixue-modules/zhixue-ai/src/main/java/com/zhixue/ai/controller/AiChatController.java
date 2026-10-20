@@ -32,7 +32,8 @@ public class AiChatController {
     static final int MAX_QUESTION_LENGTH = 500;
     static final int TOP_K = 5;
 
-    static final String DEFAULT_SYSTEM_PROMPT =
+    /** 课程答疑的默认系统指令；会话式答疑（PromptAssembler）共用同一份 */
+    public static final String DEFAULT_SYSTEM_PROMPT =
             "你是智学云在线教育平台的课程助教，用简体中文回答学生的问题。\n"
                     + "1. 优先依据【课程资料】回答，引用时注明资料标题；\n"
                     + "2. 资料没有涉及时，可以用通用知识回答，但要明确说明「课程资料中未涉及」；\n"
