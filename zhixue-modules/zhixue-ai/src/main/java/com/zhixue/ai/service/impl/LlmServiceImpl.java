@@ -13,12 +13,15 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -161,5 +164,81 @@ public class LlmServiceImpl implements LlmService {
 
     private boolean isStubMode() {
         return "stub".equalsIgnoreCase(aiMode);
+    }
+
+    /** 504 不在公共状态码常量里：只有流式回答用到 */
+    static final int GATEWAY_TIMEOUT = 504;
+
+    @Override
+    public Flux<String> chatStream(List<ChatMessage> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return Flux.error(new ServiceException(HttpStatus.BAD_REQUEST, "问题不能为空"));
+        }
+        if (isStubMode()) {
+            return Flux.just("【stub答复】", "当前为 stub 模式，未调用模型。");
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", config.getChatModel());
+        body.put("stream", true);
+        body.put("think", false);
+        body.put("keep_alive", config.getKeepAlive());
+        body.put("messages", messages.stream()
+                .map(m -> Map.of("role", m.role(), "content", m.content() == null ? "" : m.content()))
+                .toList());
+        body.put("options", Map.of(
+                "num_ctx", config.getNumCtx(), "temperature", 0.6, "num_predict", config.getNumPredict()));
+        return Flux.defer(() -> {
+            long deadline = System.nanoTime() + Duration.ofSeconds(config.getChatTimeoutSeconds()).toNanos();
+            ThinkFilter filter = new ThinkFilter();
+            AtomicBoolean received = new AtomicBoolean();
+            AtomicBoolean started = new AtomicBoolean();
+            return WebClient.create(config.getBaseUrl())
+                    .post()
+                    .uri("/api/chat")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToFlux(String.class) // NDJSON：一行一个 JSON
+                    // 首块最多等 firstChunkTimeout；之后每块的等待上限 = 距总截止时间的剩余时长
+                    .timeout(Mono.delay(Duration.ofSeconds(config.getFirstChunkTimeoutSeconds())),
+                            line -> Mono.delay(remaining(deadline)))
+                    .doOnNext(line -> received.set(true))
+                    .filter(StringUtils::hasText)
+                    .map(line -> textOf(line, filter))
+                    .map(text -> started.get() ? text : stripLeading(text, started))
+                    .filter(text -> !text.isEmpty())
+                    .switchIfEmpty(Flux.defer(() -> Flux.error(unavailable("模型返回了空回答", null))))
+                    .onErrorMap(TimeoutException.class, e -> new ServiceException(GATEWAY_TIMEOUT,
+                            received.get() ? "生成超时，已中断" : "AI 响应超时", e))
+                    .onErrorMap(e -> !(e instanceof ServiceException), e -> unavailable("本地模型流式调用失败", e));
+        });
+    }
+
+    /** 解析一行 NDJSON，返回过滤后的文本；最后一行（done=true）冲出暂存内容 */
+    private String textOf(String line, ThinkFilter filter) {
+        JsonNode node;
+        try {
+            node = objectMapper.readTree(line);
+        } catch (Exception e) {
+            throw new IllegalStateException("无法解析模型返回: " + abbreviate(line, 60), e);
+        }
+        if (node.hasNonNull("error")) {
+            throw new IllegalStateException("模型返回错误: " + abbreviate(node.path("error").asText(), 60));
+        }
+        String text = filter.accept(node.path("message").path("content").asText(""));
+        return node.path("done").asBoolean(false) ? text + filter.finish() : text;
+    }
+
+    /** 回答开头常有推理块留下的空行：首个非空白字符出现之前的空白不下发 */
+    private static String stripLeading(String text, AtomicBoolean started) {
+        String stripped = text.stripLeading();
+        if (!stripped.isEmpty()) {
+            started.set(true);
+        }
+        return stripped;
+    }
+
+    private static Duration remaining(long deadlineNanos) {
+        return Duration.ofNanos(Math.max(0, deadlineNanos - System.nanoTime()));
     }
 }

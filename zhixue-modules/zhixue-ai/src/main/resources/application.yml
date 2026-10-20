@@ -43,6 +43,8 @@ ai:
     audit-timeout-seconds: ${ZHIXUE_AI_AUDIT_TIMEOUT:20}
     embedding-timeout-seconds: ${ZHIXUE_AI_EMBEDDING_TIMEOUT:30}
     keep-alive: ${ZHIXUE_AI_KEEP_ALIVE:30m}
+    first-chunk-timeout-seconds: ${ZHIXUE_AI_FIRST_CHUNK_TIMEOUT:30}
+    num-predict: ${ZHIXUE_AI_NUM_PREDICT:1024}
   rag:
     # kNN 最低余弦相似度，低于此值的资料不会交给模型
     min-similarity: ${ZHIXUE_AI_RAG_MIN_SIMILARITY:0.45}

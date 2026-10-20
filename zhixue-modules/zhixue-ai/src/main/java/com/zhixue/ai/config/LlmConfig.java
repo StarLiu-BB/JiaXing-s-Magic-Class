@@ -40,4 +40,9 @@ public class LlmConfig {
 
     /** 上下文窗口；RAG 提示词约 3k token，留出余量 */
     private int numCtx = 8192;
+
+    /** 流式回答：多久内必须收到模型的第一个返回块（冷启动加载模型约 6s，给足余量） */
+    private int firstChunkTimeoutSeconds = 30;
+    /** 单次回答最多生成的 token 数（约 1500 字） */
+    private int numPredict = 1024;
 }
