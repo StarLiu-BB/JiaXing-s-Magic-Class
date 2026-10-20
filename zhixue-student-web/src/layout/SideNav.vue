@@ -12,6 +12,7 @@
 
     <!-- 二期上线课程库、我的课程、商城、订单、收藏后再显示入口，避免点进去是空页面 -->
     <div class="nav-scroll">
+      <RecentList @navigate="emit('navigate')" />
     </div>
 
     <div class="user-footer">
@@ -36,12 +37,15 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { MoreFilled, Plus, SwitchButton } from '@element-plus/icons-vue'
 import BrandMark from '@/components/BrandMark.vue'
+import RecentList from './RecentList.vue'
+import { useConversationsStore } from '@/stores/conversations'
 import { useUserStore } from '@/stores/user'
 import { CHAT_DRAFT_KEY } from '@/utils/auth'
 
 const emit = defineEmits(['navigate'])
 const router = useRouter()
 const user = useUserStore()
+const conversations = useConversationsStore()
 const initial = computed(() => user.displayName.slice(0, 1))
 
 function newChat() {
@@ -54,6 +58,7 @@ async function onCommand(command) {
     return
   }
   await user.logout()
+  conversations.reset()
   sessionStorage.removeItem(CHAT_DRAFT_KEY)
   router.replace({ name: 'login' })
 }

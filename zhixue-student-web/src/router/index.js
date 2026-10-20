@@ -13,6 +13,8 @@ const routes = [
     children: [
       { path: '', redirect: { name: 'chat' } },
       { path: 'chat', name: 'chat', component: ChatView },
+      // 两条路由用同一个组件实例：新会话收到 meta 后把地址换成 /chat/:id，不能因此重建页面打断流式输出
+      { path: 'chat/:id', name: 'conversation', component: ChatView },
       { path: 'course/:id', name: 'course', component: () => import('@/views/course/CourseDetail.vue') }
     ]
   },

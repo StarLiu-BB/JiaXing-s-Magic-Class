@@ -11,6 +11,7 @@ import '@/styles/index.scss'
 
 import App from './App.vue'
 import router from './router'
+import { useConversationsStore } from './stores/conversations'
 import { useUserStore } from './stores/user'
 import { setSessionExpiredHandler } from './utils/session'
 
@@ -23,6 +24,7 @@ app.use(ElementPlus, { locale: zhCn })
 // 任何请求发现登录失效：清掉本地登录态，带上当前地址去登录页，登录后回到原处
 setSessionExpiredHandler(() => {
   useUserStore(pinia).reset()
+  useConversationsStore(pinia).reset()
   const current = router.currentRoute.value
   if (current.name && current.name !== 'login') {
     router.replace({ name: 'login', query: { redirect: current.fullPath } })
