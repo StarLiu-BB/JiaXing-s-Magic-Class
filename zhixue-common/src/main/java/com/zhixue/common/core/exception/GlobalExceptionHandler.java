@@ -10,6 +10,8 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Optional;
@@ -42,7 +44,8 @@ public class GlobalExceptionHandler {
 
     // 以下是调用方的错误（传错类型、漏传参数、JSON 格式错误、方法或路径不存在）：
     // 返回 4xx 并只记 WARN，不能与真正的服务端故障混在一起报"系统异常"
-    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class,
+            MissingServletRequestPartException.class, MultipartException.class})
     public R<Void> handleBadParameter(Exception ex) {
         log.warn("请求参数错误: {}", ex.getMessage());
         return R.fail(HttpStatus.BAD_REQUEST, "请求参数错误");

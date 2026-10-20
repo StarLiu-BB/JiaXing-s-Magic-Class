@@ -45,6 +45,12 @@ class GlobalExceptionHandlerClientErrorTest {
             return body;
         }
 
+        @PostMapping("/upload")
+        public Map<String, Object> upload(@org.springframework.web.bind.annotation.RequestParam("file")
+                                          org.springframework.web.multipart.MultipartFile file) {
+            return Map.of("size", file.getSize());
+        }
+
         @GetMapping("/boom")
         public Map<String, Object> boom() {
             throw new IllegalStateException("真正的服务端故障");
@@ -79,6 +85,20 @@ class GlobalExceptionHandlerClientErrorTest {
     @Test
     void unsupportedMethodIs405() throws Exception {
         mockMvc.perform(delete("/items/1")).andExpect(jsonPath("$.code").value(405));
+    }
+
+    /** 三端联调实测：往上传接口发非 multipart 请求返回 500（MultipartException） */
+    @Test
+    void nonMultipartUploadIs400() throws Exception {
+        mockMvc.perform(post("/upload").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void missingFilePartIs400() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/upload")
+                        .param("title", "x"))
+                .andExpect(jsonPath("$.code").value(400));
     }
 
     @Test
