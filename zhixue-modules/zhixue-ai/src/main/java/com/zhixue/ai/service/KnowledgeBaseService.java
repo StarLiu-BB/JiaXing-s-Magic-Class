@@ -26,6 +26,21 @@ public interface KnowledgeBaseService {
     List<String> retrieveContext(String query, int topK, Long courseId);
 
     /**
+     * 一条检索命中。
+     *
+     * @param courseId 以数据库中文档的 source 为准（course:{id}）；null 表示通用资料
+     * @param title    文档标题，即回答里「参考资料」显示的文字
+     */
+    record RetrievedChunk(Long chunkId, Long courseId, double cosine, String title, String content) {
+    }
+
+    /**
+     * 用已算好的问句向量检索资料并带上余弦分数；回答与推荐共用这一次结果。
+     * 已停用或已删除文档的分片会被剔除，顺序与命中顺序一致。
+     */
+    List<RetrievedChunk> retrieveScored(String query, List<Float> queryVector, int topK, Long courseId);
+
+    /**
      * 把数据库中全部启用文档的分片重新写入向量索引。索引首次创建或因维度变化重建后调用。
      *
      * @return 写入向量索引的分片数

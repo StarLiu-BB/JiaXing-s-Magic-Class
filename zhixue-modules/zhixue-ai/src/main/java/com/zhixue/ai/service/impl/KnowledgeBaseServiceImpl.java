@@ -9,6 +9,7 @@ import com.zhixue.ai.rag.TextSplitter;
 import com.zhixue.ai.service.KnowledgeBaseService;
 import com.zhixue.ai.service.VectorStoreService;
 import com.zhixue.ai.service.VectorStoreService.ChunkDoc;
+import com.zhixue.ai.service.VectorStoreService.ScoredChunk;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -88,6 +89,31 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             }
         }
         return texts;
+    }
+
+    @Override
+    public List<RetrievedChunk> retrieveScored(String query, List<Float> queryVector, int topK, Long courseId) {
+        List<ScoredChunk> hits = vectorStoreService.searchWithScores(query, queryVector, topK, courseId);
+        if (hits.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, KnowledgeChunk> chunks = chunkMapper.selectBatchIds(hits.stream().map(ScoredChunk::chunkId).toList())
+                .stream()
+                .collect(Collectors.toMap(KnowledgeChunk::getId, Function.identity()));
+        Map<Long, KnowledgeDocument> docs = chunks.isEmpty() ? Map.of() : documentMapper
+                .selectBatchIds(chunks.values().stream().map(KnowledgeChunk::getDocumentId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(KnowledgeDocument::getId, Function.identity()));
+        List<RetrievedChunk> result = new ArrayList<>();
+        for (ScoredChunk hit : hits) {
+            KnowledgeChunk chunk = chunks.get(hit.chunkId());
+            KnowledgeDocument doc = chunk == null ? null : docs.get(chunk.getDocumentId());
+            if (doc != null && Integer.valueOf(1).equals(doc.getStatus())) {
+                result.add(new RetrievedChunk(hit.chunkId(), KnowledgeBaseService.courseIdOf(doc.getSource()),
+                        hit.cosine(), doc.getTitle(), chunk.getContent()));
+            }
+        }
+        return result;
     }
 
     @Override

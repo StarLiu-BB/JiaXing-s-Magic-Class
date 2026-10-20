@@ -25,4 +25,24 @@ public interface VectorStoreService {
      * @return 命中的分片 ID，按相似度从高到低
      */
     List<Long> search(String query, int topK, Long courseId);
+
+    /**
+     * 带余弦分数的命中。
+     *
+     * @param courseId 分片所属课程（ES 中的值）；null 表示通用资料
+     * @param cosine   余弦相似度，与 ai.rag.min-similarity、推荐门槛同一刻度
+     */
+    record ScoredChunk(Long chunkId, Long courseId, double cosine) {
+    }
+
+    /**
+     * 用已算好的问句向量检索，返回余弦分数。问句只向量化一次，供回答与课时推荐复用。
+     *
+     * <p>索引按 cosine 建立时 ES 的 {@code _score} = (1 + cos) / 2，这里换算回 cos = 2 × _score − 1。</p>
+     *
+     * @param query       问句原文，仅在 queryVector 为空（sandbox 取不到向量）时用于词法降级
+     * @param queryVector 问句向量
+     * @return 按相关度降序，同一分片只出现一次；词法降级时 cosine 为 0
+     */
+    List<ScoredChunk> searchWithScores(String query, List<Float> queryVector, int topK, Long courseId);
 }

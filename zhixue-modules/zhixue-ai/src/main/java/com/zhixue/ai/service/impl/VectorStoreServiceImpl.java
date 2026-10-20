@@ -113,20 +113,7 @@ public class VectorStoreServiceImpl implements VectorStoreService {
             return localSearch(query, topK, courseId);
         }
         try {
-            Map<String, Object> knn = new LinkedHashMap<>();
-            knn.put("field", "vector");
-            knn.put("query_vector", vec);
-            knn.put("k", topK);
-            knn.put("num_candidates", Math.max(50, topK * 10));
-            knn.put("similarity", minSimilarity);
-            if (courseId != null) {
-                // 本课程的资料 + 不属于任何课程的通用资料
-                knn.put("filter", Map.of("bool", Map.of(
-                        "should", List.of(
-                                Map.of("term", Map.of("courseId", courseId)),
-                                Map.of("bool", Map.of("must_not", Map.of("exists", Map.of("field", "courseId"))))),
-                        "minimum_should_match", 1)));
-            }
+            Map<String, Object> knn = knnClause(vec, topK, courseId);
             Request req = new Request("POST", "/" + INDEX + "/_search");
             req.setJsonEntity(objectMapper.writeValueAsString(Map.of("knn", knn, "_source", List.of("chunkId"))));
             Response resp = restClient.performRequest(req);
@@ -151,6 +138,59 @@ public class VectorStoreServiceImpl implements VectorStoreService {
                 .limit(topK)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
+    }
+
+    private Map<String, Object> knnClause(List<Float> vector, int topK, Long courseId) {
+        Map<String, Object> knn = new LinkedHashMap<>();
+        knn.put("field", "vector");
+        knn.put("query_vector", vector);
+        knn.put("k", topK);
+        knn.put("num_candidates", Math.max(50, topK * 10));
+        knn.put("similarity", minSimilarity);
+        if (courseId != null) {
+            // 本课程的资料 + 不属于任何课程的通用资料
+            knn.put("filter", Map.of("bool", Map.of(
+                    "should", List.of(
+                            Map.of("term", Map.of("courseId", courseId)),
+                            Map.of("bool", Map.of("must_not", Map.of("exists", Map.of("field", "courseId"))))),
+                    "minimum_should_match", 1)));
+        }
+        return knn;
+    }
+
+    @Override
+    public List<ScoredChunk> searchWithScores(String query, List<Float> queryVector, int topK, Long courseId) {
+        if (!StringUtils.hasText(query) || topK <= 0) {
+            return List.of();
+        }
+        if (isStubMode() || queryVector == null || queryVector.isEmpty()) {
+            return lexicalScored(query, topK, courseId);
+        }
+        try {
+            Request req = new Request("POST", "/" + INDEX + "/_search");
+            req.setJsonEntity(objectMapper.writeValueAsString(Map.of(
+                    "knn", knnClause(queryVector, topK, courseId),
+                    "_source", List.of("chunkId", "courseId"))));
+            JsonNode hits = objectMapper.readTree(restClient.performRequest(req).getEntity().getContent())
+                    .path("hits").path("hits");
+            Map<Long, ScoredChunk> unique = new LinkedHashMap<>();
+            for (JsonNode hit : hits) {
+                JsonNode source = hit.path("_source");
+                long chunkId = source.path("chunkId").asLong();
+                Long hitCourse = source.hasNonNull("courseId") ? source.path("courseId").asLong() : null;
+                unique.putIfAbsent(chunkId, new ScoredChunk(chunkId, hitCourse, 2 * hit.path("_score").asDouble() - 1));
+            }
+            return new ArrayList<>(unique.values());
+        } catch (Exception e) {
+            return fail("知识库检索失败", e, lexicalScored(query, topK, courseId));
+        }
+    }
+
+    /** 词法降级：没有可比的相似度，cosine 记 0，调用方据此不会出推荐 */
+    private List<ScoredChunk> lexicalScored(String query, int topK, Long courseId) {
+        return localSearch(query, topK, courseId).stream()
+                .map(id -> new ScoredChunk(id, localChunks.get(id).courseId(), 0.0))
+                .toList();
     }
 
     private int lexicalScore(String text, String query) {
