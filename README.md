@@ -128,6 +128,17 @@ ollama pull qwen3-embedding:0.6b   # 中文向量模型，1024 维，约 639MB
 在 Apple M5 Pro / 48GB 上实测：冷启动加载约 6s；答疑 3–11s（约 56 token/s）；弹幕审核约 0.4s/条，12 条典型弹幕判断全部正确。
 模型不可用时答疑返回「AI 服务暂不可用」，弹幕审核按通过处理（不阻塞发送）。
 
+### 本地回归
+
+```bash
+bash scripts/local/smoke.sh      # 接口冒烟（45 项）
+bash scripts/local/journeys.sh   # 三端联合旅程：老师建课发布 -> 管理员建秒杀 -> 学生抢购支付、学习、
+                                 # 发弹幕（本地模型审核）、问 AI -> 管理员退款（26 项，需 Node.js 22+）
+```
+
+学生端在本地以微信沙箱登录（`ZHIXUE_AUTH_WECHAT_MODE=sandbox`，所有微信用户映射为 `student`，仅限联调）。
+已知功能缺口与遗留风险见 [docs/three-ends-gap-list.md](docs/three-ends-gap-list.md)。
+
 ## 🤝 贡献 (Contributing)
 欢迎提交 Issue 或 Pull Request 来完善项目！
 
