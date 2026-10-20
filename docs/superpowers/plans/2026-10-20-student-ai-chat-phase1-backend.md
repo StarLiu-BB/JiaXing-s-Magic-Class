@@ -30,6 +30,7 @@
 - 新增后端依赖只允许 `spring-cloud-starter-loadbalancer`（AI 模块调用 Feign 必需）。不引入 `reactor-test`，流式测试用 `block()` / `subscribe()`。
 - 现有 `/ai/chat/course` 接口与其测试保持不变。
 - 每个任务先写失败测试、确认失败、再实现；任务结束跑该模块全部测试再提交。
+- 本机命令行是 zsh：凡是 `source scripts/local/common.sh && load_env` 的命令都要放进 bash 脚本里执行（`bash x.sh` 或 `bash <<'SH'`），且在 `load_env` 之后加 `set +e +o pipefail`——`common.sh` 开启了 `set -euo pipefail`，`grep -v` 无输出时整个脚本会静默退出。不要在 heredoc 驱动的 bash 里调用不带重定向的 `docker exec -i`，它会吞掉后续脚本。
 
 ## 文件结构
 
@@ -374,13 +375,13 @@ INSERT INTO kb_chunk
     (id, document_id, chunk_index, content, es_id, create_time, update_time, deleted)
 VALUES
     (92011, 91011, 0, 'Java 是面向对象的静态类型语言。基本类型（int、long、double、boolean 等）直接存值，包装类型（Integer 等）是对象，二者之间的自动装箱拆箱由编译器完成。类用 class 定义，字段私有、通过方法访问称为封装；继承用 extends，子类可以重写父类方法；多态指父类引用指向子类对象，运行时按实际类型调用方法；接口用 interface 定义行为约定，一个类可以实现多个接口。方法重载看参数列表，重写要求方法签名相同。构造方法不会被继承，子类构造方法默认先调用父类的无参构造。', NULL, NOW(), NOW(), 0),
-    (92012, 91012, 0, 'Java 的异常体系以 Throwable 为根，分为 Error（虚拟机级错误，不应捕获）和 Exception。Exception 又分受检异常（如 IOException，必须捕获或声明抛出）和运行时异常（如 NullPointerException，不强制捕获）。finally 块一定会执行；try-with-resources 会自动关闭实现了 AutoCloseable 的资源，关闭时抛出的异常作为 suppressed 附加在主异常上。String 不可变：内部字符数组被 final 修饰且不对外暴露，所以可以安全地作为 HashMap 的键、在线程间共享并复用常量池；频繁拼接应使用 StringBuilder，避免产生大量中间对象。', NULL, NOW(), NOW(), 0),
-    (92013, 91013, 0, 'Java 集合分为 Collection 和 Map 两大支。Collection 下有 List（有序可重复，如 ArrayList、LinkedList）和 Set（不重复，如基于 HashMap 的 HashSet、有序的 TreeSet）；Map 存放键值对。ArrayList 底层是动态数组，随机访问 O(1)，默认容量 10，扩容为原来的 1.5 倍；LinkedList 是双向链表，头尾增删 O(1)，随机访问需要遍历，绝大多数场景选 ArrayList 更合适。遍历时直接调用集合的 add 或 remove 会抛 ConcurrentModificationException，应改用迭代器自己的 remove 方法。', NULL, NOW(), NOW(), 0),
-    (92014, 91014, 0, 'HashMap 底层是数组加链表加红黑树。put 时先把 key 的 hashCode 高 16 位与低 16 位异或得到 hash，再用 (n-1) & hash 定位桶，因为容量总是 2 的幂，这等价于取模但更快。链表长度达到 8 且数组容量不小于 64 时转为红黑树。默认容量 16、负载因子 0.75，元素个数超过阈值就扩容为 2 倍，节点按高低位拆分到新数组。HashMap 不是线程安全的：并发 put 可能丢失数据，JDK 7 的头插法在并发扩容时还可能形成环形链表导致死循环，多线程场景应使用 ConcurrentHashMap。作为键的对象必须正确重写 equals 和 hashCode。', NULL, NOW(), NOW(), 0),
-    (92015, 91015, 0, '泛型让集合在编译期完成类型检查，避免运行时的强制转换错误。Java 泛型通过类型擦除实现：编译后类型参数被替换为上界（无界时为 Object），因此运行时拿不到真实的类型参数，不能 new T()、不能创建泛型数组，也不能用 instanceof 判断泛型类型。通配符 extends 表示类型的上界，适合只读取的生产者；super 表示下界，适合只写入的消费者，口诀是 PECS。泛型方法在返回类型前声明类型参数，静态方法不能使用类上声明的类型参数。', NULL, NOW(), NOW(), 0),
-    (92016, 91016, 0, '创建线程有三种方式：继承 Thread 并重写 run、实现 Runnable 交给 Thread、实现 Callable 配合 FutureTask 获取返回值；实际项目应使用线程池。sleep 不释放锁，wait 会释放锁并需要被 notify 唤醒。线程安全问题有三个根源：原子性（i++ 实际是读、改、写三步，会被打断）、可见性（一个线程的修改另一个线程不一定立即看到）、有序性（编译器和处理器会重排指令）。volatile 保证可见性并禁止重排，但不保证原子性；synchronized、Lock 和 AtomicInteger 才能保证原子性。', NULL, NOW(), NOW(), 0),
-    (92017, 91017, 0, 'synchronized 是 JVM 内置的可重入锁，修饰实例方法时锁当前对象，修饰静态方法时锁 Class 对象，JDK 6 之后有偏向锁、轻量级锁到重量级锁的升级。ReentrantLock 需要在 finally 中手动 unlock，额外提供公平锁、tryLock 超时、可中断加锁和多个 Condition。ConcurrentHashMap 在 JDK 7 用分段锁；JDK 8 改为数组加链表加红黑树，空桶用 CAS 写入，非空桶只锁链表头节点，锁粒度细到单个桶，扩容时多个线程可以协助迁移。它不允许 null 键和 null 值，读操作基本不加锁，复合操作要用 putIfAbsent、computeIfAbsent 等原子方法。', NULL, NOW(), NOW(), 0),
-    (92018, 91018, 0, 'ThreadPoolExecutor 的核心参数：corePoolSize 核心线程数、maximumPoolSize 最大线程数、keepAliveTime 非核心线程的空闲存活时间、workQueue 任务队列、handler 拒绝策略。任务提交顺序：核心线程未满就新建核心线程；满了放进队列；队列满了再新建非核心线程，直到最大线程数；仍然满就执行拒绝策略。四种拒绝策略：AbortPolicy 抛异常（默认）、CallerRunsPolicy 由提交任务的线程执行、DiscardPolicy 静默丢弃、DiscardOldestPolicy 丢弃最早的任务。CPU 密集型线程数约为核数加 1，IO 密集型可以按核数乘以（1 + 等待时间/计算时间）估算。newFixedThreadPool 用无界队列，任务堆积会导致内存溢出。', NULL, NOW(), NOW(), 0);
+    (92012, 91012, 0, 'String 是不可变的：String 类被 final 修饰，不能被继承改写；存放字符的数组（JDK 9 起为 private final byte[] value，JDK 8 为 char[]）私有且不对外暴露，concat、replace、substring 等方法不修改原串，结果不同时返回新对象。final 只保证引用不变，不可变靠不暴露数组、不提供修改方法。因此 hashCode 可以缓存，适合作 HashMap 的键；可在线程间安全共享；常量池可复用同一对象。频繁拼接用 StringBuilder。受检异常（如 IOException）必须捕获或声明抛出，运行时异常（如 NullPointerException）不强制处理，Error 不应捕获。finally 在 try 或 catch 正常结束、return 或抛异常时都会执行，但 System.exit()、JVM 崩溃或进程被强制终止时不会执行。try-with-resources 自动关闭 AutoCloseable 资源；若 try 块已抛异常，关闭时的异常作为 suppressed 附加在主异常上。', NULL, NOW(), NOW(), 0),
+    (92013, 91013, 0, 'Java 集合分为 Collection 和 Map 两大支。Collection 下有 List（有序可重复，如 ArrayList、LinkedList）和 Set（不重复，如基于 HashMap 的 HashSet、有序的 TreeSet）；Map 存放键值对。ArrayList 底层是动态数组，随机访问 O(1)，默认容量 10，扩容为原来的 1.5 倍；LinkedList 是双向链表，头尾增删 O(1)，随机访问需要遍历，绝大多数场景选 ArrayList 更合适。用 for-each 或迭代器遍历时直接调用集合的 add 或 remove，通常会抛 ConcurrentModificationException（fail-fast 机制），应改用迭代器自己的 remove 方法。', NULL, NOW(), NOW(), 0),
+    (92014, 91014, 0, 'HashMap 底层是数组加链表加红黑树。put 时先把 key 的 hashCode 高 16 位与低 16 位异或得到 hash，再用 (n-1) & hash 定位桶；容量总是 2 的幂，这等价于取模但更快。链表长度超过 8 且数组容量不小于 64 时转为红黑树，容量不足 64 时优先扩容。默认容量 16、负载因子 0.75，元素个数超过阈值就扩容为原来的 2 倍，节点按高低位拆分到新数组。HashMap 不是线程安全的：两个线程同时判断某个桶为空后先后写入，后写的会覆盖先写的，导致数据丢失；++size 不是原子操作，元素个数会算错；JDK 7 用头插法，并发扩容时还可能形成环形链表导致死循环，JDK 8 改为尾插解决了成环，但丢数据的问题依然存在。多线程场景应使用 ConcurrentHashMap。作为键的对象必须正确重写 equals 和 hashCode。', NULL, NOW(), NOW(), 0),
+    (92015, 91015, 0, '泛型让集合在编译期完成类型检查，避免运行时的强制转换错误。Java 泛型通过类型擦除实现：编译后类型参数被替换为上界（无界时为 Object），因此运行时无法从对象本身拿到真实的类型参数（类、字段和方法签名上声明的泛型可以通过反射读取），不能 new T()、不能创建泛型数组，也不能用 instanceof 判断泛型类型。通配符 extends 表示类型的上界，适合只读取的生产者；super 表示下界，适合只写入的消费者，口诀是 PECS。泛型方法在返回类型前声明类型参数，静态方法不能使用类上声明的类型参数。', NULL, NOW(), NOW(), 0),
+    (92016, 91016, 0, '创建线程有三种方式：继承 Thread 并重写 run、实现 Runnable 交给 Thread、实现 Callable 配合 FutureTask 获取返回值；实际项目应使用线程池。sleep 不释放锁；wait 必须在持有该对象监视器时调用，会释放锁，直到被 notify/notifyAll 唤醒、等待超时或被中断；wait 应放在 while 循环里检查条件，防止虚假唤醒。线程安全问题有三个根源：原子性（i++ 实际是读、改、写三步，会被打断）、可见性（一个线程的修改另一个线程不一定立即看到）、有序性（编译器和处理器会重排指令）。volatile 保证可见性并禁止重排，但不保证原子性；synchronized、Lock 和 AtomicInteger 才能保证原子性。', NULL, NOW(), NOW(), 0),
+    (92017, 91017, 0, 'synchronized 是 JVM 内置的可重入锁，修饰实例方法时锁当前对象，修饰静态方法时锁 Class 对象。JDK 6 引入了偏向锁、轻量级锁到重量级锁的锁升级，JDK 15 起偏向锁默认关闭并已废弃。ReentrantLock 需要在 finally 中手动 unlock，额外提供公平锁、tryLock 超时、可中断加锁和多个 Condition。HashMap 不是线程安全的，多线程场景应改用 ConcurrentHashMap：JDK 7 用分段锁；JDK 8 改为数组加链表加红黑树，空桶用 CAS 写入，非空桶只锁桶的头节点，锁粒度细到单个桶，扩容时多个线程可以协助迁移。它不允许 null 键和 null 值，读操作基本不加锁；「先判断再写入」这类复合操作要用 putIfAbsent、computeIfAbsent 等原子方法，否则依然有并发问题。', NULL, NOW(), NOW(), 0),
+    (92018, 91018, 0, 'ThreadPoolExecutor 有 7 个参数：corePoolSize 核心线程数、maximumPoolSize 最大线程数、keepAliveTime 与 unit 决定非核心线程空闲多久被回收、workQueue 任务队列、threadFactory 线程工厂（用来给线程命名，便于排查）、handler 拒绝策略。任务提交顺序：核心线程未满就新建核心线程；满了放进队列；队列满了再新建非核心线程，直到最大线程数；仍然满就执行拒绝策略。四种拒绝策略：AbortPolicy 抛异常（默认）、CallerRunsPolicy 由提交任务的线程执行、DiscardPolicy 静默丢弃、DiscardOldestPolicy 丢弃最早的任务。参数怎么设：CPU 密集型线程数约为核数加 1，IO 密集型可按核数乘以（1 + 等待时间/计算时间）估算；使用有界队列，再按压测结果调整。newFixedThreadPool 用无界队列，任务堆积会导致内存溢出，生产环境应直接构造 ThreadPoolExecutor。', NULL, NOW(), NOW(), 0);
 -- END java-knowledge
 ```
 
@@ -452,6 +453,8 @@ Expected: 两次执行都不报错；依次输出 `3`、`15`、`8`，以及课�
 git add zhixue-modules/zhixue-course/src/main/resources/sql zhixue-modules/zhixue-ai/src
 git commit -m "feat(course,ai): 补 3 门 Java 种子课与 8 篇知识资料，附由种子生成、可重复执行的增量脚本"
 ```
+
+> **执行记录（任务审查后修订）**：知识资料按审查意见修正了事实错误（finally 并非总会执行、JDK 15 起偏向锁默认关闭、链表长度超过 8 才树化、String 类被 final 修饰且 JDK 9 起为 `byte[]` 等），上方 Step 4 已同步为修订后的文本；测试另增 3 项守护：每篇资料恰好一个分片、新 ID 唯一、增量脚本只允许 `USE` 与 `INSERT IGNORE`（拒绝 `REPLACE`、`ON DUPLICATE KEY`、同行多语句）。
 
 ---
 
