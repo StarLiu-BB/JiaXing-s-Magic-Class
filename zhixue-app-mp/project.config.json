@@ -24,6 +24,7 @@
     "disableSWC": true
   },
   "compileType": "miniprogram",
+  "miniprogramRoot": "miniprogram/",
   "simulatorPluginLibVersion": {},
   "packOptions": {
     "ignore": [],
