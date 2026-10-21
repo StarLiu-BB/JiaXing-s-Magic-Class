@@ -52,20 +52,32 @@ Page({
     this.setData({ loading: true })
     
     try {
-      // 并行加载所有数据
+      // 每块单独容错：某一块失败不影响其他块；但失败必须留痕，
+      // 否则「接口全挂」与「确实没有数据」在界面上完全一样（都显示「暂无数据」）
+      const failed = []
+      const soft = (name, promise) => promise.catch((error) => {
+        failed.push(name)
+        console.warn(`[index] ${name} 加载失败:`, error && (error.message || error.errMsg || error))
+        return { code: 200, data: [] }
+      })
       const [bannerRes, categoryRes, hotRes, latestRes] = await Promise.all([
-        getBannerList().catch(() => ({ code: 200, data: [] })),
-        getCategoryList().catch(() => ({ code: 200, data: [] })),
-        getHotCourseList({ limit: 6 }).catch(() => ({ code: 200, data: [] })),
-        getLatestCourseList({ limit: 10 }).catch(() => ({ code: 200, data: [] }))
+        soft('banner', getBannerList()),
+        soft('category', getCategoryList()),
+        soft('hot', getHotCourseList({ limit: 6 })),
+        soft('latest', getLatestCourseList({ limit: 10 }))
       ])
 
       this.setData({
         bannerList: bannerRes.data || [],
         categoryList: categoryRes.data || [],
         hotCourseList: hotRes.data || [],
-        latestCourseList: latestRes.data || []
+        latestCourseList: latestRes.data || [],
+        loadFailed: failed
       })
+      // 四块全部失败多半是网络或网关问题，给学生一个可重试的提示
+      if (failed.length === 4) {
+        wx.showToast({ title: '网络异常，请下拉重试', icon: 'none' })
+      }
     } catch (error) {
       console.error('加载数据失败:', error)
       wx.showToast({
