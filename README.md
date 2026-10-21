@@ -64,6 +64,7 @@ zhixue-cloud
 │   ├── zhixue-interaction # 互动中心 (弹幕/点赞/评论)
 │   └── zhixue-ai          # AI 中心 (RAG/LLM/审核)
 ├── zhixue-admin-web       # 后端管理前端 (Vue3)
+├── zhixue-student-web     # 学生端网页版 (Vue3，AI 课程助教对话与视频课推荐)
 └── zhixue-app-mp          # 微信小程序端
 ```
 
@@ -145,10 +146,11 @@ bash scripts/local/journeys.sh     # 三端联合旅程：老师建课发布 -> 
                                    #（本地模型审核）-> 学生 AI 对话（流式、推荐卡片、追问、并发 409）->
                                    # 管理员退款（需 Node.js 22+）
 bash scripts/local/ai-reco-check.sh  # 推荐效果验收：打印每门课/每个课时的真实余弦分数，并校验 5 个验收
-                                     # 用例与时延（首字 ≤ 1.5s、回答结束到推荐 ≤ 0.5s，需 Node.js 22+）
+                                     # 用例与时延（首字 ≤ 3s、回答结束到推荐 ≤ 0.5s，需 Node.js 22+）
 bash scripts/local/contract-check.sh # 前端接口路径与网关路由的契约检查
 bash scripts/local/student-web-check.sh  # 学生端网页版界面验收（真实浏览器、真实网关、本机模型，
                                          # 需 playwright-cli；分段执行，见脚本开头的说明）
+bash scripts/local/mp-api-check.sh   # 小程序端接口联调：按各页真实调用顺序经网关验证（17 项）
 ```
 
 学生端在本地以微信沙箱登录（`ZHIXUE_AUTH_WECHAT_MODE=sandbox`，所有微信用户映射为 `student`，仅限联调）。
