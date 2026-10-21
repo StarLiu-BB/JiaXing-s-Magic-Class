@@ -1,4 +1,5 @@
 <!--pages/course/player/index.wxml-->
+<wxs src="../../../utils/format.wxs" module="fmt" />
 <view class="player-container">
   <!-- 视频播放器 -->
   <view class="video-wrapper">
@@ -59,8 +60,8 @@
               bindtap="onSelectChapter"
             >
               <text class="lesson-name">{{lesson.title}}</text>
-              <text class="lesson-duration">{{lesson.duration}}分钟</text>
-              <text class="lesson-free" wx:if="{{lesson.isFree}}">免费</text>
+              <text class="lesson-duration">{{fmt.minutes(lesson.duration)}}</text>
+              <text class="lesson-free" wx:if="{{lesson.isFree || lesson.preview}}">免费</text>
             </view>
           </view>
         </view>

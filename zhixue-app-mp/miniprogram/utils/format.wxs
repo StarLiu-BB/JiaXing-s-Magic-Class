@@ -1,0 +1,11 @@
+// 模板内格式化。后端课时 duration 单位是秒，与网页版 formatDuration 规则一致。
+function minutes(seconds) {
+  if (!seconds) {
+    return ''
+  }
+  return Math.max(1, Math.round(seconds / 60)) + '分钟'
+}
+
+module.exports = {
+  minutes: minutes
+}

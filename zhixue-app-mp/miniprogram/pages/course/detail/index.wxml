@@ -1,4 +1,5 @@
 <!--pages/course/detail/index.wxml-->
+<wxs src="../../../utils/format.wxs" module="fmt" />
 <view class="container" wx:if="{{courseInfo}}">
   <!-- 课程封面视频 -->
   <view class="cover-section">
@@ -74,8 +75,8 @@
           <view class="lessons-list" wx:if="{{item.lessons && item.lessons.length > 0}}">
             <view class="lesson-item" wx:for="{{item.lessons}}" wx:for-item="lesson" wx:key="id">
               <text class="lesson-title">{{lesson.title}}</text>
-              <text class="lesson-duration">{{lesson.duration}}分钟</text>
-              <text class="lesson-free" wx:if="{{lesson.isFree}}">免费</text>
+              <text class="lesson-duration">{{fmt.minutes(lesson.duration)}}</text>
+              <text class="lesson-free" wx:if="{{lesson.isFree || lesson.preview}}">免费</text>
             </view>
           </view>
         </view>
