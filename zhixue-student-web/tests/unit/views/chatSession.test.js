@@ -267,6 +267,16 @@ describe('停止后的 409：自动重发一次', () => {
     expect(ctx.fake.ask).toHaveBeenCalledTimes(2)
   })
 
+  it('冷却期间离开页面（detach）：不再自动重发', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    const ctx = setup()
+    await stopThenReject(ctx)
+    ctx.session.detach()
+    vi.advanceTimersByTime(COOLDOWN_MS * 2)
+    expect(ctx.fake.ask).toHaveBeenCalledTimes(2)
+    expect(ctx.state.cooldown).toBe(false)
+  })
+
   it('没点停止的 409（例如另一个标签页在生成）不自动重发', async () => {
     const { session, state, fake } = setup()
     const sending = session.send('HashMap 为什么线程不安全')
@@ -308,6 +318,23 @@ describe('打开历史会话', () => {
     expect(fake.last().signal.aborted).toBe(true)
     expect(state.generating).toBe(false)
     expect(state.messages).toEqual([])
+  })
+
+  it('切走后旧提问才收到拒绝（例如真实客户端已返回 rejected）：不回填输入框、不提示、不重置新会话', async () => {
+    const stale = []
+    const { session, state, deps } = setup({
+      askStream: vi.fn((body, options) => new Promise((resolve) => stale.push({ options, resolve })))
+    })
+    state.draft = '旧问题'
+    const sending = session.send()
+    await session.open(CONV)
+    state.draft = '新会话里正在写'
+    stale[0].resolve({ kind: 'rejected', code: 404, msg: '会话不存在或已删除' })
+    await sending
+    expect(state.conversationId).toBe(CONV)
+    expect(state.draft).toBe('新会话里正在写')
+    expect(deps.notify).not.toHaveBeenCalled()
+    expect(deps.onConversationGone).not.toHaveBeenCalled()
   })
 
   it('会话不存在（404）：提示并回到新对话', async () => {

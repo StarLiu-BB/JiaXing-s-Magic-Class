@@ -212,10 +212,16 @@ export function createChatSession(deps) {
       }
     })
 
-    if (controller === mine) {
-      controller = null
-      state.generating = false
+    if (controller !== mine) {
+      // 已被 detach（切换会话、新对话、离开页面）：这两条消息已不在当前界面上，
+      // 迟到的拒绝不能回填输入框、提示或重置新会话
+      if (result.kind !== 'rejected') {
+        settle(result, { answer, userMessage, question, fromDraft, auto })
+      }
+      return
     }
+    controller = null
+    state.generating = false
     settle(result, { answer, userMessage, question, fromDraft, auto })
   }
 
@@ -288,5 +294,6 @@ export function createChatSession(deps) {
     controller?.abort()
   }
 
-  return { state, send, retry: (question) => send(question), stop, open, reset, setScope, clearScope }
+  // detach：离开页面或切换会话前调用，中止回答并取消冷却后的自动重发
+  return { state, send, retry: (question) => send(question), stop, detach, open, reset, setScope, clearScope }
 }

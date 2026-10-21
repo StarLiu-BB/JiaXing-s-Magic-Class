@@ -132,7 +132,13 @@ async function courseOf(conversationId) {
 }
 
 async function openConversation(id) {
+  // 先同步中止旧回答：查课程范围要等网络，期间旧流的 meta 不能再改地址
+  session.detach()
   const courseId = await courseOf(id)
+  // 等待期间学生又点了别的会话或「新对话」：以最新的地址为准
+  if (route.name !== 'conversation' || String(route.params.id) !== id) {
+    return
+  }
   await session.open(id, courseId ? { id: courseId, title: '' } : null)
   if (courseId) {
     fillScopeTitle(id, courseId)
@@ -212,8 +218,12 @@ onMounted(() => {
   }
 })
 
-// 离开对话页（例如点推荐卡片去课程详情）：进行中的回答按「已停止」保存，回来时从服务端重新加载
-onBeforeUnmount(() => session.stop())
+// 离开对话页（例如点推荐卡片去课程详情）：进行中的回答按「已停止」保存，回来时从服务端重新加载；
+// 同时取消 409 冷却后的自动重发，否则它会在后台发起一条没人能中止的流
+onBeforeUnmount(() => {
+  session.stop()
+  session.detach()
+})
 </script>
 
 <style lang="scss" scoped>

@@ -119,6 +119,37 @@ describe('askStream', () => {
     await vi.waitFor(() => expect(serverSawClose).toBe(true))
   })
 
+  it('done 内容无法解析：不能当成正常结束，视为连接中断', async () => {
+    handler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream;charset=UTF-8' })
+      res.write('event:meta\ndata:{"conversationId":"1","messageId":"2","title":"t"}\n\n')
+      res.write('event:done\ndata:{"messageId":"2","sour')
+      res.end()
+    }
+    expect(await ask({ question: 'x' })).toEqual({ kind: 'interrupted' })
+  })
+
+  it('meta 缺少会话或消息 ID：不回调 meta，视为连接中断', async () => {
+    handler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream;charset=UTF-8' })
+      res.write('event:meta\ndata:{"title":"t"}\n\n')
+      res.write('event:delta\ndata:{"text":"半句"}\n\n')
+    }
+    const onMeta = vi.fn()
+    expect(await ask({ question: 'x' }, { onMeta })).toEqual({ kind: 'interrupted' })
+    expect(onMeta).not.toHaveBeenCalled()
+  })
+
+  it('读取拒绝原因时被中止：返回 aborted，而不是拒绝', async () => {
+    const controller = new AbortController()
+    handler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.write('{"code":409,')
+      setTimeout(() => controller.abort(), 20)
+    }
+    expect(await ask({ question: 'x' }, { signal: controller.signal })).toEqual({ kind: 'aborted' })
+  })
+
   it('连不上服务：视为连接中断', async () => {
     expect(await askStream({ question: 'x' }, { baseUrl: 'http://127.0.0.1:1', token: 't' })).toEqual({ kind: 'interrupted' })
   })

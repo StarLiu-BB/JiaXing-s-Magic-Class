@@ -35,10 +35,23 @@ describe('createAuthGuard', () => {
     expect(u.loadProfile).toHaveBeenCalledOnce()
   })
 
-  it('令牌失效（取用户信息失败）：清掉登录态，去登录页', async () => {
-    const u = user({ profile: null, loadProfile: vi.fn().mockRejectedValue(new Error('令牌无效')) })
+  it('令牌失效（取用户信息返回 401）：清掉登录态，去登录页', async () => {
+    const expired = Object.assign(new Error('令牌无效'), { code: 401 })
+    const u = user({ profile: null, loadProfile: vi.fn().mockRejectedValue(expired) })
     expect(await createAuthGuard(() => u)(route('/chat/1'))).toEqual({ name: 'login', query: { redirect: '/chat/1' } })
     expect(u.reset).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['网络不通或超时', 0],
+    ['网关 502', 502]
+  ])('取用户信息失败但不是登录失效（%s）：不清登录态，提示后放行', async (_, code) => {
+    const notify = vi.fn()
+    const failure = Object.assign(new Error('网络连接失败，请检查网络'), { code })
+    const u = user({ profile: null, loadProfile: vi.fn().mockRejectedValue(failure) })
+    expect(await createAuthGuard(() => u, notify)(route('/chat/1'))).toBe(true)
+    expect(u.reset).not.toHaveBeenCalled()
+    expect(notify).toHaveBeenCalledWith('warning', '网络连接失败，请检查网络')
   })
 })
 

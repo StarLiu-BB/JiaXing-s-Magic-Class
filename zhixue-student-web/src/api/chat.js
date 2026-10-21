@@ -40,18 +40,23 @@ export async function askStream(body, { onMeta, onDelta, signal, token, baseUrl 
   }
 
   if (!(response.headers.get('content-type') || '').includes('text/event-stream')) {
-    return rejected(response)
+    return rejected(response, signal)
   }
 
   try {
     for await (const { event, data } of readSse(response.body)) {
       const payload = parseJson(data)
       if (event === 'meta') {
-        onMeta?.(payload || {})
+        // 没有会话 / 消息 ID 就无法建立会话，继续读只会让界面停在一个没有 ID 的回答上
+        if (!payload?.conversationId || !payload?.messageId) {
+          break
+        }
+        onMeta?.(payload)
       } else if (event === 'delta') {
         onDelta?.(payload?.text ?? '')
       } else if (event === 'done') {
-        return { kind: 'done', data: payload || {} }
+        // 内容被截断（例如连接在 done 写到一半时断开）时不能当成正常结束，否则资料与推荐会静默丢失
+        return payload ? { kind: 'done', data: payload } : ended(signal)
       } else if (event === 'error') {
         return { kind: 'error', code: payload?.code ?? 503, msg: payload?.msg || MODEL_UNAVAILABLE }
       }
@@ -66,8 +71,12 @@ function ended(signal) {
   return signal?.aborted ? { kind: 'aborted' } : { kind: 'interrupted' }
 }
 
-async function rejected(response) {
+async function rejected(response, signal) {
   const body = await response.json().catch(() => null)
+  // 读取拒绝原因时被中止（切换会话、离开页面）：调用方已不关心这次结果，不能按拒绝处理
+  if (signal?.aborted) {
+    return { kind: 'aborted' }
+  }
   if (response.status === 401 || body?.code === 401) {
     return { kind: 'rejected', code: 401, msg: body?.msg || '登录已失效，请重新登录' }
   }

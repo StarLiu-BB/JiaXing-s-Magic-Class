@@ -11,7 +11,9 @@ export function safeRedirect(target) {
 }
 
 /**
- * 路由守卫：未登录去登录页并记住原地址；有令牌但还没取用户信息时先取，取不到（令牌失效）则清掉登录态。
+ * 路由守卫：未登录去登录页并记住原地址；有令牌但还没取用户信息时先取。
+ * 只有 401（令牌失效）才清掉登录态；网络不通、超时、网关 5xx 只提示并放行，
+ * 否则网关抖一下学生就被登出（profile 仍为空，下次导航会再取）。
  * @param {() => { isLoggedIn: boolean, profile: object|null, loadProfile: Function, reset: Function }} getUser
  */
 export function createAuthGuard(getUser, notify) {
@@ -32,9 +34,12 @@ export function createAuthGuard(getUser, notify) {
     if (!user.profile) {
       try {
         await user.loadProfile()
-      } catch {
-        user.reset()
-        return toLogin
+      } catch (error) {
+        if (error?.code === 401) {
+          user.reset()
+          return toLogin
+        }
+        notify?.('warning', error?.message || '获取用户信息失败，请稍后重试')
       }
     }
     return true
