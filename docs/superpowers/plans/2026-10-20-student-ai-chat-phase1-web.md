@@ -177,12 +177,12 @@ dist
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",
     "@fontsource-variable/geist": "5.3.0",
-    "axios": "1.13.2",
+    "axios": "1.20.0",
     "element-plus": "2.13.0",
     "highlight.js": "11.12.0",
     "markdown-it": "14.3.3",
     "pinia": "2.3.1",
-    "vue": "3.5.26",
+    "vue": "3.5.44",
     "vue-router": "4.6.4"
   },
   "devDependencies": {
