@@ -77,14 +77,20 @@ check "再点一次取消收藏（复原）" "False" "$(curl -s -X POST "$GW/cou
 # 优惠券（只读）
 check "可用优惠券" 200 "$(get '/marketing/coupon/available' | code_of)"
 
-# 下单但不支付（订单保留为待支付，不影响购买判定）
+# 下单但不支付，结束时按本次的 orderNo 取消（只动自己创建的那一笔）
 ORDER=$(curl -s -X POST "$GW/order/create" -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"productId":"2007"}')
 check "创建订单" 200 "$(echo "$ORDER" | code_of)"
 ORDER_NO=$(echo "$ORDER" | python3 -c 'import json,sys;d=json.load(sys.stdin).get("data") or {};print(d.get("orderNo") or "")')
-echo "   orderNo=${ORDER_NO}（待支付，未付款不影响课程权限）"
+ORDER_ID=$(echo "$ORDER" | python3 -c 'import json,sys;d=json.load(sys.stdin).get("data") or {};print(d.get("id") or "")')
 check "订单详情" 200 "$(get "/order/detail?orderNo=$ORDER_NO" | code_of)"
 check "我的订单列表" 200 "$(get '/order/list?pageNum=1&pageSize=10' | code_of)"
+# 收尾：取消本次下单，避免在库里留下待支付订单（按 orderNo 逐笔核对，不碰种子里的示例订单）
+if [[ -n "$ORDER_ID" ]]; then
+  CANCELED=$(curl -s -X PUT "$GW/order/${ORDER_ID}/cancel" -H "Authorization: Bearer $TOKEN" \
+    -H 'Content-Type: application/json' -d '{"reason":"本地联调数据清理"}' | code_of)
+  echo "   已取消本次订单 ${ORDER_NO}：code=${CANCELED}"
+fi
 
 echo
 if [[ $FAIL -eq 0 ]]; then
