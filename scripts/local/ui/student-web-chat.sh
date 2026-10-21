@@ -103,8 +103,13 @@ async page => {
 JS
 )
   check "追问在同一会话中完成" "$(json_get "$r" status)" "done"
-  check "回答承接上文（围绕 ConcurrentHashMap）" \
-    "$(python3 -c 'import json,sys;print("ConcurrentHashMap" in json.loads(sys.argv[1])["text"])' "$r" 2>/dev/null)" "True"
+  local followed
+  followed=$(python3 -c 'import json,sys;print("ConcurrentHashMap" in json.loads(sys.argv[1])["text"])' "$r" 2>/dev/null)
+  check "回答承接上文（围绕 ConcurrentHashMap）" "$followed" "True"
+  # 断言依赖模型原文：失败时留下回答开头，区分「模型没提到」与「取文本出错」
+  if [[ "$followed" != "True" ]]; then
+    echo "   回答开头：$(python3 -c 'import json,sys;print(json.loads(sys.argv[1])["text"][:300].replace("\n"," "))' "$r" 2>/dev/null || echo "$r" | head -c 300)"
+  fi
 
   # ---------- 第 5 项：停止 ----------
   r=$(pwf <<'JS'
