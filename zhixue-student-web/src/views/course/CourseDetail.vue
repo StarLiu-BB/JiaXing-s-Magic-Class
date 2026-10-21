@@ -189,6 +189,13 @@ function goBack() {
 }
 
 // 从推荐卡片的课时进来：/course/:id?lesson=xxx，加载完后直接打开该课时（锁定则提示购买）
+function openLessonFromQuery() {
+  const target = route.query.lesson && allLessons.value.find((lesson) => lesson.id === String(route.query.lesson))
+  if (target) {
+    openLesson(target)
+  }
+}
+
 watch(
   () => route.params.id,
   async (id) => {
@@ -197,13 +204,23 @@ watch(
     }
     playerOpen.value = false
     coverFailed.value = false
+    highlightId.value = null
     await load()
-    const target = route.query.lesson && allLessons.value.find((lesson) => lesson.id === String(route.query.lesson))
-    if (target) {
-      openLesson(target)
-    }
+    openLessonFromQuery()
   },
   { immediate: true }
+)
+
+// 同一门课只换 ?lesson=（组件被复用，上面的 watch 不会触发）：不重新加载目录，直接打开该课时。
+// 换课时 lesson 也会变，此时目录还是旧课程或正在加载，交给上面的 watch 处理
+watch(
+  () => route.query.lesson,
+  (lesson) => {
+    if (lesson && !loading.value && String(course.value?.id) === String(route.params.id)) {
+      playerOpen.value = false
+      openLessonFromQuery()
+    }
+  }
 )
 </script>
 

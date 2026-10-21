@@ -45,6 +45,22 @@ async page => {
 JS
 )" "「2.1 synchronized 与 ReentrantLock」需要购买课程后观看。"
 
+  # 同一门课里只换 ?lesson=（例如从对话页连续点同一张卡片上的两个课时）：页面不重建，也要打开新课时
+  check "同一课程内切换 ?lesson=：打开新的课时" "$(pwf <<'JS'
+async page => {
+  await page.goto('http://localhost:3001/course/2007?lesson=4021')
+  await page.locator('.el-dialog video').waitFor({ timeout: 10000 })
+  await page.keyboard.press('Escape')
+  await page.locator('.el-dialog video').waitFor({ state: 'hidden', timeout: 5000 })
+  await page.evaluate(() => document.querySelector('#app').__vue_app__.config.globalProperties.$router.push('/course/2007?lesson=4022'))
+  await page.locator('.el-dialog video').waitFor({ timeout: 10000 })
+  const title = await page.locator('.el-dialog__title').innerText()
+  await page.keyboard.press('Escape')
+  return title
+}
+JS
+)" "1.2 线程安全问题的根源：可见性、原子性、有序性"
+
   CLEANUP_REFUND_COURSES+=(2007)
   check "从推荐卡片进入锁定课时 → 购买 → 模拟支付 → 全部解锁并直接播放该课时" "$(pwf <<'JS'
 async page => {

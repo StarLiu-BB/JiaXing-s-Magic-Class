@@ -101,7 +101,8 @@ async function submit() {
   loading.value = true
   try {
     await user.login(form)
-    await user.loadProfile()
+    // 用户信息交给路由守卫去取：守卫区分令牌失效（回登录页）与网络错误（提示后放行）。
+    // 在这里取的话，网络一抖就会显示「登录失败」，令牌却已经存下了
     router.replace(safeRedirect(route.query.redirect))
   } catch (e) {
     error.value = e.message || '登录失败，请重试'

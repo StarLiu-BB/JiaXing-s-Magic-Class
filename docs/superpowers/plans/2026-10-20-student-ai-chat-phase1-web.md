@@ -994,7 +994,8 @@ async function submit() {
   loading.value = true
   try {
     await user.login(form)
-    await user.loadProfile()
+    // 用户信息交给路由守卫去取：守卫区分令牌失效（回登录页）与网络错误（提示后放行）。
+    // 在这里取的话，网络一抖就会显示「登录失败」，令牌却已经存下了
     router.replace(safeRedirect(route.query.redirect))
   } catch (e) {
     error.value = e.message || '登录失败，请重试'
@@ -2286,6 +2287,13 @@ function goBack() {
 }
 
 // 从推荐卡片的课时进来：/course/:id?lesson=xxx，加载完后直接打开该课时（锁定则提示购买）
+function openLessonFromQuery() {
+  const target = route.query.lesson && allLessons.value.find((lesson) => lesson.id === String(route.query.lesson))
+  if (target) {
+    openLesson(target)
+  }
+}
+
 watch(
   () => route.params.id,
   async (id) => {
@@ -2294,13 +2302,23 @@ watch(
     }
     playerOpen.value = false
     coverFailed.value = false
+    highlightId.value = null
     await load()
-    const target = route.query.lesson && allLessons.value.find((lesson) => lesson.id === String(route.query.lesson))
-    if (target) {
-      openLesson(target)
-    }
+    openLessonFromQuery()
   },
   { immediate: true }
+)
+
+// 同一门课只换 ?lesson=（组件被复用，上面的 watch 不会触发）：不重新加载目录，直接打开该课时。
+// 换课时 lesson 也会变，此时目录还是旧课程或正在加载，交给上面的 watch 处理
+watch(
+  () => route.query.lesson,
+  (lesson) => {
+    if (lesson && !loading.value && String(course.value?.id) === String(route.params.id)) {
+      playerOpen.value = false
+      openLessonFromQuery()
+    }
+  }
 )
 </script>
 
@@ -2571,6 +2589,22 @@ async page => {
 }
 JS
 )" "「2.1 synchronized 与 ReentrantLock」需要购买课程后观看。"
+
+  # 同一门课里只换 ?lesson=（例如从对话页连续点同一张卡片上的两个课时）：页面不重建，也要打开新课时
+  check "同一课程内切换 ?lesson=：打开新的课时" "$(pwf <<'JS'
+async page => {
+  await page.goto('http://localhost:3001/course/2007?lesson=4021')
+  await page.locator('.el-dialog video').waitFor({ timeout: 10000 })
+  await page.keyboard.press('Escape')
+  await page.locator('.el-dialog video').waitFor({ state: 'hidden', timeout: 5000 })
+  await page.evaluate(() => document.querySelector('#app').__vue_app__.config.globalProperties.$router.push('/course/2007?lesson=4022'))
+  await page.locator('.el-dialog video').waitFor({ timeout: 10000 })
+  const title = await page.locator('.el-dialog__title').innerText()
+  await page.keyboard.press('Escape')
+  return title
+}
+JS
+)" "1.2 线程安全问题的根源：可见性、原子性、有序性"
 
   CLEANUP_REFUND_COURSES+=(2007)
   check "从推荐卡片进入锁定课时 → 购买 → 模拟支付 → 全部解锁并直接播放该课时" "$(pwf <<'JS'

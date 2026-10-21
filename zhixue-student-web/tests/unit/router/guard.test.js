@@ -85,6 +85,10 @@ describe('safeRedirect', () => {
     ['/chat/1', '/chat/1'],
     ['/course/2007?lesson=4024', '/course/2007?lesson=4024'],
     ['//evil.example.com', '/chat'],
+    // 浏览器把 \ 当作 /、并去掉制表符与换行：这些写法解析后都是 //evil.example.com
+    ['/\\evil.example.com', '/chat'],
+    ['/\t/evil.example.com', '/chat'],
+    ['/\n/evil.example.com', '/chat'],
     ['https://evil.example.com', '/chat'],
     ['/login?redirect=/chat', '/chat'],
     [undefined, '/chat'],
