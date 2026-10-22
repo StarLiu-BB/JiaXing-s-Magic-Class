@@ -33,5 +33,8 @@ public class LoginUser implements Serializable {
     private List<String> roles;
     // 额外的信息，用键值对的方式存储
     private Map<String, Object> extra;
+    private String sessionVersion;
+    private String globalSessionVersion;
+    private String authorizationRevision;
 }
 
