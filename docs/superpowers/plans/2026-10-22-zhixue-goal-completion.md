@@ -8,7 +8,7 @@
 
 **Tech Stack:** Java 17 / Spring Boot 3.2.0 / Spring Cloud 2023.0.0 / MyBatis-Plus 3.5.7 / MySQL 8 / Redis 7 / RabbitMQ / Elasticsearch 8 / Vue 3.5 + Vite 5 + Element Plus 2.13 / 微信小程序原生（CommonJS）/ Vitest 2.1.9 / Node 内置 `node:test` / Playwright（本地界面验收）
 
-**执行入口（第四批：2026-10-23）**：A0–A6代码/本地回归已实施，下一任务A7。A6最终证据：全后端491项（489通过，0失败/错误，2默认跳过隔离Redis/MySQL集成），全服务打包成功；显式隔离MySQL9.6集成另1/1，验证迁移2次、历史回填、RR并发同活动用户只1单和重复历史停止不删数据。A6双轴审查指纹/装载/列表RR/状态覆盖Required已修、最终静态复审清零。A1–A3微信视觉复验仍待补；A4已隔离浏览器核验。A5已同步GitHub至 `7fcdf10`，A6功能已分主题提交 `32e1e41`（订单/API/迁移）、`f73fd7f`（营销），文档另行同步；未过审AI/学生Web/配置保留本地。全后端测试含未提交AI，不等于纯提交快照或真实模型验收；本机MySQL9.6不代表MySQL8。未执行现有业务库迁移、清Redis或部署。实际恢复对账/多实例/Cluster仍待验，M1/M2未完成。实施章节以源码和新鲜证据为准。
+**执行入口（第五批：2026-10-23，仅 gate）**：A0–A6代码/本地回归已实施；本批按用户指定完成A7 gate（审核前置、拒绝不广播并留证），A7整体尚未收口。gate最终证据：全后端512项（510通过，0失败/错误，2默认跳过隔离Redis/MySQL），互动模块56项，全服务打包成功；双轴静态审查无未关闭Required，IDE/空白检查通过。下一步A7剩余策略展示及环境验收，不跳到A8。A1–A3微信视觉复验待补，A4隔离浏览器已核验；A6已同步GitHub至 `7b6a83f`。未过审AI/学生Web/配置保留本地，全量测试不等于纯提交版本或真实模型验收；本批未部署/操作业务数据库/上传。MQ异步确认与消费者故障下的落库保证仍待验，不能把 send 返回当成数据库确认。M1/M2未完成，具体以已实施章节及新鲜测试记录为准。
 
 ---
 
@@ -2213,7 +2213,25 @@ git commit -m "fix(order,marketing): 秒杀订单按活动+用户幂等，超时
 
 ### Task A7：弹幕审核前置到广播之前
 
-**Files:**
+**gate 实施记录（2026-10-23）**：按用户本次指定仅收口 gate，不把 A7 后台降级文案、真实环境联调或 A8 标成完成。
+
+- [x] `DanmakuHandler` 不再直接广播；过滤、绑定可信身份/房间、清除客户端审核字段后投递闸口。
+- [x] `DanmakuAuditService` 只判定；显式OK才通过，空/失败结果待复核，拒绝原因截断至255字符。
+- [x] `DanmakuModerationService` 先审核再送保存/广播；拒绝只留证。审查发现审核期间登出/过期丢拒绝证据，新增失败回归后修复：已获得的拒绝结论与广播资格分离，仍保存，不广播。
+- [x] 通过/待复核的广播资格在审核后及保存后重新校验；撤权/过期不广播。拒绝队列满，不在调用线程审核；独立有界工作池，Feign连接1s/读取22s，待复核fail-open默认保留，可配置关闭。
+- [x] 必要持久化接缝接入：新消息保存判定不重复审核；旧无字段消息复用纯判定服务且不触发广播；非法状态或插入失败抛错。实际stub链路验证拒绝落库内容和零广播。MQ异步投递/消费者失败仍是明确既有边界，不宣称 send 返回就必然落库。
+- [x] 广播序列化失败上抛并反馈503，不伪装广播成功；Spring真实依赖接线测试无循环且线程池容量受限。
+- [x] 测试先红后绿；最终全后端512项（510通过、0失败/错误、2默认跳过隔离Redis/MySQL），互动模块最终56项；全部服务打包成功，IDE零、`git diff --check`通过。全后端仍含未提交AI工作区，不是纯提交快照、模型质量或生产验收。
+- [x] 两轴静态审查及修复复审：gate无未关闭Required。
+- [ ] 后台审核页降级文案、真实AI/Redis/RabbitMQ跨服务验收、模型不可用与弱网实时行为；本批未部署、未清库、未调用真实模型。A7整体未收口。
+
+下一步先完成 A7 的 compat/策略展示与环境验收，再推进 A8；已完成 gate 以本次源码及回归为准，以下旧示例仅历史设计。
+
+**执行校正（2026-10-23）**：测试接缝为真实 WS Handler → 审核服务 → Producer/Publisher，另覆盖持久化旧消息。客户端的审核字段必须清除，身份/房间取自已验证连接；只把服务端审核结果传入 MQ，持久化新消息不重复调用模型。空响应/空白结果/异常为待复核(0)，不是通过(1)；拒绝(2)只保存。默认沿用 fail-open：仅审核不可用的待复核可广播，同时向发送者回明确提示；可配置 fail-open=false 时待复核保存但不广播。
+
+审核/保存/广播全部在有界工作池内，不阻塞 I/O 或既有 WS 会话线程池；队列满直接拒绝并告知重试，不通过 CallerRuns 或同步 fail-open 绕开容量限制。显式 Feign 连接/读取超时限制远程审核，队列过旧的任务不广播。先发送持久化再广播；同步持久化失败不得广播、必须反馈失败。MQ 异步 nack/消费者故障的可靠投递仍为既有边界，不宣称仅调用 send 即保证落库。旧MQ消息无审核结果时只复用审核判定，不触发重复广播，人工复核通过仍仅恢复历史。
+
+审核判定与分发服务分离，避免 Producer → Persistence → Moderation → Producer 的循环依赖。状态范围0/1/2及备注长度须约束；不记录原文、令牌或模型异常详情。以下旧示例的固定failOpen、逻辑矛盾dispatch和弱构造器测试不作为实现，按以上校正验证行为。
 - Modify: `zhixue-modules/zhixue-interaction/src/main/java/com/zhixue/interaction/domain/dto/DanmakuMessageDTO.java`
 - Create: `zhixue-modules/zhixue-interaction/src/main/java/com/zhixue/interaction/service/DanmakuModerationService.java`
 - Modify: `zhixue-modules/zhixue-interaction/src/main/java/com/zhixue/interaction/netty/DanmakuHandler.java:30-105`
