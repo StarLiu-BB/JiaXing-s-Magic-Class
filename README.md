@@ -154,6 +154,24 @@ bash scripts/local/mp-api-check.sh   # 小程序端接口联调：按各页真�
 ```
 
 学生端在本地以微信沙箱登录（`ZHIXUE_AUTH_WECHAT_MODE=sandbox`，所有微信用户映射为 `student`，仅限联调）。
+
+#### 会话撤销版本升级（A5）
+
+账号停用/删除、修改密码或角色，以及角色授权变更会撤销旧会话；菜单权限修改/删除会使所有旧会话失效。HTTP 下一次请求和 WebSocket 下一次文字收发重新校验会话。Redis 故障拒绝授权变更，不静默放行。
+
+- 本次版本首次启用时，旧的无版本令牌要求重新登录；不保留两小时的撤权窗口。
+- 部署前备份，统一升级 `auth`、`gateway`、`system`、`interaction` 及它们打包的 `common`，不能只更新一个服务并继续发行旧格式令牌。本次 Git 更新不自动部署。
+- 版本元数据与 token 使用现有单节点 Redis；不要单独清除版本键，否则会破坏撤销依据。Redis 数据恢复/切换时应强制重新登录。没有宣称 Redis Cluster 已验收。
+- 授权读取和修改共用 MySQL 的 ADMIN 角色行锁；管理员不能删除/停用自己，不能移除自身超管角色，至少保留一个启用超管，恢复权限菜单不能停用/删除。锁定前提是数据库已有启用 ADMIN 角色，脏存量数据要在隔离环境核对修复。
+- 由于 Redis 和 MySQL 不是分布式事务，数据库后续回滚时旧会话可能已被保守撤销，用户重新登录即可；不会因补偿失败恢复旧权限。
+
+无外部服务的回归是 `mvn test`。本机安装 `redis-server` 后，可显式运行隔离 Redis 测试（随机本地端口、无持久化、自动关闭，不连接业务 Redis）：
+
+```bash
+mvn test -pl zhixue-common -Dtest=LoginSessionRedisTest -Dzhixue.test.isolated-redis=true
+```
+
+真实 MySQL 并发事务、多实例滚动升级及业务 Redis 故障演练仍需隔离环境验收，不能用单元测试替代。
 已知功能缺口与遗留风险见 [docs/three-ends-gap-list.md](docs/three-ends-gap-list.md)。
 
 #### 已有数据的环境升级（不要执行 `db-init.sh`，它会清空全库）
