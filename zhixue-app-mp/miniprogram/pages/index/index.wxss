@@ -65,8 +65,16 @@
 }
 
 .seckill-entry-title {
+  display: flex;
+  align-items: center;
   font-size: 30rpx;
   font-weight: 700;
+}
+
+.seckill-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 8rpx;
 }
 
 .seckill-entry-desc {

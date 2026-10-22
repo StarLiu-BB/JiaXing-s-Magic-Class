@@ -3,7 +3,7 @@
   <!-- 搜索栏 -->
   <view class="search-section">
     <view class="search-box" bindtap="onSearchTap">
-      <image class="search-icon" src="/images/icon-search.png" mode="aspectFit" />
+      <safe-image image-class="search-icon" src="/images/icon-search.png" fallback="/images/icon-search.png" mode="aspectFit" />
       <text class="search-placeholder">搜索课程、老师</text>
     </view>
   </view>
@@ -23,7 +23,7 @@
     </scroll-view>
 
     <!-- 右侧课程列表 -->
-    <scroll-view class="course-content" scroll-y="{{true}}" show-scrollbar="{{false}}">
+    <scroll-view class="course-content" scroll-y="{{true}}" show-scrollbar="{{false}}" bindscrolltolower="onReachBottom">
       <!-- 子分类 -->
       <view class="subcategory-section" wx:if="{{subCategoryList.length > 0}}">
         <view class="subcategory-list">
@@ -40,7 +40,6 @@
       <!-- 排序筛选 -->
       <view class="filter-section">
         <view class="filter-item {{sortType === 'default' ? 'active' : ''}}" data-type="default" bindtap="onSortTap">综合</view>
-        <view class="filter-item {{sortType === 'sales' ? 'active' : ''}}" data-type="sales" bindtap="onSortTap">销量</view>
         <view class="filter-item {{sortType === 'price' ? 'active' : ''}}" data-type="price" bindtap="onSortTap">
           价格
           <text class="sort-icon">{{priceSort === 'asc' ? '↑' : '↓'}}</text>
@@ -51,13 +50,12 @@
       <!-- 课程列表 -->
       <view class="course-list">
         <view class="course-item" wx:for="{{courseList}}" wx:key="id" data-id="{{item.id}}" bindtap="onCourseTap">
-          <image class="course-cover" src="{{item.cover || '/images/course-default.png'}}" mode="aspectFill" lazy-load="{{true}}" />
+          <safe-image image-class="course-cover" src="{{item.cover || '/images/course-default.png'}}" mode="aspectFill" lazy-load="{{true}}" />
           <view class="course-info">
             <text class="course-title">{{item.title}}</text>
             <text class="course-desc" wx:if="{{item.description}}">{{item.description}}</text>
             <view class="course-meta">
-              <text class="course-teacher" wx:if="{{item.teacher}}">{{item.teacher}}</text>
-              <text class="course-sales" wx:if="{{item.sales > 0}}">{{item.sales}}人学习</text>
+              <text class="course-teacher" wx:if="{{item.teacherName}}">{{item.teacherName}}</text>
             </view>
             <view class="course-bottom">
               <text class="course-price">¥{{item.price}}</text>
@@ -72,9 +70,14 @@
         <text class="loading-text">加载中...</text>
       </view>
 
+      <view class="empty-state" wx:if="{{!loading && loadError}}">
+        <text class="empty-text">{{loadError}}</text>
+        <button size="mini" bindtap="onRetry">重试</button>
+      </view>
+
       <!-- 空状态 -->
-      <view class="empty-state" wx:if="{{!loading && courseList.length === 0}}">
-        <image class="empty-icon" src="/images/empty.png" mode="aspectFit" />
+      <view class="empty-state" wx:if="{{!loading && !loadError && courseList.length === 0}}">
+        <safe-image image-class="empty-icon" src="/images/empty.png" fallback="/images/empty.png" mode="aspectFit" />
         <text class="empty-text">暂无课程</text>
       </view>
 

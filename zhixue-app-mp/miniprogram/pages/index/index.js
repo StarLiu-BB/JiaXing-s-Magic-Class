@@ -5,6 +5,7 @@ const {
   getHotCourseList,
   getLatestCourseList
 } = require('../../api/course')
+const { withCategoryIcon } = require('../../utils/category-icons')
 
 Page({
   /**
@@ -69,7 +70,7 @@ Page({
 
       this.setData({
         bannerList: bannerRes.data || [],
-        categoryList: categoryRes.data || [],
+        categoryList: (categoryRes.data || []).map(withCategoryIcon),
         hotCourseList: hotRes.data || [],
         latestCourseList: latestRes.data || [],
         loadFailed: failed
@@ -108,6 +109,7 @@ Page({
    */
   onCategoryTap(e) {
     const { id } = e.currentTarget.dataset
+    getApp().globalData.pendingCategoryId = String(id)
     wx.switchTab({
       url: '/pages/category/index'
     })
