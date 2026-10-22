@@ -43,6 +43,9 @@ class TokenControllerTest {
     private TokenService tokenService;
 
     @Mock
+    private com.zhixue.common.security.session.LoginSessionRegistry sessions;
+
+    @Mock
     private StringRedisTemplate redisTemplate;
 
     @Mock

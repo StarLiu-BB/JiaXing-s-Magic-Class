@@ -2,8 +2,8 @@ package com.zhixue.auth.service.impl;
 
 import com.zhixue.auth.service.TokenService;
 import com.zhixue.common.core.constant.CacheConstants;
+import com.zhixue.common.security.session.LoginSessionRegistry;
 import com.zhixue.common.core.utils.JwtUtils;
-import com.zhixue.common.redis.service.RedisService;
 import com.zhixue.common.security.config.SecurityProperties;
 import com.zhixue.common.security.model.LoginUser;
 import lombok.RequiredArgsConstructor;
@@ -29,12 +29,14 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TokenServiceImpl implements TokenService {
 
-    private final RedisService redisService;
+    private final LoginSessionRegistry sessions;
     private final SecurityProperties securityProperties;
 
     @Override
     public String createToken(LoginUser loginUser) {
+        if (loginUser.getAuthorizationRevision() == null) throw new com.zhixue.common.core.exception.ServiceException("缺少登录授权修订，请重新登录");
         Map<String, Object> claims = new HashMap<>();
+        claims.put("jti", java.util.UUID.randomUUID().toString());
         claims.put("userId", loginUser.getUserId());
         claims.put("username", loginUser.getUsername());
         claims.put("roles", loginUser.getRoles());
@@ -49,27 +51,30 @@ public class TokenServiceImpl implements TokenService {
 
     @Override
     public String refreshToken(String token) {
+        String revision = sessions.revision();
         LoginUser loginUser = getLoginUser(token);
         if (loginUser == null) {
             return null;
         }
+        loginUser.setAuthorizationRevision(revision);
+        String refreshed = createToken(loginUser);
         logout(token);
-        return createToken(loginUser);
+        return refreshed;
     }
 
     @Override
     public void logout(String token) {
-        redisService.delete(CacheConstants.LOGIN_TOKEN_KEY + token);
-        log.info("用户登出，tokenPrefix={}", token == null ? "" : token.substring(0, Math.min(token.length(), 12)));
+        sessions.logout(token);
+        log.info("用户会话已登出");
     }
 
     @Override
     public LoginUser getLoginUser(String token) {
-        return redisService.get(CacheConstants.LOGIN_TOKEN_KEY + token);
+        return sessions.resolve(token);
     }
 
     private void cacheToken(String token, LoginUser loginUser) {
-        redisService.set(CacheConstants.LOGIN_TOKEN_KEY + token, loginUser, resolveTokenExpiration());
+        sessions.register(token, loginUser, resolveTokenExpiration(), loginUser.getAuthorizationRevision());
     }
 
     @SuppressWarnings("unchecked")

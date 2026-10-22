@@ -42,6 +42,7 @@ public class TokenController {
     private final StringRedisTemplate redisTemplate;
     private final SecurityProperties securityProperties;
     private final LoginAttemptLimiter loginAttemptLimiter;
+    private final com.zhixue.common.security.session.LoginSessionRegistry sessions;
 
     @PostMapping("/login")
     public R<Map<String, Object>> login(@Valid @RequestBody LoginForm form) {
@@ -57,7 +58,9 @@ public class TokenController {
 
         LoginUser loginUser;
         try {
+            String revision = sessions.revision();
             loginUser = loginService.login(form);
+            loginUser.setAuthorizationRevision(revision);
         } catch (RuntimeException e) {
             loginAttemptLimiter.recordFailure(identifier);
             throw e;

@@ -2,11 +2,10 @@ package com.zhixue.gateway.filter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zhixue.common.core.constant.CacheConstants;
 import com.zhixue.common.core.constant.HttpStatus;
 import com.zhixue.common.core.utils.JwtUtils;
 import com.zhixue.common.core.utils.StringUtils;
-import com.zhixue.common.redis.service.RedisService;
+import com.zhixue.common.security.session.LoginSessionRegistry;
 import com.zhixue.common.security.config.InternalAccessConstants;
 import com.zhixue.common.security.config.SecurityProperties;
 import com.zhixue.common.security.model.LoginUser;
@@ -54,7 +53,7 @@ public class AuthFilter implements GlobalFilter, Ordered {
 
     private final WhiteListConfig whiteListConfig;
     private final SecurityProperties securityProperties;
-    private final RedisService redisService;
+    private final LoginSessionRegistry sessions;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -126,10 +125,8 @@ public class AuthFilter implements GlobalFilter, Ordered {
     private LoginUser resolveLoginUser(String token) {
         try {
             Claims claims = JwtUtils.parseClaims(token, securityProperties.getJwtSecret());
-            if (claims == null || !redisService.hasKey(CacheConstants.LOGIN_TOKEN_KEY + token)) {
-                return null;
-            }
-            return redisService.get(CacheConstants.LOGIN_TOKEN_KEY + token);
+            if (claims == null) return null;
+            return sessions.resolve(token);
         } catch (Exception e) {
             return null;
         }
