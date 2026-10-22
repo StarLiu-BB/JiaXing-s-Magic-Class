@@ -128,6 +128,15 @@ public class OrderController {
                 request.getUserId(), request.getProductId(), request.getAmount(), request.getActivityId()));
     }
 
+    /** 按活动和用户确认原秒杀订单，仅限服务间调用。 */
+    @GetMapping("/inner/seckill")
+    public R<Order> findSeckillOrder(@RequestParam Long activityId, @RequestParam Long userId) {
+        if (!SecurityUtils.isTrustedInternalCall()) {
+            throw new ServiceException(HttpStatus.FORBIDDEN, "禁止外部访问内部订单接口");
+        }
+        return R.ok(orderService.findSeckillOrder(activityId, userId));
+    }
+
     @RequirePermission(PERM_REFUND)
     @PutMapping("/{id}/refund")
     public R<Void> refund(@PathVariable Long id,

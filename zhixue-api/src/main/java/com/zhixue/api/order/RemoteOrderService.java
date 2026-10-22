@@ -33,10 +33,14 @@ public interface RemoteOrderService {
                             @RequestHeader(InternalAccessConstants.INNER_CALL_HEADER) String innerHeader,
                             @RequestHeader(InternalAccessConstants.INTERNAL_TOKEN_HEADER) String internalToken);
 
-    /**
-     * 秒杀成交后生成待支付订单（按秒杀价）。仅限服务间调用。
-     * 契约由 zhixue-order 的 SeckillOrderContractTest 守护。
-     */
+    /** 按活动及用户确认原单；仅限服务间调用，不存在时data为null。 */
+    @GetMapping("/order/inner/seckill")
+    R<OrderInfo> findSeckillOrder(@RequestParam("activityId") Long activityId,
+                                 @RequestParam("userId") Long userId,
+                                 @RequestHeader(InternalAccessConstants.INNER_CALL_HEADER) String innerHeader,
+                                 @RequestHeader(InternalAccessConstants.INTERNAL_TOKEN_HEADER) String internalToken);
+
+    /** 秒杀成交后按活动与用户幂等建单；仅限服务间调用，契约由 SeckillOrderContractTest 守护。 */
     @PostMapping("/order/inner/seckill")
     R<OrderInfo> createSeckillOrder(@RequestBody SeckillOrderRequest request,
                                     @RequestHeader(InternalAccessConstants.INNER_CALL_HEADER) String innerHeader,

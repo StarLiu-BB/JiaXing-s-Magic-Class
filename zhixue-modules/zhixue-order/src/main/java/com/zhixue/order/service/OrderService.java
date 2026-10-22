@@ -40,6 +40,8 @@ public interface OrderService {
      */
     Order createSeckillOrder(Long userId, Long productId, BigDecimal amount, Long activityId);
 
+    Order findSeckillOrder(Long activityId, Long userId);
+
     /**
      * 支付成功回调处理。
      * 收到支付成功的通知后，更新订单状态为已支付，记录支付渠道和支付单号。

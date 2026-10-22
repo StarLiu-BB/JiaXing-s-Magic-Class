@@ -88,15 +88,51 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Order createSeckillOrder(Long userId, Long productId, BigDecimal amount, Long activityId) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ServiceException(HttpStatus.BAD_REQUEST, "秒杀价必须大于0");
+        if (userId == null || userId <= 0 || productId == null || productId <= 0 || activityId == null || activityId <= 0) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "用户、课程和活动ID必须为正整数");
         }
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0
+                || amount.compareTo(new BigDecimal("99999999.99")) > 0 || amount.stripTrailingZeros().scale() > 2) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "秒杀价必须大于0且精确到分");
+        }
+        Order existing = orderMapper.findSeckillOrder(activityId, userId);
+        if (existing != null) return requireReusableSeckill(existing, productId, amount);
         if (hasPaid(userId, productId)) {
             throw new ServiceException(HttpStatus.BAD_REQUEST, "您已购买该课程，无需参与秒杀");
         }
         Order order = buildDraftOrder(userId, productId, amount);
+        order.setActivityId(activityId);
         order.setRemark("秒杀活动 " + activityId);
-        return insertWithTimeout(order);
+        try {
+            return insertWithTimeout(order);
+        } catch (org.springframework.dao.DuplicateKeyException conflict) {
+            Order landed = orderMapper.lockSeckillOrder(activityId, userId);
+            if (landed == null) throw conflict;
+            return requireReusableSeckill(landed, productId, amount);
+        }
+    }
+
+    private Order requireReusableSeckill(Order order, Long productId, BigDecimal amount) {
+        if (!java.util.Objects.equals(order.getProductId(), productId) || order.getAmount() == null
+                || order.getAmount().compareTo(amount) != 0) {
+            throw new ServiceException(HttpStatus.CONFLICT, "活动订单商品或金额不一致");
+        }
+        if (Integer.valueOf(1).equals(order.getDeleted()) || (!Integer.valueOf(0).equals(order.getStatus())
+                && !Integer.valueOf(1).equals(order.getStatus()))) {
+            throw new ServiceException(HttpStatus.CONFLICT, "该活动订单已取消、退款或删除，不能重复参与");
+        }
+        if (Integer.valueOf(0).equals(order.getStatus()) && isExpired(order)) {
+            throw new ServiceException(HttpStatus.CONFLICT, "该活动订单已过期，不能重复参与");
+        }
+        return order;
+    }
+
+    @Override
+    public Order findSeckillOrder(Long activityId, Long userId) {
+        if (activityId == null || activityId <= 0 || userId == null || userId <= 0) {
+            throw new ServiceException(HttpStatus.BAD_REQUEST, "活动和用户ID必须为正整数");
+        }
+        return orderMapper.findSeckillOrder(activityId, userId);
     }
 
     private Order insertWithTimeout(Order order) {

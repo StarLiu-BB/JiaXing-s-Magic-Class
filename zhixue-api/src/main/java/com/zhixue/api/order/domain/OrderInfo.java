@@ -14,4 +14,9 @@ public class OrderInfo {
     private BigDecimal amount;
     /** 0待支付 1已支付 2已取消 3已退款 */
     private Integer status;
+    private Integer deleted;
+    private Long activityId;
+    private Long userId;
+    private Long productId;
+    private java.time.LocalDateTime expireTime;
 }

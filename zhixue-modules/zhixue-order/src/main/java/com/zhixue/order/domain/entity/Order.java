@@ -67,6 +67,8 @@ public class Order extends BaseEntity {
      */
     private LocalDateTime expireTime;
 
+    private Long activityId;
+
     /**
      * 备注信息，比如取消原因
      */

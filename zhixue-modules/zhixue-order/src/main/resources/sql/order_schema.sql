@@ -16,12 +16,14 @@ CREATE TABLE `order`
     pay_time     DATETIME     COMMENT '支付时间',
     expire_time  DATETIME     COMMENT '超时时间',
     remark       VARCHAR(255) COMMENT '备注',
+    activity_id  BIGINT NULL COMMENT '秒杀活动ID，普通订单为NULL',
     create_time  DATETIME,
     update_time  DATETIME,
     deleted      TINYINT      DEFAULT 0,
     INDEX idx_user (user_id),
     INDEX idx_order (order_no),
-    INDEX idx_status (status)
+    INDEX idx_status (status),
+    UNIQUE KEY uk_order_activity_user (activity_id, user_id)
 );
 
 

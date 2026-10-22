@@ -83,6 +83,25 @@ class SeckillOrderContractTest {
     }
 
     @Test
+    void trustedQueryUsesFeignPathAndExternalQueryIsDenied() throws Exception {
+        String path = RemoteOrderService.class.getMethod("findSeckillOrder", Long.class, Long.class, String.class, String.class)
+                .getAnnotation(org.springframework.web.bind.annotation.GetMapping.class).value()[0];
+        Order order = new Order(); order.setOrderNo("ORD-SK-1");
+        when(orderService.findSeckillOrder(63001L, 1003L)).thenReturn(order);
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(path)
+                .param("activityId", "63001").param("userId", "1003")
+                .requestAttr(InternalAccessConstants.TRUSTED_REQUEST_ATTR, true)
+                .header(InternalAccessConstants.INNER_CALL_HEADER, "true"))
+                .andExpect(jsonPath("$.code").value(200)).andExpect(jsonPath("$.data.orderNo").value("ORD-SK-1"));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(path)
+                .param("activityId", "63001").param("userId", "1003")
+                .requestAttr(InternalAccessConstants.TRUSTED_REQUEST_ATTR, true)
+                .header(InternalAccessConstants.USER_ID_HEADER, "1003"))
+                .andExpect(jsonPath("$.code").value(403));
+        verify(orderService).findSeckillOrder(63001L, 1003L);
+    }
+
+    @Test
     void userRequestThroughGatewayMustNotCreateOrderAtArbitraryPrice() throws Exception {
         mockMvc.perform(post(feignPath())
                         .requestAttr(InternalAccessConstants.TRUSTED_REQUEST_ATTR, Boolean.TRUE)
