@@ -22,6 +22,8 @@ public class WsChannelInitializer extends ChannelInitializer<SocketChannel> {
     private final HeartBeatHandler heartBeatHandler;
     private final WsHandshakeAuthHandler wsHandshakeAuthHandler;
     private final DanmakuHandler danmakuHandler;
+    private final WsSessionGuard wsSessionGuard;
+    private final io.netty.util.concurrent.DefaultEventExecutorGroup sessionExecutor;
 
     /**
      * 初始化连接的处理流水线
@@ -43,7 +45,8 @@ public class WsChannelInitializer extends ChannelInitializer<SocketChannel> {
         // WebSocket 协议处理器，处理握手和消息帧
         p.addLast(new WebSocketServerProtocolHandler("/ws", null, true, 65536));
         // 弹幕处理器，处理实际的弹幕业务逻辑
-        p.addLast(danmakuHandler);
+        p.addLast(sessionExecutor, wsSessionGuard);
+        p.addLast(sessionExecutor, danmakuHandler);
     }
 }
 

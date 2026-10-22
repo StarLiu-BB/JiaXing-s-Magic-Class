@@ -1,8 +1,7 @@
 package com.zhixue.interaction.netty;
 
-import com.zhixue.common.core.constant.CacheConstants;
 import com.zhixue.common.core.utils.JwtUtils;
-import com.zhixue.common.redis.service.RedisService;
+import com.zhixue.common.security.session.LoginSessionRegistry;
 import com.zhixue.common.security.config.SecurityProperties;
 import com.zhixue.common.security.model.LoginUser;
 import com.zhixue.interaction.redis.RedisMessageListener;
@@ -45,10 +44,11 @@ public class WsHandshakeAuthHandler extends ChannelInboundHandlerAdapter {
 
     public static final AttributeKey<Long> USER_ID = AttributeKey.valueOf("zhixue.ws.userId");
     public static final AttributeKey<Long> ROOM_ID = AttributeKey.valueOf("zhixue.ws.roomId");
+    public static final AttributeKey<String> TOKEN = AttributeKey.valueOf("zhixue.ws.token");
 
     private static final String BEARER = "Bearer ";
 
-    private final RedisService redisService;
+    private final LoginSessionRegistry sessions;
     private final SecurityProperties securityProperties;
     private final RedisMessageListener roomRegistry;
 
@@ -64,11 +64,13 @@ public class WsHandshakeAuthHandler extends ChannelInboundHandlerAdapter {
             reject(ctx, request, HttpResponseStatus.BAD_REQUEST, "缺少房间号 roomId");
             return;
         }
-        LoginUser user = resolveUser(extractToken(request, query));
+        String token = extractToken(request, query);
+        LoginUser user = resolveUser(token);
         if (user == null || user.getUserId() == null) {
             reject(ctx, request, HttpResponseStatus.UNAUTHORIZED, "未登录或登录已过期");
             return;
         }
+        ctx.channel().attr(TOKEN).set(token);
         ctx.channel().attr(USER_ID).set(user.getUserId());
         ctx.channel().attr(ROOM_ID).set(roomId);
         roomRegistry.addChannel(ctx.channel(), roomId);
@@ -90,12 +92,7 @@ public class WsHandshakeAuthHandler extends ChannelInboundHandlerAdapter {
         }
         try {
             JwtUtils.parseClaims(token, securityProperties.getJwtSecret());
-            String key = CacheConstants.LOGIN_TOKEN_KEY + token;
-            if (!redisService.hasKey(key)) {
-                return null;
-            }
-            Object cached = redisService.get(key);
-            return cached instanceof LoginUser loginUser ? loginUser : null;
+            return sessions.resolve(token);
         } catch (Exception e) {
             log.debug("弹幕握手令牌无效: {}", e.getMessage());
             return null;

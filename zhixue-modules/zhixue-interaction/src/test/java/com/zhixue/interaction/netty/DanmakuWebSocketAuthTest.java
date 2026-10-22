@@ -54,7 +54,7 @@ class DanmakuWebSocketAuthTest {
 
     private static final String SECRET = Base64.getEncoder().encodeToString("0123456789abcdef0123456789abcdef-test".getBytes());
 
-    private final RedisService redisService = mock(RedisService.class);
+    private final com.zhixue.common.security.session.LoginSessionRegistry sessions = mock(com.zhixue.common.security.session.LoginSessionRegistry.class);
     private final RedisMessageListener roomRegistry = mock(RedisMessageListener.class);
     private final DanmakuProducer producer = mock(DanmakuProducer.class);
     private final ObjectMapper objectMapper = new ObjectMapper()
@@ -68,7 +68,7 @@ class DanmakuWebSocketAuthTest {
     void setUp() {
         SecurityProperties props = new SecurityProperties();
         props.setJwtSecret(SECRET);
-        authHandler = new WsHandshakeAuthHandler(redisService, props, roomRegistry);
+        authHandler = new WsHandshakeAuthHandler(sessions, props, roomRegistry);
         SensitiveWordFilter filter = mock(SensitiveWordFilter.class);
         when(filter.filter(anyString())).thenAnswer(inv -> inv.getArgument(0));
         danmakuHandler = new DanmakuHandler(roomRegistry, mock(RedisMessagePublisher.class), producer, filter, objectMapper);
@@ -77,8 +77,7 @@ class DanmakuWebSocketAuthTest {
         LoginUser user = new LoginUser();
         user.setUserId(1003L);
         user.setUsername("student");
-        when(redisService.hasKey(CacheConstants.LOGIN_TOKEN_KEY + token)).thenReturn(true);
-        when(redisService.get(CacheConstants.LOGIN_TOKEN_KEY + token)).thenReturn(user);
+        when(sessions.resolve(token)).thenReturn(user);
     }
 
     private static FullHttpRequest handshake(String uri, String authorization) {
@@ -127,10 +126,9 @@ class DanmakuWebSocketAuthTest {
 
     @Test
     void loggedOutTokenIsRejectedWith401() {
-        String revoked = JwtUtils.generateToken("1003", Map.of(), SECRET, 600) + "";
-        when(redisService.hasKey(CacheConstants.LOGIN_TOKEN_KEY + revoked)).thenReturn(false);
+        when(sessions.resolve(token)).thenReturn(null);
         EmbeddedChannel ch = channel();
-        ch.writeInbound(handshake("/ws?roomId=2001", "Bearer " + revoked + "x"));
+        ch.writeInbound(handshake("/ws?roomId=2001", "Bearer " + token));
 
         assertThat((Object) ch.readInbound()).isNull();
         assertThat(((FullHttpResponse) ch.readOutbound()).status()).isEqualTo(HttpResponseStatus.UNAUTHORIZED);
