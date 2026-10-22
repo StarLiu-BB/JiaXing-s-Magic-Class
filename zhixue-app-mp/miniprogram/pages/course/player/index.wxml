@@ -29,12 +29,12 @@
   <!-- 控制栏 -->
   <view class="control-bar">
     <view class="control-item" bindtap="onToggleChapters">
-      <text class="iconfont icon-menu"></text>
+      <image class="control-icon" src="/images/actions/menu.png" mode="aspectFit" />
       <text>目录</text>
     </view>
     <view class="control-item" bindtap="onToggleDanmaku">
-      <text class="iconfont {{showDanmaku ? 'icon-danmaku-on' : 'icon-danmaku-off'}}"></text>
-      <text>弹幕</text>
+      <image class="control-icon" src="{{showDanmaku ? '/images/actions/danmaku-on.png' : '/images/actions/danmaku-off.png'}}" mode="aspectFit" />
+      <text>{{showDanmaku ? '弹幕已开' : '弹幕已关'}}</text>
     </view>
   </view>
 
@@ -74,6 +74,8 @@
     <input 
       class="danmaku-input" 
       placeholder="发个弹幕吧~" 
+      value="{{danmakuDraft}}"
+      bindinput="onDanmakuInput"
       bindconfirm="onSendDanmaku"
       confirm-type="send"
     />

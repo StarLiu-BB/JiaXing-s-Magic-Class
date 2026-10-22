@@ -1,7 +1,21 @@
 <view class="page">
-  <view class="scope" wx:if="{{courseTitle}}">
+  <view class="toolbar">
+    <button size="mini" bindtap="onNew">新对话</button>
+    <button size="mini" bindtap="onToggleHistory">最近会话</button>
+  </view>
+  <scroll-view wx:if="{{historyOpen}}" class="history" scroll-y>
+    <view class="history-row" wx:for="{{conversations}}" wx:key="id">
+      <text class="history-title" data-id="{{item.id}}" bindtap="onOpenConversation">{{item.title}}</text>
+      <button size="mini" data-id="{{item.id}}" data-title="{{item.title}}" bindtap="onRenameConversation">改名</button>
+      <button size="mini" data-id="{{item.id}}" bindtap="onDeleteConversation">删除</button>
+    </view>
+    <text wx:if="{{!historyLoading && conversations.length === 0}}">还没有会话</text>
+    <button wx:if="{{historyHasMore}}" disabled="{{historyLoading}}" bindtap="onMoreHistory">加载更多</button>
+  </scroll-view>
+  <view class="scope" wx:if="{{courseId}}">
     <text class="scope-label">答疑范围</text>
-    <text class="scope-value">{{courseTitle}}</text>
+    <text class="scope-value">{{courseTitle || '指定课程'}}</text>
+    <button wx:if="{{!conversationId}}" size="mini" bindtap="onClearScope">清除</button>
   </view>
 
   <scroll-view class="messages" scroll-y scroll-into-view="{{scrollTarget}}" scroll-with-animation>
@@ -9,45 +23,50 @@
       <view class="welcome-title">有什么课程问题？</view>
       <view class="welcome-desc">答案依据课程知识库由 AI 生成，仅供参考</view>
       <view class="suggestions">
-        <view
-          class="suggestion"
-          wx:for="{{suggestions}}"
-          wx:key="*this"
-          data-text="{{item}}"
-          bindtap="onSuggestionTap"
-        >{{item}}</view>
+        <view class="suggestion" wx:for="{{suggestions}}" wx:key="*this" data-text="{{item}}" bindtap="onSuggestionTap">{{item}}</view>
       </view>
     </view>
-
-    <view
-      wx:for="{{messages}}"
-      wx:key="id"
-      id="{{item.id}}"
-      class="msg {{item.role}} {{item.failed ? 'failed' : ''}}"
-    >
+    <view wx:for="{{messages}}" wx:key="id" id="{{item.id}}" class="msg {{item.role}} {{item.status === 'failed' ? 'failed' : ''}}">
       <view class="bubble">
         <text user-select="{{true}}">{{item.content}}</text>
+        <view class="meta" wx:if="{{item.status === 'streaming' && !item.content}}">AI 正在思考…</view>
+        <view class="meta" wx:if="{{item.status === 'streaming' && item.content}}">正在生成…</view>
+        <view class="meta" wx:if="{{item.status === 'stopped'}}">已停止</view>
         <view class="meta" wx:if="{{item.cost}}">用时 {{item.cost}} 秒</view>
+        <view class="failure" wx:if="{{item.status === 'failed' || item.status === 'interrupted'}}">
+          <text>{{item.error}}</text>
+          <button size="mini" disabled="{{loading || cooldown}}" data-question="{{item.question}}" bindtap="onRetry">重试</button>
+        </view>
+        <view wx:if="{{item.unanswered}}" class="failure">
+          <text>此问题未完成回答</text>
+          <button size="mini" data-question="{{item.content}}" disabled="{{loading || cooldown}}" bindtap="onRetry">重试</button>
+        </view>
+        <block wx:if="{{item.status === 'done'}}">
+          <view class="meta" wx:for="{{item.sources}}" wx:for-item="source" wx:key="documentId">参考资料：{{source.title}}</view>
+          <view class="meta" wx:if="{{item.notice}}">{{item.notice}}</view>
+          <view class="save-warning" wx:if="{{item.saveNotice}}">{{item.saveNotice}}</view>
+          <view class="recommendation" wx:for="{{item.recommendations}}" wx:for-item="card" wx:key="courseId">
+            <view class="card-heading" data-id="{{card.courseId}}" bindtap="onCourseTap">
+              <safe-image image-class="card-cover" src="{{card.coverUrl}}" mode="aspectFill" />
+              <view class="card-info">
+                <text class="card-title">{{card.title}}</text>
+                <text class="card-price">{{card.price == 0 ? '免费课程' : card.purchased ? '可学习' : '¥' + card.price}}</text>
+              </view>
+            </view>
+            <view class="card-lesson" wx:for="{{card.lessons}}" wx:for-item="lesson" wx:key="lessonId" data-course-id="{{card.courseId}}" data-lesson-id="{{lesson.lessonId}}" data-chapter-id="{{lesson.chapterId}}" bindtap="onLessonTap">
+              <text>{{lesson.chapterIndex}}.{{lesson.lessonIndex}} {{lesson.title}}</text>
+              <text class="lesson-access">{{lesson.playable ? '播放' : '需购买'}}</text>
+            </view>
+          </view>
+        </block>
       </view>
-    </view>
-
-    <view class="msg assistant" wx:if="{{loading}}">
-      <view class="bubble thinking">AI 正在思考…</view>
     </view>
     <view id="bottom" class="bottom-spacer"></view>
   </scroll-view>
 
   <view class="composer">
-    <input
-      class="composer-input"
-      value="{{input}}"
-      placeholder="输入你的问题"
-      maxlength="500"
-      confirm-type="send"
-      disabled="{{loading}}"
-      bindinput="onInput"
-      bindconfirm="onSend"
-    />
-    <button class="composer-send" disabled="{{loading || !input}}" bindtap="onSend">发送</button>
+    <input class="composer-input" value="{{input}}" placeholder="输入你的问题" maxlength="500" confirm-type="send" disabled="{{loading || cooldown}}" bindinput="onInput" bindconfirm="onSend" />
+    <button wx:if="{{loading}}" class="composer-send" bindtap="onStop">停止</button>
+    <button wx:else class="composer-send" disabled="{{cooldown || !input}}" bindtap="onSend">{{cooldown ? '稍候' : '发送'}}</button>
   </view>
 </view>

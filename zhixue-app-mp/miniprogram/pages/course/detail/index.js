@@ -10,6 +10,7 @@ const {
 const { createOrder } = require('../../../api/order')
 const { checkout } = require('../../../utils/pay')
 const { upsertFavoriteCache, removeFavoriteCache } = require('../../../api/user')
+const { requestLogin } = require('../../../utils/nav')
 
 Page({
   /**
@@ -139,17 +140,7 @@ Page({
    */
   async onFavoriteTap() {
     if (!app.globalData.isLogin) {
-      wx.showModal({
-        title: '提示',
-        content: '请先登录',
-        success: (res) => {
-          if (res.confirm) {
-            wx.navigateTo({
-              url: '/pages/my/index'
-            })
-          }
-        }
-      })
+      requestLogin()
       return
     }
 
@@ -190,17 +181,7 @@ Page({
    */
   async onBuyTap() {
     if (!app.globalData.isLogin) {
-      wx.showModal({
-        title: '提示',
-        content: '请先登录',
-        success: (res) => {
-          if (res.confirm) {
-            wx.navigateTo({
-              url: '/pages/my/index'
-            })
-          }
-        }
-      })
+      requestLogin()
       return
     }
 
@@ -237,17 +218,7 @@ Page({
    */
   onStudyTap() {
     if (!app.globalData.isLogin) {
-      wx.showModal({
-        title: '提示',
-        content: '请先登录',
-        success: (res) => {
-          if (res.confirm) {
-            wx.navigateTo({
-              url: '/pages/my/index'
-            })
-          }
-        }
-      })
+      requestLogin()
       return
     }
 

@@ -3,6 +3,7 @@ const app = getApp()
 const { getOnlineSeckills, getSeckillToken, doSeckill } = require('../../api/marketing')
 const { getCourseDetail } = require('../../api/course')
 const { checkout } = require('../../utils/pay')
+const { requestLogin } = require('../../utils/nav')
 
 /** 后端返回 LocalDateTime（如 2026-09-30T17:14:00），iOS 只能稳定解析 YYYY/MM/DD HH:mm:ss */
 function parseTime(value) {
@@ -125,15 +126,7 @@ Page({
       return
     }
     if (!app.globalData.isLogin) {
-      wx.showModal({
-        title: '提示',
-        content: '请先登录后参与秒杀',
-        success: (res) => {
-          if (res.confirm) {
-            wx.navigateTo({ url: '/pages/my/index' })
-          }
-        }
-      })
+      requestLogin()
       return
     }
 

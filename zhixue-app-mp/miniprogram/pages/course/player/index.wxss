@@ -2,6 +2,8 @@
 .player-container {
   width: 100%;
   height: 100vh;
+  box-sizing: border-box;
+  padding-bottom: calc(110rpx + env(safe-area-inset-bottom));
   background-color: #000;
   display: flex;
   flex-direction: column;
@@ -10,6 +12,7 @@
 /* 视频播放器 */
 .video-wrapper {
   flex: 1;
+  min-height: 0;
   position: relative;
   width: 100%;
   background-color: #000;
@@ -63,6 +66,11 @@
   gap: 5rpx;
   color: #fff;
   font-size: 24rpx;
+}
+
+.control-icon {
+  width: 40rpx;
+  height: 40rpx;
 }
 
 /* 章节侧边栏 */
@@ -193,6 +201,7 @@
   left: 0;
   right: 0;
   padding: 20rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background-color: rgba(0, 0, 0, 0.8);
   z-index: 100;
 }

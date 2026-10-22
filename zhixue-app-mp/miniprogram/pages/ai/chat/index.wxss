@@ -112,6 +112,17 @@
   color: var(--text-color-disabled);
 }
 
+.save-warning {
+  margin-top: 8rpx;
+  padding: 12rpx 16rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #b45309;
+  background-color: #fffbeb;
+  border: 1rpx solid #fde68a;
+  border-radius: 8rpx;
+}
+
 .bottom-spacer {
   height: 24rpx;
 }
@@ -128,6 +139,7 @@
 
 .composer-input {
   flex: 1;
+  min-width: 0;
   height: 72rpx;
   padding: 0 24rpx;
   background-color: var(--bg-color);
@@ -136,6 +148,9 @@
 }
 
 .composer-send {
+  flex: 0 0 140rpx;
+  width: 140rpx;
+  box-sizing: border-box;
   margin: 0;
   padding: 0 32rpx;
   height: 72rpx;
@@ -149,4 +164,96 @@
 .composer-send[disabled] {
   color: var(--white) !important;
   background-color: #a0cfff !important;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 16rpx 24rpx;
+  background: #fff;
+}
+
+.toolbar button {
+  margin: 0;
+}
+
+.history {
+  max-height: 360rpx;
+  padding: 16rpx 24rpx;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 12rpx 0;
+}
+
+.history-title {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.history-row button {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.failure {
+  color: var(--error-color);
+  margin-top: 12rpx;
+}
+
+.recommendation {
+  margin-top: 20rpx;
+  border: 1rpx solid var(--border-color);
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.card-heading {
+  display: flex;
+  padding: 16rpx;
+  gap: 16rpx;
+}
+
+.card-cover {
+  width: 130rpx;
+  height: 80rpx;
+  border-radius: 8rpx;
+}
+
+.card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.card-title {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.card-price {
+  font-size: 24rpx;
+  color: var(--primary-color);
+}
+
+.card-lesson {
+  display: flex;
+  flex-direction: column;
+  padding: 16rpx;
+  border-top: 1rpx solid var(--border-color);
+  font-size: 24rpx;
+}
+
+.lesson-access {
+  color: var(--primary-color);
+  margin-top: 6rpx;
 }

@@ -17,6 +17,7 @@ Page({
     currentLesson: null,
     videoUrl: '',
     danmakuList: [],
+    danmakuDraft: '',
     showDanmaku: true,
     showChapters: false,
     progress: 0,
@@ -48,7 +49,8 @@ Page({
 
     this.setData({
       courseId,
-      chapterId: chapterId || null
+      chapterId: chapterId || null,
+      lessonId: lessonId || null
     })
 
     this.initVideoContext()
@@ -130,18 +132,24 @@ Page({
    * 设置当前课时
    */
   setCurrentLesson() {
-    const { chapters, chapterId } = this.data
+    const { chapters, chapterId, lessonId } = this.data
     let targetChapter = null
     let targetLesson = null
 
-    if (chapterId) {
-      targetChapter = chapters.find(ch => String(ch.id) === String(chapterId))
+    if (lessonId) {
+      targetChapter = chapters.find(ch => (ch.lessons || []).some(lesson => String(lesson.id) === String(lessonId)))
+      targetLesson = targetChapter && targetChapter.lessons.find(lesson => String(lesson.id) === String(lessonId))
+      if (!targetLesson) {
+        wx.showToast({ title: '课时不存在或已删除', icon: 'none' })
+        return
+      }
+      if (!this.canPlayLesson(targetLesson)) {
+        this.promptPurchase()
+        return
+      }
     } else {
-      targetChapter = chapters[0]
-    }
-
-    if (targetChapter && targetChapter.lessons && targetChapter.lessons.length > 0) {
-      targetLesson = targetChapter.lessons[0]
+      targetChapter = chapterId ? chapters.find(ch => String(ch.id) === String(chapterId)) : chapters[0]
+      targetLesson = targetChapter && (targetChapter.lessons || [])[0]
     }
 
     if (targetLesson) {
@@ -208,11 +216,15 @@ Page({
     this.setData({ danmakuList })
   },
 
+  onDanmakuInput(e) {
+    this.setData({ danmakuDraft: e.detail.value })
+  },
+
   /**
    * 发送弹幕
    */
   onSendDanmaku(e) {
-    const { text } = e.detail
+    const text = e.detail.value
     if (!text || !text.trim()) {
       wx.showToast({
         title: '请输入弹幕内容',
@@ -237,7 +249,9 @@ Page({
         title: '发送失败，连接已断开',
         icon: 'none'
       })
+      return
     }
+    this.setData({ danmakuDraft: '' })
   },
 
   /**

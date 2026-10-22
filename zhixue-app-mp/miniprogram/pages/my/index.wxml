@@ -5,9 +5,9 @@
     <view class="user-bg"></view>
     <view class="user-content">
       <view class="user-avatar-wrap" bindtap="onAvatarTap">
-        <image class="user-avatar" src="{{userInfo.avatar || '/images/avatar-default.png'}}" mode="aspectFill" />
+        <safe-image image-class="user-avatar" src="{{userInfo.avatar}}" fallback="/images/avatar-default.png" mode="aspectFill" />
         <view class="avatar-edit" wx:if="{{isLogin}}">
-          <text class="edit-icon">📷</text>
+          <image class="edit-icon" src="/images/actions/camera.png" mode="aspectFit" />
         </view>
       </view>
       <view class="user-info" bindtap="onLoginTap">
@@ -50,26 +50,26 @@
     <view class="order-menu">
       <view class="order-item" bindtap="onOrderStatusTap" data-status="0">
         <view class="order-icon-wrap">
-          <text class="order-icon">🛒</text>
+          <image class="order-icon" src="/images/actions/cart.png" mode="aspectFit" />
           <view class="order-badge" wx:if="{{orderStats.unpaid > 0}}">{{orderStats.unpaid}}</view>
         </view>
         <text class="order-label">待付款</text>
       </view>
       <view class="order-item" bindtap="onOrderStatusTap" data-status="1">
         <view class="order-icon-wrap">
-          <text class="order-icon">📦</text>
+          <image class="order-icon" src="/images/actions/paid.png" mode="aspectFit" />
         </view>
         <text class="order-label">已付款</text>
       </view>
       <view class="order-item" bindtap="onOrderStatusTap" data-status="2">
         <view class="order-icon-wrap">
-          <text class="order-icon">✅</text>
+          <image class="order-icon" src="/images/actions/complete.png" mode="aspectFit" />
         </view>
-        <text class="order-label">已完成</text>
+        <text class="order-label">已取消</text>
       </view>
       <view class="order-item" bindtap="onAfterSaleTap">
         <view class="order-icon-wrap">
-          <text class="order-icon">🔄</text>
+          <image class="order-icon" src="/images/actions/refund.png" mode="aspectFit" />
         </view>
         <text class="order-label">售后/退款</text>
       </view>
@@ -82,35 +82,35 @@
     <view class="menu-list">
       <view class="menu-item" bindtap="onStudyRecordTap">
         <view class="menu-icon-wrap">
-          <text class="menu-icon">📚</text>
+          <image class="menu-icon" src="/images/actions/records.png" mode="aspectFit" />
         </view>
         <text class="menu-label">学习记录</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" bindtap="onMyCourseTap">
         <view class="menu-icon-wrap">
-          <text class="menu-icon">🎓</text>
+          <image class="menu-icon" src="/images/actions/courses.png" mode="aspectFit" />
         </view>
         <text class="menu-label">我的课程</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" bindtap="onMyCollectTap">
         <view class="menu-icon-wrap">
-          <text class="menu-icon">⭐</text>
+          <image class="menu-icon" src="/images/actions/favorite.png" mode="aspectFit" />
         </view>
         <text class="menu-label">我的收藏</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" bindtap="onCouponTap">
         <view class="menu-icon-wrap">
-          <text class="menu-icon">🎫</text>
+          <image class="menu-icon" src="/images/actions/coupon.png" mode="aspectFit" />
         </view>
         <text class="menu-label">优惠券</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" bindtap="onAiTap">
         <view class="menu-icon-wrap">
-          <text class="menu-icon">🤖</text>
+          <image class="menu-icon" src="/images/actions/ai.png" mode="aspectFit" />
         </view>
         <text class="menu-label">AI 课程助教</text>
         <text class="menu-arrow">></text>
@@ -124,28 +124,28 @@
     <view class="menu-list">
       <view class="menu-item" bindtap="onContactTap">
         <view class="menu-icon-wrap">
-          <text class="menu-icon">💬</text>
+          <image class="menu-icon" src="/images/actions/contact.png" mode="aspectFit" />
         </view>
         <text class="menu-label">联系客服</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" bindtap="onFeedbackTap">
         <view class="menu-icon-wrap">
-          <text class="menu-icon">📝</text>
+          <image class="menu-icon" src="/images/actions/feedback.png" mode="aspectFit" />
         </view>
         <text class="menu-label">意见反馈</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" bindtap="onAboutTap">
         <view class="menu-icon-wrap">
-          <text class="menu-icon">ℹ️</text>
+          <image class="menu-icon" src="/images/actions/about.png" mode="aspectFit" />
         </view>
         <text class="menu-label">关于我们</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" bindtap="onSettingTap">
         <view class="menu-icon-wrap">
-          <text class="menu-icon">⚙️</text>
+          <image class="menu-icon" src="/images/actions/settings.png" mode="aspectFit" />
         </view>
         <text class="menu-label">设置</text>
         <text class="menu-arrow">></text>

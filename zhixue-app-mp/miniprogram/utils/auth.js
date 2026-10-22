@@ -2,6 +2,8 @@
  * 认证工具函数
  */
 
+const { openPage } = require('./nav')
+
 // Token存储key
 const TOKEN_KEY = 'zhixue_token'
 const USER_INFO_KEY = 'zhixue_user_info'
@@ -107,10 +109,8 @@ function checkLoginAndRedirect(redirectUrl = '/pages/my/index') {
       title: '提示',
       content: '请先登录',
       showCancel: false,
-      success: () => {
-        wx.navigateTo({
-          url: redirectUrl
-        })
+      success: res => {
+        if (res.confirm) openPage(redirectUrl)
       }
     })
     return false
