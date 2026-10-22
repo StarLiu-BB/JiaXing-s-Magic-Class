@@ -46,6 +46,15 @@ zhixue-app-mp/
 - ✅ 加载提示
 - ✅ Token刷新机制（预留接口）
 
+### 小程序 AI 答疑
+- 使用现有 `POST /ai/conversations/messages` 流式接口，支持停止、重试、同一会话追问。
+- 最近会话支持分页、打开、重命名、删除；历史按服务端的完成/停止/失败状态恢复。
+- 回答完成后显示参考资料和课程推荐；推荐课时由播放器重新校验观看权限，锁定课时提示购买。
+- 新服务端返回 `saved=false` 或显式 `saved=null` 时，分别提示未保存/保存待确认；旧服务端缺字段时不误报。
+- `api/ai-stream.js` 独立使用 RequestTask 分块回调，`utils/sse-codec.js` 增量解码 UTF-8，不要求真机存在 TextDecoder。
+- 模型内容以纯文本显示，不解析 HTML，不加载模型提供的图片。401 草稿按账号隔离、30分钟过期；断线不自动重发。
+- 开发者工具基础库 3.17.5 已验真实流式、多轮、停止和历史；真机分块网络与切后台行为仍需验收。
+
 ### 4. 认证工具 (utils/auth.js)
 - ✅ Token 存储到 Storage
 - ✅ 用户信息存储
@@ -70,12 +79,18 @@ wx.setStorageSync('BASE_URL', 'http://你的网关地址:19001')
 wx.setStorageSync('WS_URL', 'ws://你的互动服务地址:9999/ws/danmaku')
 ```
 
-### 3. 添加 TabBar 图标
-在 `miniprogram/images/tabbar/` 目录下添加以下图标：
-- `home.png` / `home-active.png` - 首页图标
-- `category.png` / `category-active.png` - 分类图标
-- `study.png` / `study-active.png` - 学习图标
-- `my.png` / `my-active.png` - 我的图标
+### 3. 图标与图片兜底
+本地图标已接入，源自 Element Plus Icons 2.3.2（MIT，许可见 `miniprogram/images/LICENSE`）。保留原生 TabBar，导航普通/选中态资源位于 `images/tabbar/`；分类 ID 映射集中在 `utils/category-icons.js`，未知分类使用默认图标；操作图标在 `images/actions/`。
+
+`safe-image` 全局组件保留原生图片显示模式和外部样式类，空地址或加载失败时回退到指定本地图片，兜底失败不会循环请求。头像使用 `avatar-default.png`，课程封面使用 `course-default.png`。
+
+在仓库根目录重新生成资源或执行回归：
+```bash
+npm ci --prefix zhixue-app-mp/tools
+node zhixue-app-mp/tools/generate-icons.cjs
+node --test zhixue-app-mp/tests/*.test.cjs
+```
+生成器从 SVG 输出高分辨率 PNG，工具依赖位于 `tools/`，不进入小程序代码包。
 
 ### 4. 使用请求封装
 ```javascript
