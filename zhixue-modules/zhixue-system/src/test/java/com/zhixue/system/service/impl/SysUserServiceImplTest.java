@@ -43,6 +43,9 @@ class SysUserServiceImplTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock private com.zhixue.system.service.support.AdminOperationGuard adminOperationGuard;
+    @Mock private com.zhixue.system.service.support.SessionRevoker sessionRevoker;
+
     @InjectMocks
     private SysUserServiceImpl userService;
 
@@ -75,6 +78,28 @@ class SysUserServiceImplTest {
         assertThat(loginUser.getRoles()).containsExactly("ADMIN");
         assertThat(loginUser.getPermissions()).contains("system:user:list", "course:list");
         assertThat(loginUser.getSysUser().getUsername()).isEqualTo("admin");
+    }
+
+    @Test
+    void redisRevocationFailurePreventsPasswordDatabaseWrite() {
+        SysUser user = new SysUser(); user.setId(1003L);
+        when(userMapper.selectById(1003L)).thenReturn(user);
+        when(passwordEncoder.encode("testonly123")).thenReturn("encoded");
+        org.mockito.Mockito.doThrow(new com.zhixue.common.core.exception.ServiceException("Redis不可用"))
+                .when(sessionRevoker).revokeUser(1003L);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> userService.resetPassword(1003L, "testonly123"))
+                .hasMessageContaining("Redis不可用");
+        verify(userMapper, org.mockito.Mockito.never()).updateById(any(SysUser.class));
+    }
+
+    @Test
+    void passwordAndStatusChangesRevokeBeforeDatabaseWrite() {
+        SysUser user = new SysUser(); user.setId(1003L); user.setStatus(0);
+        when(userMapper.selectById(1003L)).thenReturn(user);
+        userService.changeStatus(1003L, 1);
+        var order = org.mockito.Mockito.inOrder(sessionRevoker, userMapper);
+        order.verify(sessionRevoker).revokeUser(1003L);
+        order.verify(userMapper).updateById(any(SysUser.class));
     }
 
     @Test

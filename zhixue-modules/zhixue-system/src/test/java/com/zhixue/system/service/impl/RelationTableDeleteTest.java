@@ -74,7 +74,7 @@ class RelationTableDeleteTest {
     private final SysMenuMapper menuMapper = mock(SysMenuMapper.class);
 
     private SysRoleServiceImpl roleService() {
-        return new SysRoleServiceImpl(roleMapper, roleMenuMapper, userRoleMapper, menuMapper);
+        return new SysRoleServiceImpl(roleMapper, roleMenuMapper, userRoleMapper, menuMapper, mock(com.zhixue.system.service.support.SessionRevoker.class));
     }
 
     private static SysMenu menu(long id, long parentId, String perms) {
@@ -122,7 +122,7 @@ class RelationTableDeleteTest {
         when(menuMapper.selectCount(any())).thenReturn(0L);
         when(menuMapper.deleteById(141L)).thenReturn(1);
 
-        new SysMenuServiceImpl(menuMapper, userRoleMapper, roleMapper, roleMenuMapper).removeMenu(141L);
+        new SysMenuServiceImpl(menuMapper, userRoleMapper, roleMapper, roleMenuMapper, mock(com.zhixue.system.service.support.SessionRevoker.class)).removeMenu(141L);
 
         verify(roleMenuMapper).physicalDeleteByMenuId(141L);
         verify(roleMenuMapper, never()).delete(any());
@@ -171,7 +171,7 @@ class RelationTableDeleteTest {
         when(roleMapper.selectBatchIds(List.of(3L))).thenReturn(List.of(role(3L, "STUDENT")));
         when(userRoleMapper.insert(any(SysUserRole.class))).thenReturn(1);
 
-        SysUserServiceImpl userService = new SysUserServiceImpl(userMapper, userRoleMapper, roleMapper, null, null);
+        SysUserServiceImpl userService = new SysUserServiceImpl(userMapper, userRoleMapper, roleMapper, null, null, new com.zhixue.system.service.support.AdminOperationGuard(roleMapper), mock(com.zhixue.system.service.support.SessionRevoker.class));
         userService.assignRoles(1003L, List.of(3L));
         userService.removeUser(1003L);
 

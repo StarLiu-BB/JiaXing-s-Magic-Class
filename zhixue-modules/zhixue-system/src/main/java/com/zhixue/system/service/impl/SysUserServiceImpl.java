@@ -38,6 +38,8 @@ public class SysUserServiceImpl implements SysUserService {
     private final SysRoleMapper roleMapper;
     private final SysMenuService menuService;
     private final PasswordEncoder passwordEncoder;
+    private final com.zhixue.system.service.support.AdminOperationGuard adminOperationGuard;
+    private final com.zhixue.system.service.support.SessionRevoker sessionRevoker;
 
     @Override
     public PageResult<UserVO> listUsers(UserQueryDTO query) {
@@ -79,6 +81,8 @@ public class SysUserServiceImpl implements SysUserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean createUser(UserDTO dto) {
+        roleMapper.lockEnabledAdminRoles();
+        com.zhixue.system.service.support.AdminOperationGuard.validateStatus(dto.getStatus());
         if (StringUtils.isBlank(dto.getUsername())) {
             throw new ServiceException("用户名不能为空");
         }
@@ -104,18 +108,22 @@ public class SysUserServiceImpl implements SysUserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updateUser(UserDTO dto) {
+        roleMapper.lockEnabledAdminRoles();
         SysUser entity = userMapper.selectById(dto.getId());
         if (entity == null) {
             throw new ServiceException("用户不存在");
         }
+        adminOperationGuard
+                .checkUserChange(entity.getId(), dto.getStatus(), dto.getRoleIds(), false);
         entity.setNickname(dto.getNickname());
         entity.setPhone(dto.getPhone());
         entity.setEmail(dto.getEmail());
         entity.setRemark(dto.getRemark());
-        entity.setStatus(dto.getStatus());
+        if (dto.getStatus() != null) entity.setStatus(dto.getStatus());
         if (StringUtils.isNotBlank(dto.getPassword())) {
             entity.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
+        sessionRevoker.revokeUser(entity.getId());
         boolean updated = userMapper.updateById(entity) > 0;
         if (updated && dto.getRoleIds() != null) {
             assignRoles(entity.getId(), dto.getRoleIds());
@@ -126,6 +134,8 @@ public class SysUserServiceImpl implements SysUserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean removeUser(Long id) {
+        adminOperationGuard.checkUserChange(id, null, List.of(), true);
+        sessionRevoker.revokeUser(id);
         userRoleMapper.physicalDeleteByUserId(id);
         return userMapper.deleteById(id) > 0;
     }
@@ -133,6 +143,7 @@ public class SysUserServiceImpl implements SysUserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean assignRoles(Long userId, List<Long> roleIds) {
+        roleMapper.lockEnabledAdminRoles();
         log.info("分配角色 userId={}, roles={}", userId, roleIds);
         if (userId == null || userMapper.selectById(userId) == null) {
             throw new ServiceException("用户不存在");
@@ -140,15 +151,9 @@ public class SysUserServiceImpl implements SysUserService {
         if (roleIds == null) {
             return true;
         }
-        userRoleMapper.physicalDeleteByUserId(userId);
-        if (roleIds.isEmpty()) {
-            return true;
-        }
         List<Long> targetRoleIds = roleIds.stream().filter(Objects::nonNull).distinct().toList();
-        if (targetRoleIds.isEmpty()) {
-            return true;
-        }
-        List<Long> existingRoleIds = roleMapper.selectBatchIds(targetRoleIds).stream()
+        adminOperationGuard.checkUserChange(userId, null, targetRoleIds, false);
+        List<Long> existingRoleIds = targetRoleIds.isEmpty() ? List.of() : roleMapper.selectBatchIds(targetRoleIds).stream()
                 .filter(Objects::nonNull)
                 .map(SysRole::getId)
                 .filter(Objects::nonNull)
@@ -157,6 +162,8 @@ public class SysUserServiceImpl implements SysUserService {
         if (existingRoleIds.size() != targetRoleIds.size()) {
             throw new ServiceException("存在无效角色，分配失败");
         }
+        sessionRevoker.revokeUser(userId);
+        userRoleMapper.physicalDeleteByUserId(userId);
         int inserted = 0;
         for (Long roleId : targetRoleIds) {
             SysUserRole relation = new SysUserRole();
@@ -164,12 +171,14 @@ public class SysUserServiceImpl implements SysUserService {
             relation.setRoleId(roleId);
             inserted += userRoleMapper.insert(relation);
         }
-        return inserted == targetRoleIds.size();
+        if (inserted != targetRoleIds.size()) throw new ServiceException("角色分配失败，请重试");
+        return true;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean resetPassword(Long userId, String password) {
+        roleMapper.lockEnabledAdminRoles();
         if (userId == null || StringUtils.isBlank(password)) {
             throw new ServiceException("用户ID和密码不能为空");
         }
@@ -178,12 +187,14 @@ public class SysUserServiceImpl implements SysUserService {
             throw new ServiceException("用户不存在");
         }
         entity.setPassword(passwordEncoder.encode(password));
+        sessionRevoker.revokeUser(userId);
         return userMapper.updateById(entity) > 0;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean changeStatus(Long userId, Integer status) {
+        roleMapper.lockEnabledAdminRoles();
         if (userId == null || status == null) {
             throw new ServiceException("用户ID和状态不能为空");
         }
@@ -191,12 +202,16 @@ public class SysUserServiceImpl implements SysUserService {
         if (entity == null) {
             throw new ServiceException("用户不存在");
         }
+        adminOperationGuard.checkUserChange(userId, status, null, false);
+        sessionRevoker.revokeUser(userId);
         entity.setStatus(status);
         return userMapper.updateById(entity) > 0;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public LoginUser getLoginUserByUsername(String username) {
+        roleMapper.lockEnabledAdminRoles();
         LambdaQueryWrapper<SysUser> qw = new LambdaQueryWrapper<>();
         qw.eq(SysUser::getUsername, username);
         SysUser user = userMapper.selectOne(qw);
@@ -204,7 +219,9 @@ public class SysUserServiceImpl implements SysUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public LoginUser getLoginUserByPhone(String phone) {
+        roleMapper.lockEnabledAdminRoles();
         if (StringUtils.isBlank(phone)) {
             return null;
         }

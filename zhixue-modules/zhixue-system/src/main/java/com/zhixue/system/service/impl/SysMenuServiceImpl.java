@@ -35,6 +35,7 @@ public class SysMenuServiceImpl implements SysMenuService {
     private final SysUserRoleMapper userRoleMapper;
     private final SysRoleMapper roleMapper;
     private final SysRoleMenuMapper roleMenuMapper;
+    private final com.zhixue.system.service.support.SessionRevoker sessionRevoker;
 
     @Override
     public List<SysMenu> listMenus() {
@@ -57,22 +58,41 @@ public class SysMenuServiceImpl implements SysMenuService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updateMenu(SysMenu menu) {
+        com.zhixue.system.service.support.AdminOperationGuard.validateStatus(menu.getStatus());
+        roleMapper.lockEnabledAdminRoles();
         if (menu.getId() == null) {
             throw new ServiceException("菜单ID不能为空");
         }
+        SysMenu existing = menuMapper.selectList(null).stream().filter(item -> Objects.equals(item.getId(), menu.getId())).findFirst().orElse(null);
+        if (existing != null && containsRecoveryPermission(existing.getPerms())
+                && ((menu.getPerms() != null && !Objects.equals(menu.getPerms(), existing.getPerms()))
+                || Integer.valueOf(1).equals(menu.getStatus()))) {
+            throw new ServiceException("恢复权限菜单不允许停用或修改权限标识");
+        }
+        sessionRevoker.revokeAll();
         return menuMapper.updateById(menu) > 0;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean removeMenu(Long id) {
+        roleMapper.lockEnabledAdminRoles();
+        if (menuMapper.selectList(null).stream().anyMatch(menu -> Objects.equals(menu.getId(), id) && containsRecoveryPermission(menu.getPerms()))) {
+            throw new ServiceException("恢复权限菜单不允许删除");
+        }
         // 父菜单被删后子菜单与按钮权限成为孤儿：从菜单树消失，却仍被角色授权引用
         Long children = menuMapper.selectCount(new LambdaQueryWrapper<SysMenu>().eq(SysMenu::getParentId, id));
         if (children != null && children > 0) {
             throw new ServiceException("存在子菜单，请先删除子菜单");
         }
+        sessionRevoker.revokeAll();
         roleMenuMapper.physicalDeleteByMenuId(id);
         return menuMapper.deleteById(id) > 0;
+    }
+
+    private boolean containsRecoveryPermission(String permissions) {
+        return permissions != null && Arrays.stream(permissions.split(",")).map(String::trim)
+                .anyMatch(permission -> permission.equals("system:role:list") || permission.equals("system:role:edit"));
     }
 
     @Override

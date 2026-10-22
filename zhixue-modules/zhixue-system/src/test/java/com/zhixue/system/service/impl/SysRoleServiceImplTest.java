@@ -40,6 +40,8 @@ class SysRoleServiceImplTest {
     @Mock
     private SysMenuMapper menuMapper;
 
+    @Mock private com.zhixue.system.service.support.SessionRevoker sessionRevoker;
+
     @InjectMocks
     private SysRoleServiceImpl roleService;
 
@@ -103,6 +105,36 @@ class SysRoleServiceImplTest {
         when(roleMapper.deleteById(2L)).thenReturn(1);
 
         assertThat(roleService.removeRole(2L)).isTrue();
+    }
+
+    @Test
+    void menuInsertFailureThrowsRatherThanCommitPartialGrant() {
+        SysRole role = new SysRole(); role.setId(2L);
+        when(roleMapper.selectById(2L)).thenReturn(role);
+        SysMenu menu = new SysMenu(); menu.setId(201L);
+        when(menuMapper.selectBatchIds(List.of(201L))).thenReturn(List.of(menu));
+        when(roleMenuMapper.insert(any(SysRoleMenu.class))).thenReturn(0);
+        assertThatThrownBy(() -> roleService.assignMenus(2L, List.of(201L)))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("分配失败");
+    }
+
+    @Test
+    void combinedRecoveryPermissionsMustRemainGranted() {
+        when(roleMapper.selectById(1L)).thenReturn(adminRole());
+        SysMenu recovery = new SysMenu(); recovery.setId(201L); recovery.setStatus(0);
+        recovery.setPerms("system:role:list, system:role:edit");
+        when(menuMapper.selectList(null)).thenReturn(List.of(recovery));
+        assertThatThrownBy(() -> roleService.assignMenus(1L, List.of()))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("必须保留");
+        verify(roleMenuMapper, never()).physicalDeleteByRoleId(1L);
+    }
+
+    @Test
+    void missingRecoveryPermissionDataFailsClosed() {
+        when(roleMapper.selectById(1L)).thenReturn(adminRole());
+        when(menuMapper.selectList(null)).thenReturn(List.of());
+        assertThatThrownBy(() -> roleService.assignMenus(1L, List.of()))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("必须保留");
     }
 
     @Test

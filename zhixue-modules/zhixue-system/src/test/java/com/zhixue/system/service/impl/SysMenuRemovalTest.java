@@ -47,6 +47,8 @@ class SysMenuRemovalTest {
     @Mock
     private SysRoleMenuMapper roleMenuMapper;
 
+    @Mock private com.zhixue.system.service.support.SessionRevoker sessionRevoker;
+
     @InjectMocks
     private SysMenuServiceImpl menuService;
 
@@ -59,6 +61,24 @@ class SysMenuRemovalTest {
                 .hasMessageContaining("子菜单");
         verify(menuMapper, never()).deleteById(any(Long.class));
         verify(roleMenuMapper, never()).physicalDeleteByMenuId(any());
+    }
+
+    @Test
+    void recoveryPermissionCannotBeDisabledOrDeleted() {
+        SysMenu menu = new SysMenu(); menu.setId(141L); menu.setPerms("system:role:edit");
+        when(menuMapper.selectList(null)).thenReturn(java.util.List.of(menu));
+        SysMenu update = new SysMenu(); update.setId(141L); update.setStatus(1);
+        assertThatThrownBy(() -> menuService.updateMenu(update)).isInstanceOf(ServiceException.class).hasMessageContaining("恢复权限");
+        assertThatThrownBy(() -> menuService.removeMenu(141L)).isInstanceOf(ServiceException.class).hasMessageContaining("恢复权限");
+        verify(menuMapper, never()).updateById(any(SysMenu.class));
+        verify(menuMapper, never()).deleteById(any(Long.class));
+    }
+
+    @Test
+    void invalidMenuStatusCannotBypassRecoveryGuard() {
+        SysMenu update = new SysMenu(); update.setId(141L); update.setStatus(2);
+        assertThatThrownBy(() -> menuService.updateMenu(update)).isInstanceOf(ServiceException.class);
+        verify(menuMapper, never()).updateById(any(SysMenu.class));
     }
 
     @Test
