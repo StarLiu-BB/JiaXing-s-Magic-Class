@@ -158,18 +158,21 @@ bash scripts/local/mp-api-check.sh   # 小程序端接口联调：按各页真�
 
 #### 已有数据的环境升级（不要执行 `db-init.sh`，它会清空全库）
 
+先备份已有数据库，并确认本地 MySQL 已启动、`ops/local/local.env` 已配置：
+
 ```bash
-source scripts/local/common.sh && load_env
-for f in zhixue-modules/zhixue-course/src/main/resources/sql/upgrade/2026-10-20-java-courses.sql \
-         zhixue-modules/zhixue-ai/src/main/resources/sql/upgrade/2026-10-20-java-knowledge.sql \
-         zhixue-modules/zhixue-ai/src/main/resources/sql/upgrade/2026-10-20-ai-conversation.sql; do
-  docker exec -i zhixue-local-mysql mysql --default-character-set=utf8mb4 -uroot -p"$ZHIXUE_DB_PASSWORD" < "$f"
-done
-compose up -d --force-recreate --no-deps course ai   # AI 服务启动时会把新资料补进向量索引
-bash scripts/local/ai-reco-check.sh                  # 推荐效果验收（5 个用例 + 实测分数）
+bash scripts/local/upgrade.sh --dry-run  # 只列出增量 SQL，不读取配置、不连接数据库
+bash scripts/local/upgrade.sh            # 确认备份和 SQL 后执行；首个错误即停止
 ```
 
-增量脚本只插入缺失的行或建缺失的表，可以重复执行。
+脚本按模块依赖顺序、模块内文件名顺序执行所有 `sql/upgrade/*.sql`，包括为后续 AI 可靠性版本准备的 `notice` / `trace` 升级；新增列不代表新版 AI 已部署。不重建库、不灌入种子数据，也不改写本地配置。认证使用 MySQL 容器已有的环境变量，密码不会出现在宿主机命令参数中。
+
+现有增量脚本可以重复执行，但 MySQL DDL 不保证整批事务回滚；中途失败时先核对实际库结构，再重试。升级不自动构建或重启服务，需完成对应模块构建并确认迁移后再部署：
+
+```bash
+docker compose --env-file ops/local/local.env -f ops/local/docker-compose.yml up -d --force-recreate --no-deps course ai
+bash scripts/local/ai-reco-check.sh
+```
 
 ## 🤝 贡献 (Contributing)
 欢迎提交 Issue 或 Pull Request 来完善项目！
