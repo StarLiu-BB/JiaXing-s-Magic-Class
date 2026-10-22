@@ -48,13 +48,16 @@ public class CourseController {
                                       @RequestParam(required = false) String title,
                                       @RequestParam(required = false) Long categoryId,
                                       @RequestParam(required = false) Integer status,
-                                      @RequestParam(required = false) Integer shelfStatus) {
+                                      @RequestParam(required = false) Integer shelfStatus,
+                                      @RequestParam(required = false) String keyword,
+                                      @RequestParam(required = false) String sort) {
         boolean canManageCourses = SecurityUtils.hasAnyPermission("course:list", "course:edit", "course:publish");
         if (!canManageCourses) {
             status = 1;
             shelfStatus = 1;
         }
-        return R.ok(courseService.pageCourses(query, title, categoryId, status, shelfStatus));
+        return R.ok(courseService.pageCourses(new com.zhixue.course.domain.query.CourseQuery(
+                StringUtils.hasText(title) ? title : keyword, categoryId, status, shelfStatus, sort, null), query));
     }
 
     @GetMapping("/banner/list")

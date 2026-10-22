@@ -78,14 +78,28 @@ class CourseControllerTest {
     @Test
     void shouldFilterPublicListWhenAnonymous() throws Exception {
         PageResult<Course> pageResult = PageResult.of(java.util.List.of(course), 1, 10);
-        given(courseService.pageCourses(any(), any(), any(), any(), any())).willReturn(pageResult);
+        given(courseService.pageCourses(any(com.zhixue.course.domain.query.CourseQuery.class), any())).willReturn(pageResult);
 
         mockMvc.perform(get("/list").param("pageNum", "1").param("pageSize", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.records[0].name").value("Spring Cloud 课程"));
 
-        verify(courseService).pageCourses(any(), any(), any(), eq(1), eq(1));
+        verify(courseService).pageCourses(org.mockito.ArgumentMatchers.argThat(query ->
+                Integer.valueOf(1).equals(query.status()) && Integer.valueOf(1).equals(query.shelfStatus())), any());
+    }
+
+    @Test
+    void shouldForwardKeywordAndSortWithoutAllowingAnonymousDrafts() throws Exception {
+        given(courseService.pageCourses(any(com.zhixue.course.domain.query.CourseQuery.class), any()))
+                .willReturn(PageResult.of(java.util.List.of(), 0, 10));
+        mockMvc.perform(get("/list").param("keyword", "线程池").param("sort", "price_desc")
+                        .param("categoryId", "2112366523950714882").param("status", "0").param("shelfStatus", "0"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.code").value(200));
+        verify(courseService).pageCourses(org.mockito.ArgumentMatchers.argThat(query ->
+                "线程池".equals(query.title()) && "price_desc".equals(query.sort())
+                        && Long.valueOf(2112366523950714882L).equals(query.categoryId())
+                        && Integer.valueOf(1).equals(query.status()) && Integer.valueOf(1).equals(query.shelfStatus())), any());
     }
 
     @Test

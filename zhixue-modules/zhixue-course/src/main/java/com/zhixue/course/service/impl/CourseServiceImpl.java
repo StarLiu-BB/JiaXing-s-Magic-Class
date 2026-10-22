@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhixue.common.core.domain.PageQuery;
 import com.zhixue.common.core.domain.PageResult;
+import com.zhixue.course.domain.entity.Category;
+import com.zhixue.course.mapper.CategoryMapper;
 import com.zhixue.course.domain.entity.Chapter;
 import com.zhixue.course.domain.entity.Course;
 import com.zhixue.course.domain.entity.Section;
@@ -33,16 +35,21 @@ public class CourseServiceImpl implements CourseService {
     private final CourseMapper courseMapper;
     private final ChapterMapper chapterMapper;
     private final SectionMapper sectionMapper;
+    private final CategoryMapper categoryMapper;
     private final CourseAccessGuard courseAccessGuard;
 
     @Override
-    public PageResult<Course> pageCourses(PageQuery query, String title, Long categoryId, Integer status, Integer shelfStatus) {
+    public PageResult<Course> pageCourses(com.zhixue.course.domain.query.CourseQuery criteria, PageQuery query) {
+        String title = criteria.title();
+        Long categoryId = criteria.categoryId();
+        Integer status = criteria.status();
+        Integer shelfStatus = criteria.shelfStatus();
         LambdaQueryWrapper<Course> qw = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(title)) {
             qw.like(Course::getTitle, title.trim());
         }
         if (categoryId != null) {
-            qw.eq(Course::getCategoryId, categoryId);
+            qw.in(Course::getCategoryId, categoryIdsWithDescendants(categoryId));
         }
         if (status != null) {
             qw.eq(Course::getStatus, status);
@@ -53,10 +60,35 @@ public class CourseServiceImpl implements CourseService {
         if (courseAccessGuard.isTeacherScoped()) {
             qw.eq(Course::getTeacherId, courseAccessGuard.currentTeacherId());
         }
-        qw.orderByDesc(Course::getCreateTime);
+        if (criteria.teacherIds() != null && !criteria.teacherIds().isEmpty()) {
+            qw.in(Course::getTeacherId, criteria.teacherIds());
+        }
+        if (com.zhixue.course.domain.query.CourseQuery.SORT_PRICE_ASC.equals(criteria.sort())) {
+            qw.orderByAsc(Course::getPrice);
+        } else if (com.zhixue.course.domain.query.CourseQuery.SORT_PRICE_DESC.equals(criteria.sort())) {
+            qw.orderByDesc(Course::getPrice);
+        } else if (com.zhixue.course.domain.query.CourseQuery.SORT_LATEST.equals(criteria.sort())) {
+            qw.orderByDesc(Course::getPublishTime);
+        }
+        qw.orderByDesc(Course::getCreateTime).orderByDesc(Course::getId);
         Page<Course> page = courseMapper.selectPage(
                 new Page<>(query.getPageNum(), query.getPageSize()), qw);
         return PageResult.of(page.getRecords(), page.getTotal(), page.getSize());
+    }
+
+    private List<Long> categoryIdsWithDescendants(Long categoryId) {
+        Map<Long, List<Long>> children = new LinkedHashMap<>();
+        for (Category category : categoryMapper.selectList(null)) {
+            children.computeIfAbsent(category.getParentId(), key -> new java.util.ArrayList<>()).add(category.getId());
+        }
+        java.util.Set<Long> visited = new java.util.LinkedHashSet<>();
+        java.util.Deque<Long> pending = new java.util.ArrayDeque<>();
+        pending.add(categoryId);
+        while (!pending.isEmpty()) {
+            Long id = pending.removeFirst();
+            if (visited.add(id)) pending.addAll(children.getOrDefault(id, List.of()));
+        }
+        return List.copyOf(visited);
     }
 
     @Override

@@ -11,7 +11,11 @@ import com.zhixue.common.core.domain.PageResult;
  */
 public interface CourseService {
 
-    PageResult<Course> pageCourses(PageQuery query, String title, Long categoryId, Integer status, Integer shelfStatus);
+    default PageResult<Course> pageCourses(PageQuery query, String title, Long categoryId, Integer status, Integer shelfStatus) {
+        return pageCourses(new com.zhixue.course.domain.query.CourseQuery(title, categoryId, status, shelfStatus, null, null), query);
+    }
+
+    PageResult<Course> pageCourses(com.zhixue.course.domain.query.CourseQuery query, PageQuery page);
 
     java.util.List<java.util.Map<String, Object>> listBanners(int limit);
 

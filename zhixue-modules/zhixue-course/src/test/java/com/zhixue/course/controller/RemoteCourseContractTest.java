@@ -89,7 +89,8 @@ class RemoteCourseContractTest {
 
     @Test
     void listCoursesPathMustHitController() throws Exception {
-        given(courseService.pageCourses(any(), any(), any(), eq(1), eq(1)))
+        given(courseService.pageCourses(org.mockito.ArgumentMatchers.argThat(query ->
+                Integer.valueOf(1).equals(query.status()) && Integer.valueOf(1).equals(query.shelfStatus())), any()))
                 .willReturn(PageResult.of(List.of(), 0L, 10));
 
         String path = feignPath("listCourses", com.zhixue.common.core.domain.PageQuery.class);
