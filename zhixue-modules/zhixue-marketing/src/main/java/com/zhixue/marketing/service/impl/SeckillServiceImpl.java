@@ -104,8 +104,9 @@ public class SeckillServiceImpl implements SeckillService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void preloadStock(Long activityId) {
-        SeckillActivity activity = requireActivity(activityId);
+        SeckillActivity activity = requireLockedActivity(activityId);
         if (activity.getStatus() != null && activity.getStatus() == 2) {
             throw new ServiceException("活动已结束");
         }
@@ -139,8 +140,7 @@ public class SeckillServiceImpl implements SeckillService {
      * <p>未引入 MQ：Lua 已保证进入下单环节的请求数不超过库存数，数据库写入量被 Redis 挡住，
      * 同步下单即可，且客户端无需轮询结果。</p>
      *
-     * <p>已知残留风险：若订单服务已建单但响应超时，本地会回滚库存，产生一张按秒杀价的
-     * 孤儿待支付单（最多多卖该笔）。彻底解决需要订单服务按 (activityId, userId) 做幂等键。</p>
+     * <p>订单按活动和用户幂等；结果不确定时保留库存占位，用户重试只确认原单。</p>
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -157,31 +157,54 @@ public class SeckillServiceImpl implements SeckillService {
 
         String stockKey = stockKeyPrefix + dto.getActivityId();
         String userKey = userKeyPrefix + dto.getActivityId();
-        // 两个 key 都通过 KEYS 传入，满足 Redis Cluster 的槽位校验要求
+        // 当前按单节点 Redis 执行；两个 KEYS 不代表已满足 Cluster 同槽要求。
         Long result = redisTemplate.execute(seckillScript, List.of(stockKey, userKey),
                 String.valueOf(userId));
         if (Objects.equals(result, 0L)) {
             throw new ServiceException("已售罄");
         }
         if (Objects.equals(result, 2L)) {
-            throw new ServiceException("请勿重复抢购");
+            OrderInfo confirmed;
+            try {
+                R<OrderInfo> response = remoteOrderService.findSeckillOrder(activity.getId(), userId,
+                        "true", securityProperties.getInternalToken());
+                confirmed = response != null && response.isSuccess() ? response.getData() : null;
+            } catch (RuntimeException unavailable) {
+                throw uncertainOrder();
+            }
+            if (confirmed == null) throw uncertainOrder();
+            return confirmedResult(confirmed, activity, userId);
         }
+        if (!Objects.equals(result, 1L)) throw uncertainOrder();
 
-        // 库存已在 Redis 中扣减，后续任何失败都必须补偿回滚，
-        // 否则事务回滚只撤销数据库，Redis 库存永久丢失。
+        OrderInfo realOrder;
         try {
-            OrderInfo realOrder = createRealOrder(userId, activity);
+            realOrder = createRealOrder(userId, activity);
+        } catch (ServiceException failure) {
+            if (isDefiniteRejection(failure.getCode())) {
+                rollbackStock(stockKey, userKey, userId);
+                throw failure;
+            }
+            try {
+                realOrder = createRealOrder(userId, activity);
+            } catch (RuntimeException stillUncertain) {
+                log.warn("秒杀结果待确认，保留库存 activityId={}, userId={}", activity.getId(), userId);
+                throw uncertainOrder();
+            }
+        }
+        try {
             SeckillOrder record = new SeckillOrder();
             record.setActivityId(dto.getActivityId());
             record.setUserId(userId);
             record.setOrderNo(realOrder.getOrderNo());
             record.setStatus(RECORD_ORDERED);
-            orderMapper.insert(record);
-            return new SeckillResultVO(realOrder.getOrderNo(), realOrder.getAmount());
-        } catch (RuntimeException e) {
-            rollbackStock(stockKey, userKey, userId);
-            throw e;
+            if (orderMapper.insert(record) != 1) {
+                log.error("秒杀已建单但记录未保存 orderNo={}, activityId={}, userId={}", realOrder.getOrderNo(), activity.getId(), userId);
+            }
+        } catch (RuntimeException recordFailure) {
+            log.error("秒杀已建单但记录失败，保留库存 orderNo={}, activityId={}, userId={}", realOrder.getOrderNo(), activity.getId(), userId);
         }
+        return confirmedResult(realOrder, activity, userId);
     }
 
     private OrderInfo createRealOrder(Long userId, SeckillActivity activity) {
@@ -197,26 +220,59 @@ public class SeckillServiceImpl implements SeckillService {
             log.error("秒杀成交后调用订单服务建单失败 userId={}, activityId={}", userId, activity.getId(), e);
             throw new ServiceException(HttpStatus.SERVICE_UNAVAILABLE, "下单繁忙，请稍后重试");
         }
-        if (result == null || !result.isSuccess() || result.getData() == null) {
-            // 订单服务的业务拒绝（如"已购买该课程"）原样告知用户
-            throw new ServiceException(HttpStatus.BAD_REQUEST,
-                    result == null || !StringUtils.hasText(result.getMsg()) ? "下单失败" : result.getMsg());
+        if (result != null && isDefiniteRejection(result.getCode())) {
+            throw new ServiceException(result.getCode(), StringUtils.hasText(result.getMsg()) ? result.getMsg() : "下单被拒绝");
         }
+        if (result == null || !result.isSuccess() || result.getData() == null) throw uncertainOrder();
         return result.getData();
     }
 
+    private boolean isDefiniteRejection(int code) {
+        return code == 400 || code == 403 || code == 404 || code == 409;
+    }
+
+    private ServiceException uncertainOrder() {
+        return new ServiceException(HttpStatus.SERVICE_UNAVAILABLE, "下单结果确认中，请稍后在我的订单查看，勿重复抢购");
+    }
+
+    private SeckillResultVO confirmedResult(OrderInfo order, SeckillActivity activity, Long userId) {
+        if (!Objects.equals(order.getActivityId(), activity.getId()) || !Objects.equals(order.getUserId(), userId)
+                || !Objects.equals(order.getProductId(), activity.getProductId()) || order.getAmount() == null
+                || order.getAmount().compareTo(activity.getSeckillPrice()) != 0) {
+            throw new ServiceException(HttpStatus.CONFLICT, "活动订单商品或金额不一致，请核对我的订单");
+        }
+        if (!StringUtils.hasText(order.getOrderNo()) || order.getAmount() == null || order.getAmount().signum() <= 0) {
+            throw uncertainOrder();
+        }
+        if (Integer.valueOf(1).equals(order.getDeleted()) || (!Integer.valueOf(0).equals(order.getStatus())
+                && !Integer.valueOf(1).equals(order.getStatus()))) {
+            throw new ServiceException(HttpStatus.CONFLICT, "请勿重复抢购：活动订单已取消或退款");
+        }
+        if (Integer.valueOf(0).equals(order.getStatus()) && (order.getExpireTime() == null
+                || !order.getExpireTime().isAfter(LocalDateTime.now()))) {
+            throw new ServiceException(HttpStatus.CONFLICT, "请勿重复抢购：活动订单已过期");
+        }
+        return new SeckillResultVO(order.getOrderNo(), order.getAmount());
+    }
+
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public List<SeckillActivity> listOnline() {
         LambdaQueryWrapper<SeckillActivity> qw = new LambdaQueryWrapper<>();
         qw.eq(SeckillActivity::getStatus, ACTIVITY_ONLINE)
                 .orderByAsc(SeckillActivity::getStartTime);
         List<SeckillActivity> activities = activityMapper.selectList(qw);
-        for (SeckillActivity activity : activities) {
-            ensureStockLoaded(activity);
-            String stock = redisTemplate.opsForValue().get(stockKeyPrefix + activity.getId());
-            activity.setRemainingStock(stock == null ? null : Integer.valueOf(stock));
+        List<SeckillActivity> result = new java.util.ArrayList<>();
+        for (SeckillActivity candidate : activities.stream().sorted(java.util.Comparator.comparing(SeckillActivity::getId)).toList()) {
+            SeckillActivity current = activityMapper.lockActivity(candidate.getId());
+            if (current == null || !Integer.valueOf(ACTIVITY_ONLINE).equals(current.getStatus())) continue;
+            ensureStockLoaded(current);
+            String stock = redisTemplate.opsForValue().get(stockKeyPrefix + current.getId());
+            current.setRemainingStock(stock == null ? null : Integer.valueOf(stock));
+            result.add(current);
         }
-        return activities;
+        result.sort(java.util.Comparator.comparing(SeckillActivity::getStartTime));
+        return result;
     }
 
     @Override
@@ -252,7 +308,15 @@ public class SeckillServiceImpl implements SeckillService {
             throw new ServiceException("活动ID不能为空");
         }
         validateActivityTime(dto.getStartTime(), dto.getEndTime());
-        SeckillActivity activity = requireActivity(dto.getId());
+        SeckillActivity activity = requireLockedActivity(dto.getId());
+        boolean termsChanged = !Objects.equals(dto.getTotalStock(), activity.getTotalStock())
+                || !Objects.equals(dto.getProductId(), activity.getProductId())
+                || dto.getSeckillPrice() == null || activity.getSeckillPrice() == null
+                || dto.getSeckillPrice().compareTo(activity.getSeckillPrice()) != 0;
+        if (termsChanged && (Boolean.TRUE.equals(redisTemplate.hasKey(stockKeyPrefix + activity.getId()))
+                || !activity.getStartTime().isAfter(LocalDateTime.now()))) {
+            throw new ServiceException("库存已装载或活动已开始，不能修改总库存、商品或秒杀价；请新建活动");
+        }
         fillActivity(activity, dto);
         activityMapper.updateById(activity);
         return activity;
@@ -270,7 +334,7 @@ public class SeckillServiceImpl implements SeckillService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void changeStatus(Long id, Integer status) {
-        SeckillActivity activity = requireActivity(id);
+        SeckillActivity activity = requireLockedActivity(id);
         activity.setStatus(status);
         activityMapper.updateById(activity);
     }
@@ -302,8 +366,10 @@ public class SeckillServiceImpl implements SeckillService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public String issueToken(Long activityId, Long userId) {
-        SeckillActivity activity = requireOnlineActivity(activityId);
+        SeckillActivity activity = requireLockedActivity(activityId);
+        if (!Integer.valueOf(ACTIVITY_ONLINE).equals(activity.getStatus())) throw new ServiceException("活动未上线");
         LocalDateTime now = LocalDateTime.now();
         if (now.isAfter(activity.getEndTime())) {
             throw new ServiceException("活动已结束");
@@ -350,6 +416,12 @@ public class SeckillServiceImpl implements SeckillService {
         if (startTime == null || endTime == null || !endTime.isAfter(startTime)) {
             throw new ServiceException("活动结束时间必须晚于开始时间");
         }
+    }
+
+    private SeckillActivity requireLockedActivity(Long activityId) {
+        SeckillActivity activity = activityMapper.lockActivity(activityId);
+        if (activity == null) throw new ServiceException(HttpStatus.NOT_FOUND, "活动不存在");
+        return activity;
     }
 
     private SeckillActivity requireActivity(Long activityId) {

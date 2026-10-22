@@ -88,6 +88,7 @@ class SeckillOrderFlowTest {
         service.loadLua();
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
         lenient().when(activityMapper.selectById(ACTIVITY)).thenReturn(activity(1));
+        lenient().when(activityMapper.lockActivity(ACTIVITY)).thenReturn(activity(1));
     }
 
     private SeckillActivity activity(int status) {
@@ -126,6 +127,8 @@ class SeckillOrderFlowTest {
         info.setOrderNo("ORD-SK-1");
         info.setAmount(new BigDecimal("49.00"));
         info.setStatus(0);
+        info.setActivityId(ACTIVITY); info.setUserId(USER); info.setProductId(2004L);
+        info.setExpireTime(LocalDateTime.now().plusMinutes(20));
         return info;
     }
 
@@ -216,7 +219,7 @@ class SeckillOrderFlowTest {
     }
 
     @Test
-    void orderServiceFailureShouldRollbackStock() {
+    void uncertainOrderServiceFailureMustKeepReservation() {
         tokenIsValid();
         luaDeductSucceeds();
         when(remoteOrderService.createSeckillOrder(any(SeckillOrderRequest.class), anyString(), anyString()))
@@ -225,8 +228,84 @@ class SeckillOrderFlowTest {
         assertThatThrownBy(() -> service.seckill(USER, request("tk")))
                 .isInstanceOf(ServiceException.class);
 
-        verify(redisTemplate).execute(argThat(scriptContaining("INCR")), anyList(), eq(String.valueOf(USER)));
+        verify(redisTemplate, never()).execute(argThat(scriptContaining("INCR")), anyList(), eq(String.valueOf(USER)));
+        verify(remoteOrderService, org.mockito.Mockito.times(2)).createSeckillOrder(any(), anyString(), anyString());
         verify(orderMapper, never()).insert(any(SeckillOrder.class));
+    }
+
+    @Test void timeoutThenSuccessfulRetryReturnsSameOrderWithoutRollback() {
+        tokenIsValid(); luaDeductSucceeds();
+        when(remoteOrderService.createSeckillOrder(any(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("read timeout")).thenReturn(R.ok(orderInfo()));
+        assertThat(service.seckill(USER, request("tk")).getOrderNo()).isEqualTo("ORD-SK-1");
+        verify(redisTemplate, never()).execute(argThat(scriptContaining("INCR")), anyList(), anyString());
+    }
+
+    @Test void timeoutThenBusinessErrorStillMustNotReleaseUncertainReservation() {
+        tokenIsValid(); luaDeductSucceeds();
+        when(remoteOrderService.createSeckillOrder(any(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("read timeout")).thenReturn(R.fail(400, "已购买"));
+        assertThatThrownBy(() -> service.seckill(USER, request("tk"))).hasMessageContaining("确认");
+        verify(redisTemplate, never()).execute(argThat(scriptContaining("INCR")), anyList(), anyString());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 500, 503})
+    void remote5xxOrEmptyResponsesAreNotBusinessRejections(int code) {
+        tokenIsValid(); luaDeductSucceeds();
+        when(remoteOrderService.createSeckillOrder(any(), anyString(), anyString())).thenReturn(code == 0 ? null : R.fail(code, "busy"));
+        assertThatThrownBy(() -> service.seckill(USER, request("tk"))).hasMessageContaining("确认");
+        verify(redisTemplate, never()).execute(argThat(scriptContaining("INCR")), anyList(), anyString());
+    }
+
+    @Test void landedOrderWithLocalRecordFailureReturnsOrderAndKeepsStock() {
+        tokenIsValid(); luaDeductSucceeds();
+        when(remoteOrderService.createSeckillOrder(any(), anyString(), anyString())).thenReturn(R.ok(orderInfo()));
+        when(orderMapper.insert(any(SeckillOrder.class))).thenThrow(new RuntimeException("db down"));
+        assertThat(service.seckill(USER, request("tk")).getOrderNo()).isEqualTo("ORD-SK-1");
+        verify(redisTemplate, never()).execute(argThat(scriptContaining("INCR")), anyList(), anyString());
+    }
+
+    @Test void repeatUserOnlyQueriesExistingOrderWithoutSecondCreateOrRollback() {
+        tokenIsValid();
+        when(redisTemplate.execute(argThat(scriptContaining("DECR")), anyList(), anyString())).thenReturn(2L);
+        when(remoteOrderService.findSeckillOrder(eq(ACTIVITY), eq(USER), eq("true"), eq(TOKEN))).thenReturn(R.ok(orderInfo()));
+        assertThat(service.seckill(USER, request("tk")).getOrderNo()).isEqualTo("ORD-SK-1");
+        verify(remoteOrderService, never()).createSeckillOrder(any(), anyString(), anyString());
+        verify(redisTemplate, never()).execute(argThat(scriptContaining("INCR")), anyList(), anyString());
+    }
+
+    @Test void duplicateWithDifferentProductOrPriceIsNotSuccessful() {
+        tokenIsValid();
+        when(redisTemplate.execute(argThat(scriptContaining("DECR")), anyList(), anyString())).thenReturn(2L);
+        OrderInfo info = orderInfo(); info.setProductId(2005L);
+        when(remoteOrderService.findSeckillOrder(any(), any(), anyString(), anyString())).thenReturn(R.ok(info));
+        assertThatThrownBy(() -> service.seckill(USER, request("tk"))).hasMessageContaining("不一致");
+        verify(remoteOrderService, never()).createSeckillOrder(any(), anyString(), anyString());
+    }
+
+    @Test void duplicateWithNoConfirmedOrderCannotCreateAnother() {
+        tokenIsValid();
+        when(redisTemplate.execute(argThat(scriptContaining("DECR")), anyList(), anyString())).thenReturn(2L);
+        when(remoteOrderService.findSeckillOrder(any(), any(), anyString(), anyString())).thenReturn(R.ok(null));
+        assertThatThrownBy(() -> service.seckill(USER, request("tk"))).hasMessageContaining("确认");
+        verify(remoteOrderService, never()).createSeckillOrder(any(), anyString(), anyString());
+    }
+
+    @Test void unexpectedLuaResultCannotCreateAnOrder() {
+        tokenIsValid();
+        assertThatThrownBy(() -> service.seckill(USER, request("tk"))).isInstanceOf(ServiceException.class);
+        verify(remoteOrderService, never()).createSeckillOrder(any(), anyString(), anyString());
+    }
+
+    @Test void listingUsesCurrentLockedActivityInsteadOfOldSnapshot() {
+        SeckillActivity old = activity(1);
+        SeckillActivity current = activity(1); current.setTotalStock(10);
+        when(activityMapper.selectList(any())).thenReturn(java.util.List.of(old));
+        when(activityMapper.lockActivity(ACTIVITY)).thenReturn(current);
+        when(orderMapper.selectCount(any())).thenReturn(0L);
+        assertThat(service.listOnline().get(0).getTotalStock()).isEqualTo(10);
+        verify(valueOps).setIfAbsent("seckill:stock:" + ACTIVITY, "10");
     }
 
     @Test

@@ -11,6 +11,8 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface SeckillActivityMapper extends BaseMapper<SeckillActivity> {
+    @org.apache.ibatis.annotations.Select("SELECT * FROM seckill_activity WHERE id = #{id} AND deleted = 0 FOR UPDATE")
+    SeckillActivity lockActivity(@org.apache.ibatis.annotations.Param("id") Long id);
 }
 
 

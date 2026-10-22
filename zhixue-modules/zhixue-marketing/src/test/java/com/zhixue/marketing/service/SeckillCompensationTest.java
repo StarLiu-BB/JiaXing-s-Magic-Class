@@ -50,7 +50,7 @@ class SeckillCompensationTest {
     }
 
     @Test
-    void bothKeysMustBePassedViaKeysForClusterCompatibility() throws Exception {
+    void bothResourceKeysMustBeDeclaredExplicitly() throws Exception {
         String lua = readLua();
 
         assertThat(lua)
@@ -83,14 +83,14 @@ class SeckillCompensationTest {
     }
 
     @Test
-    void serviceMustCompensateRedisWhenDatabaseWriteFails() throws Exception {
+    void serviceLoadsCompensationForDefiniteRejections() throws Exception {
         String impl = readServiceImpl();
 
         assertThat(impl)
                 .as("必须加载回滚脚本")
                 .contains("seckill_rollback.lua");
         assertThat(impl)
-                .as("数据库写入失败时必须补偿 Redis，否则库存永久丢失")
+                .as("明确业务拒绝时须提供幂等库存补偿")
                 .contains("rollbackStock");
     }
 
