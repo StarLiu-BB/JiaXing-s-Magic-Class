@@ -11,12 +11,14 @@ CREATE TABLE danmaku
     time_point   INT         DEFAULT 0 COMMENT '视频时间点(秒)',
     audit_status TINYINT     DEFAULT 0 COMMENT '0待审核 1通过 2拒绝',
     audit_remark VARCHAR(255)         COMMENT '审核备注',
+    message_id   VARCHAR(64) NULL     COMMENT '持久化幂等消息ID',
     create_time  DATETIME             COMMENT '创建时间',
     update_time  DATETIME             COMMENT '更新时间',
     deleted      TINYINT     DEFAULT 0 COMMENT '逻辑删除',
     INDEX idx_room (room_id),
     INDEX idx_user (user_id),
-    INDEX idx_audit (audit_status)
+    INDEX idx_audit (audit_status),
+    UNIQUE KEY uk_danmaku_message (message_id)
 );
 
 -- 课程点赞表

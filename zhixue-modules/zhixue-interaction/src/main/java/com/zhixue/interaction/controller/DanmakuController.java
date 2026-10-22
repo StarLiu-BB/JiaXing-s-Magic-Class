@@ -28,7 +28,7 @@ import java.util.List;
 /**
  * 弹幕 HTTP 接口。
  *
- * <p>弹幕发送时由 AI 自动审核（通过=1，不通过=2；AI 不可用时按通过处理），这里提供人工复核：
+ * <p>弹幕广播前审核：通过=1，拒绝=2，审核不可用=0待复核；这里提供人工复核：
  * 恢复被误拒的弹幕，或下架已通过的弹幕。</p>
  */
 @RestController
@@ -41,6 +41,15 @@ public class DanmakuController {
     static final String PERM_AUDIT = "interaction:danmaku:audit";
 
     private final DanmakuMapper danmakuMapper;
+
+    @org.springframework.beans.factory.annotation.Value("${interaction.danmaku.fail-open:true}")
+    private boolean failOpen;
+
+    @RequirePermission(PERM_LIST)
+    @GetMapping("/policy")
+    public R<java.util.Map<String, Object>> policy() {
+        return R.ok(java.util.Map.of("failOpen", failOpen));
+    }
 
     /**
      * 播放页拉取某个房间已通过的历史弹幕（最近 N 条）；登录由网关校验，不需要额外权限。
@@ -84,6 +93,14 @@ public class DanmakuController {
     @RequirePermission(PERM_AUDIT)
     @PutMapping("/{id}/audit")
     public R<Void> audit(@PathVariable Long id, @Valid @RequestBody DanmakuAuditDTO dto) {
+        try {
+            return applyAudit(id, dto);
+        } catch (org.springframework.dao.DataAccessException unavailable) {
+            throw new ServiceException(HttpStatus.SERVICE_UNAVAILABLE, "人工复核存储不可用，请重试");
+        }
+    }
+
+    private R<Void> applyAudit(Long id, DanmakuAuditDTO dto) {
         Danmaku danmaku = danmakuMapper.selectById(id);
         if (danmaku == null) {
             throw new ServiceException(HttpStatus.NOT_FOUND, "弹幕不存在");
@@ -93,10 +110,11 @@ public class DanmakuController {
             throw new ServiceException(HttpStatus.BAD_REQUEST, "拒绝时请填写原因");
         }
         // 必须显式 SET：updateById 会跳过 null 字段，"通过"时拒绝原因清不掉（界面验证实测）
-        danmakuMapper.update(null, new LambdaUpdateWrapper<Danmaku>()
+        int updated = danmakuMapper.update(null, new LambdaUpdateWrapper<Danmaku>()
                 .eq(Danmaku::getId, id)
                 .set(Danmaku::getAuditStatus, dto.getAuditStatus())
                 .set(Danmaku::getAuditRemark, reject ? dto.getAuditRemark().trim() : null));
+        if (updated != 1) throw new ServiceException(HttpStatus.SERVICE_UNAVAILABLE, "人工复核保存失败，请重试");
         return R.ok();
     }
 }

@@ -26,6 +26,22 @@ public class RabbitConfig {
     @Value("${interaction.danmaku-routing-key:danmaku.broadcast}")
     private String danmakuRoutingKey;
 
+    @Bean
+    public DirectExchange danmakuErrorExchange() { return new DirectExchange(danmakuExchange + ".error", true, false); }
+
+    @Bean
+    public Queue danmakuErrorQueue() { return new Queue(danmakuQueue + ".error", true); }
+
+    @Bean
+    public Binding danmakuErrorBinding() {
+        return BindingBuilder.bind(danmakuErrorQueue()).to(danmakuErrorExchange()).with("failed");
+    }
+
+    @Bean
+    public org.springframework.amqp.rabbit.retry.MessageRecoverer danmakuRecoverer(org.springframework.amqp.rabbit.core.RabbitTemplate rabbit) {
+        return new com.zhixue.interaction.mq.DanmakuFailureRecoverer(rabbit, danmakuExchange + ".error", "failed", 3000);
+    }
+
     /**
      * 弹幕队列。
      */

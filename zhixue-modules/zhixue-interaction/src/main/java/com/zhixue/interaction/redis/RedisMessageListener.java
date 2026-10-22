@@ -86,7 +86,7 @@ public class RedisMessageListener implements MessageListener {
             }
             group.writeAndFlush(new TextWebSocketFrame(body));
         } catch (Exception e) {
-            log.error("Redis 弹幕消息处理失败, body={}", body, e);
+            log.error("Redis弹幕消息处理失败，消息已丢弃");
         }
     }
 }

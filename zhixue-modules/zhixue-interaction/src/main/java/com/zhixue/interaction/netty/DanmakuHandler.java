@@ -91,6 +91,7 @@ public class DanmakuHandler extends SimpleChannelInboundHandler<TextWebSocketFra
             // 检查并过滤弹幕里的敏感词，把敏感词替换成 *
             dto.setContent(sensitiveWordFilter.filter(dto.getContent()));
 
+            dto.setMessageId(null);
             dto.setAuditStatus(null);
             dto.setAuditRemark(null);
             String token = ctx.channel().attr(WsHandshakeAuthHandler.TOKEN).get();

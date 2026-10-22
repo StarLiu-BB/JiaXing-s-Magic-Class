@@ -36,6 +36,7 @@ public class DanmakuMessageDTO {
     private LocalDateTime sendTime;
 
     /** 服务端审核结果：0待复核，1通过，2拒绝。WS客户端传入值不可信。 */
+    private String messageId;
     private Integer auditStatus;
     private String auditRemark;
 }

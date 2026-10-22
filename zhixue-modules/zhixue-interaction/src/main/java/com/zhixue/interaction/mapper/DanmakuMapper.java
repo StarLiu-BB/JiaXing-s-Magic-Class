@@ -9,6 +9,8 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface DanmakuMapper extends BaseMapper<Danmaku> {
+    @org.apache.ibatis.annotations.Select("SELECT * FROM danmaku WHERE message_id = #{messageId}")
+    Danmaku findMessage(@org.apache.ibatis.annotations.Param("messageId") String messageId);
 }
 
 

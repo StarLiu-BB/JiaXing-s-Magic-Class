@@ -60,6 +60,11 @@ class DanmakuProducerTest {
         ObjectProvider<RabbitTemplate> provider = mock(ObjectProvider.class);
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         when(provider.getIfAvailable()).thenReturn(rabbitTemplate);
+        org.mockito.Mockito.doAnswer(call -> {
+            org.springframework.amqp.rabbit.connection.CorrelationData data = call.getArgument(3);
+            data.getFuture().complete(new org.springframework.amqp.rabbit.connection.CorrelationData.Confirm(true, null));
+            return null;
+        }).when(rabbitTemplate).convertAndSend(any(String.class), any(String.class), any(String.class), any(org.springframework.amqp.rabbit.connection.CorrelationData.class));
         DanmakuPersistenceService persistenceService = mock(DanmakuPersistenceService.class);
         DanmakuProducer producer = new DanmakuProducer(provider, persistenceService, Jackson2ObjectMapperBuilder.json().build());
         ReflectionTestUtils.setField(producer, "mqMode", "sandbox");
@@ -73,7 +78,7 @@ class DanmakuProducerTest {
 
         producer.send(dto);
 
-        verify(rabbitTemplate).convertAndSend(any(String.class), any(String.class), any(String.class));
+        verify(rabbitTemplate).convertAndSend(any(String.class), any(String.class), any(String.class), any(org.springframework.amqp.rabbit.connection.CorrelationData.class));
         verify(persistenceService, never()).persist(dto);
     }
 }

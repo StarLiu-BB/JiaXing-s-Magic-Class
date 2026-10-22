@@ -25,11 +25,16 @@ public class DanmakuConsumer {
 
     @RabbitListener(queuesToDeclare = @Queue("${interaction.danmaku-queue:queue_danmaku}"))
     public void onMessage(String message) {
+        DanmakuMessageDTO dto;
         try {
-            DanmakuMessageDTO dto = objectMapper.readValue(message, DanmakuMessageDTO.class);
-            persistenceService.persist(dto);
-        } catch (Exception e) {
-            log.error("消费弹幕消息失败, body={}", message, e);
+            dto = objectMapper.readValue(message, DanmakuMessageDTO.class);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException invalid) {
+            throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("弹幕消息格式不合法");
         }
+        if (dto == null) throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("弹幕消息为空");
+        if (dto.getMessageId() == null) {
+            dto.setMessageId("legacy-" + org.springframework.util.DigestUtils.md5DigestAsHex(message.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        }
+        persistenceService.persist(dto);
     }
 }

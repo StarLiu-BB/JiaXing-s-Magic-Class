@@ -42,6 +42,7 @@ public class Danmaku extends BaseEntity {
      * 审核备注。
      */
     private String auditRemark;
+    private String messageId;
 }
 
 

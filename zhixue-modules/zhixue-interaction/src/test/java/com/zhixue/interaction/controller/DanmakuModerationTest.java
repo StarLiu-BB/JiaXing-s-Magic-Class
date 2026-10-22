@@ -182,6 +182,31 @@ class DanmakuModerationTest {
     }
 
     @Test
+    void policyRequiresListPermissionAndReflectsActualFailClosedSetting() throws Exception {
+        mockMvc.perform(asUser(get("/danmaku/policy"), 1003L)).andExpect(jsonPath("$.code").value(403));
+        mockMvc.perform(asUser(get("/danmaku/policy"), 1001L, LIST))
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.failOpen").value(false));
+    }
+
+    @Test
+    void failedReviewWriteCannotReportSuccess() throws Exception {
+        when(danmakuMapper.selectById(8L)).thenReturn(stored(8L, 0));
+        mockMvc.perform(asUser(put("/danmaku/{id}/audit", 8L), 1001L, AUDIT)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"auditStatus\":1}"))
+                .andExpect(jsonPath("$.code").value(503));
+    }
+
+    @Test
+    void databaseOutageDuringReviewReturns503WithoutLeakingDetails() throws Exception {
+        when(danmakuMapper.selectById(8L)).thenThrow(new org.springframework.dao.DataAccessResourceFailureException("private-db-url"));
+        mockMvc.perform(asUser(put("/danmaku/{id}/audit", 8L), 1001L, AUDIT)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"auditStatus\":1}"))
+                .andExpect(jsonPath("$.code").value(503))
+                .andExpect(jsonPath("$.msg").value("人工复核存储不可用，请重试"));
+    }
+
+    @Test
     void unknownDanmakuIs404() throws Exception {
         mockMvc.perform(asUser(put("/danmaku/{id}/audit", 99L), 1001L, AUDIT)
                         .contentType(MediaType.APPLICATION_JSON)

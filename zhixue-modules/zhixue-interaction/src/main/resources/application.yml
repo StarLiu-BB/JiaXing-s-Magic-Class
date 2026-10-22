@@ -29,6 +29,10 @@ spring:
     username: ${ZHIXUE_RABBITMQ_USERNAME:guest}
     password: ${ZHIXUE_RABBITMQ_PASSWORD:guest}
     virtual-host: ${ZHIXUE_RABBITMQ_VHOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
     listener:
       simple:
         acknowledge-mode: auto

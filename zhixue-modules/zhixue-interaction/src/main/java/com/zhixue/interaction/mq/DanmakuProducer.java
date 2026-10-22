@@ -32,7 +32,11 @@ public class DanmakuProducer {
     @Value("${zhixue.integration.interaction-mq.mode:sandbox}")
     private String mqMode;
 
+    @Value("${interaction.danmaku.confirm-timeout-ms:3000}")
+    private long confirmTimeoutMs = 3000;
+
     public void send(DanmakuMessageDTO message) {
+        if (message.getMessageId() == null) message.setMessageId(java.util.UUID.randomUUID().toString());
         if (isStubMode()) {
             persistenceService.persist(message);
             return;
@@ -45,12 +49,14 @@ public class DanmakuProducer {
         }
         try {
             String payload = objectMapper.writeValueAsString(message);
-            rabbitTemplate.convertAndSend(exchange, routingKey, payload);
-        } catch (JsonProcessingException e) {
-            log.error("弹幕消息序列化失败", e);
-            persistenceService.persist(message);
-        } catch (Exception e) {
-            log.error("发送弹幕 MQ 消息失败", e);
+            rabbitTemplate.setMandatory(true);
+            var correlation = new org.springframework.amqp.rabbit.connection.CorrelationData(message.getMessageId());
+            rabbitTemplate.convertAndSend(exchange, routingKey, payload, correlation);
+            var confirm = correlation.getFuture().get(confirmTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+            if (!confirm.isAck() || correlation.getReturned() != null) throw new IllegalStateException("MQ未确认可靠路由");
+        } catch (Exception unavailable) {
+            if (unavailable instanceof InterruptedException) Thread.currentThread().interrupt();
+            log.warn("弹幕MQ投递未确认，回落幂等数据库写入");
             persistenceService.persist(message);
         }
     }
