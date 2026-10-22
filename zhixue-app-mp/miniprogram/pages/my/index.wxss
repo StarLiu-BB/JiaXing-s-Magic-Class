@@ -55,7 +55,8 @@
 }
 
 .edit-icon {
-  font-size: 24rpx;
+  width: 24rpx;
+  height: 24rpx;
 }
 
 .user-info {
@@ -182,7 +183,8 @@
 }
 
 .order-icon {
-  font-size: 40rpx;
+  width: 40rpx;
+  height: 40rpx;
 }
 
 .order-badge {
@@ -235,7 +237,8 @@
 }
 
 .menu-icon {
-  font-size: 32rpx;
+  width: 32rpx;
+  height: 32rpx;
 }
 
 .menu-label {

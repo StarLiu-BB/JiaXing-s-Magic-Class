@@ -3,7 +3,8 @@
 <view class="container" wx:if="{{courseInfo}}">
   <!-- 课程封面视频 -->
   <view class="cover-section">
-    <video class="cover-video" src="{{courseInfo.videoUrl}}" poster="{{courseInfo.cover}}" controls="{{false}}" show-center-play-btn="{{true}}" />
+    <video wx:if="{{courseInfo.videoUrl}}" class="cover-video" src="{{courseInfo.videoUrl}}" poster="{{courseInfo.cover}}" controls="{{false}}" show-center-play-btn="{{true}}" />
+    <safe-image wx:else image-class="cover-video" src="{{courseInfo.cover || courseInfo.coverUrl}}" mode="aspectFill" />
   </view>
 
   <!-- 课程信息 -->
@@ -88,7 +89,7 @@
       <view class="reviews-content">
         <view class="review-item" wx:for="{{reviews}}" wx:key="id">
           <view class="review-header">
-            <image class="review-avatar" src="{{item.userAvatar || '/images/default-avatar.png'}}" />
+            <safe-image image-class="review-avatar" src="{{item.userAvatar}}" fallback="/images/avatar-default.png" />
             <view class="review-user">
               <text class="review-name">{{item.userName}}</text>
               <view class="review-rating">
@@ -112,7 +113,7 @@
   <view class="bottom-bar">
     <view class="bar-left">
       <view class="action-btn" bindtap="onFavoriteTap">
-        <text class="iconfont {{isFavorite ? 'icon-favorite-fill' : 'icon-favorite'}}"></text>
+        <image class="action-icon" src="{{isFavorite ? '/images/actions/favorite-active.png' : '/images/actions/favorite.png'}}" mode="aspectFit" />
         <text>{{isFavorite ? '已收藏' : '收藏'}}</text>
       </view>
       <view class="action-btn" bindtap="onAskAiTap">

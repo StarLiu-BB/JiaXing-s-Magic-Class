@@ -1,0 +1,11 @@
+{
+  "name": "zhixue-miniprogram-assets",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": { "generate": "node generate-icons.cjs" },
+  "dependencies": {
+    "@element-plus/icons-vue": "2.3.2",
+    "@resvg/resvg-js": "2.6.2",
+    "vue": "3.5.44"
+  }
+}

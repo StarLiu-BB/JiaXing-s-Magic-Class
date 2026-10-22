@@ -61,7 +61,7 @@
     </view>
     <view class="course-list">
       <view class="course-item" wx:for="{{recentCourses}}" wx:key="id" data-id="{{item.id}}" bindtap="onCourseTap">
-        <image class="course-cover" src="{{item.cover || '/images/course-default.png'}}" mode="aspectFill" lazy-load="{{true}}" />
+        <safe-image image-class="course-cover" src="{{item.cover || '/images/course-default.png'}}" mode="aspectFill" lazy-load="{{true}}" />
         <view class="course-info">
           <text class="course-title">{{item.title}}</text>
           <text class="course-chapter">{{item.currentChapter || '第1章 课程介绍'}}</text>
@@ -81,7 +81,7 @@
 
     <!-- 空状态 -->
     <view class="empty-state" wx:if="{{!loading && recentCourses.length === 0}}">
-      <image class="empty-icon" src="/images/empty-study.png" mode="aspectFit" />
+      <safe-image image-class="empty-icon" src="/images/empty-study.png" fallback="/images/empty-study.png" mode="aspectFit" />
       <text class="empty-text">还没有学习记录</text>
       <text class="empty-tip">快去发现感兴趣的课程吧</text>
       <view class="go-study-btn" bindtap="onGoStudyTap">去学习</view>
@@ -97,7 +97,7 @@
     <view class="plan-list">
       <view class="plan-item" wx:for="{{studyPlans}}" wx:key="id">
         <view class="plan-icon-wrap">
-          <text class="plan-icon">📅</text>
+          <image class="plan-icon" src="/images/actions/calendar.png" mode="aspectFit" />
         </view>
         <view class="plan-info">
           <text class="plan-title">{{item.title}}</text>
@@ -119,7 +119,7 @@
     <view class="rank-list">
       <view class="rank-item {{index < 3 ? 'top' : ''}}" wx:for="{{rankList}}" wx:key="id">
         <view class="rank-num {{index < 3 ? 'top-num' : ''}}">{{index + 1}}</view>
-        <image class="rank-avatar" src="{{item.avatar || '/images/avatar-default.png'}}" mode="aspectFill" />
+        <safe-image image-class="rank-avatar" src="{{item.avatar}}" fallback="/images/avatar-default.png" mode="aspectFill" />
         <text class="rank-name">{{item.nickname}}</text>
         <text class="rank-hours">{{item.studyHours}}小时</text>
       </view>

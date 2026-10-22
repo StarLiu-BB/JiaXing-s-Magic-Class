@@ -21,7 +21,7 @@
 
   <view class="list">
     <view class="item" wx:for="{{resultList}}" wx:key="id" data-id="{{item.id}}" bindtap="onCourseTap">
-      <image class="cover" src="{{item.cover || item.coverUrl || '/images/course-default.png'}}" mode="aspectFill" />
+      <safe-image image-class="cover" src="{{item.cover || item.coverUrl || '/images/course-default.png'}}" mode="aspectFill" />
       <view class="meta">
         <text class="title">{{item.title}}</text>
         <text class="desc" wx:if="{{item.description}}">{{item.description}}</text>

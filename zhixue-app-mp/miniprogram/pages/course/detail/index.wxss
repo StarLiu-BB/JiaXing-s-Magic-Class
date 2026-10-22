@@ -1,6 +1,6 @@
 /* pages/course/detail/index.wxss */
 .container {
-  padding-bottom: 120rpx;
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
 }
 
 /* 封面视频 */
@@ -275,6 +275,7 @@
   background-color: #fff;
   border-top: 1rpx solid #f0f0f0;
   padding: 20rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -291,18 +292,33 @@
   flex-direction: column;
   align-items: center;
   gap: 5rpx;
+  min-width: 72rpx;
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 24rpx;
   color: #666;
 }
 
+.action-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
 .bar-right {
+  flex: 1;
+  min-width: 0;
+  margin-left: 20rpx;
   display: flex;
   gap: 15rpx;
 }
 
 .btn-study,
 .btn-buy {
-  padding: 20rpx 40rpx;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+  padding: 20rpx 16rpx;
   border-radius: 8rpx;
   font-size: 28rpx;
   border: none;

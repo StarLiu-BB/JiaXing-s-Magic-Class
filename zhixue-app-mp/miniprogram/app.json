@@ -27,25 +27,36 @@
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "首页"
+        "text": "首页",
+        "iconPath": "images/tabbar/home.png",
+        "selectedIconPath": "images/tabbar/home-active.png"
       },
       {
         "pagePath": "pages/category/index",
-        "text": "分类"
+        "text": "分类",
+        "iconPath": "images/tabbar/category.png",
+        "selectedIconPath": "images/tabbar/category-active.png"
       },
       {
         "pagePath": "pages/study/index",
-        "text": "学习"
+        "text": "学习",
+        "iconPath": "images/tabbar/study.png",
+        "selectedIconPath": "images/tabbar/study-active.png"
       },
       {
         "pagePath": "pages/my/index",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "images/tabbar/my.png",
+        "selectedIconPath": "images/tabbar/my-active.png"
       }
     ]
   },
   "networkTimeout": {
     "request": 10000,
     "downloadFile": 10000
+  },
+  "usingComponents": {
+    "safe-image": "/components/safe-image/index"
   },
   "debug": false,
   "style": "v2",

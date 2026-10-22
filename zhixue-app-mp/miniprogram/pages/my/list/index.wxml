@@ -45,7 +45,7 @@
 
       <block wx:if="{{mode === 'favorites'}}">
         <view class="course-card" data-id="{{item.courseId || item.id}}" bindtap="onCourseTap">
-          <image class="course-cover" src="{{item.cover || item.coverUrl || '/images/course-default.png'}}" mode="aspectFill" />
+          <safe-image image-class="course-cover" src="{{item.cover || item.coverUrl || '/images/course-default.png'}}" mode="aspectFill" />
           <view class="course-meta">
             <text class="course-title">{{item.title || item.courseName || '课程'}}</text>
             <text class="course-price">¥{{item.price || 0}}</text>

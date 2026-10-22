@@ -8,7 +8,7 @@
   </view>
 
   <view class="card" wx:for="{{activities}}" wx:key="id">
-    <image class="cover" wx:if="{{item.cover}}" src="{{item.cover}}" mode="aspectFill" />
+    <safe-image image-class="cover" wx:if="{{item.cover}}" src="{{item.cover}}" mode="aspectFill" />
     <view class="cover cover-placeholder" wx:else>秒杀</view>
     <view class="info">
       <text class="title">{{item.courseTitle}}</text>

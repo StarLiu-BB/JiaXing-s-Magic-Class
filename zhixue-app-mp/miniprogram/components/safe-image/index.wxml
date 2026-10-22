@@ -1,0 +1,1 @@
+<image wx:for="{{frames}}" wx:key="generation" class="image-class" data-generation="{{item.generation}}" src="{{item.src}}" mode="{{mode}}" lazy-load="{{lazyLoad}}" binderror="onError" />
