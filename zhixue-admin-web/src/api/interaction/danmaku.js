@@ -1,10 +1,14 @@
 /**
  * 弹幕 API
  *
- * 弹幕发送时由 AI 自动审核：auditStatus 1 通过（展示）/ 2 拒绝（不展示），AI 不可用时按通过处理。
+ * 广播前审核：1通过、2拒绝、0待复核；审核不可用时展示策略以服务端配置为准。
  * 权限（后端强制校验）：分页 interaction:danmaku:list，人工复核 interaction:danmaku:audit。
  */
 import request from '@/utils/request'
+
+export function getDanmakuPolicy() {
+  return request({ url: '/danmaku/policy', method: 'get' })
+}
 
 /**
  * 弹幕分页（最新在前），返回 { list, total }

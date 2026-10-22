@@ -13,8 +13,10 @@
         show-icon
         :closable="false"
         class="tip"
-        title="弹幕发送时由 AI 自动审核：通过即展示，不通过记为已拒绝；AI 服务不可用时按通过处理。可在此人工复核——恢复被误拒的弹幕，或下架不当内容。"
+        :title="policyNotice"
       />
+
+      <el-button v-if="policyError" :loading="policyLoading" @click="fetchPolicy">重试获取审核策略</el-button>
 
       <el-form :model="queryParams" :inline="true" class="search-form">
         <el-form-item label="房间ID">
@@ -41,8 +43,8 @@
             <el-tag :type="statusOf(row).tag">{{ statusOf(row).text }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="拒绝原因" prop="auditRemark" min-width="160" show-overflow-tooltip>
-          <template #default="{ row }">{{ Number(row.auditStatus) === 2 && row.auditRemark ? row.auditRemark : '-' }}</template>
+        <el-table-column label="审核备注" prop="auditRemark" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">{{ Number(row.auditStatus) !== 1 && row.auditRemark ? row.auditRemark : '-' }}</template>
         </el-table-column>
         <el-table-column label="发送时间" width="170">
           <template #default="{ row }">{{ formatTime(row.createTime) }}</template>
@@ -73,15 +75,37 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
-import { auditDanmaku, listDanmakuPage } from '@/api/interaction/danmaku'
+import { auditDanmaku, listDanmakuPage, getDanmakuPolicy } from '@/api/interaction/danmaku'
 
 const STATUS = {
-  0: { text: '待审核', tag: 'warning' },
+  0: { text: '待人工复核', tag: 'warning' },
   1: { text: '已通过', tag: 'success' },
   2: { text: '已拒绝', tag: 'danger' }
+}
+
+const policy = ref(null)
+const policyLoading = ref(false)
+const policyError = ref(false)
+const policyNotice = computed(() => {
+  const prefix = '弹幕在广播前审核：通过才展示，拒绝只留证。'
+  if (typeof policy.value?.failOpen !== 'boolean') return `${prefix}当前无法确认服务端降级策略，请重试。人工通过只恢复历史，不会重新广播。`
+  return `${prefix}审核不可用时记录待人工复核，${policy.value.failOpen ? '允许实时展示并提示发送者' : '不广播，等待复核'}。人工通过只恢复历史，不会重新广播。`
+})
+async function fetchPolicy() {
+  if (policyLoading.value) return
+  policyLoading.value = true
+  try {
+    const res = await getDanmakuPolicy()
+    if (typeof res?.data?.failOpen !== 'boolean') throw new Error('策略未返回')
+    policy.value = res.data
+    policyError.value = false
+  } catch {
+    policy.value = null
+    policyError.value = true
+  } finally { policyLoading.value = false }
 }
 
 const loading = ref(false)
@@ -125,7 +149,7 @@ function resetQuery() {
 
 async function handleApprove(row) {
   try {
-    await ElMessageBox.confirm(`通过后「${row.content}」将重新出现在播放页的历史弹幕中。`, '确认通过', { type: 'info' })
+    await ElMessageBox.confirm(`通过后「${row.content}」将重新出现在播放页的历史弹幕中，不会重新广播。`, '确认通过', { type: 'info' })
     await auditDanmaku(row.id, 1)
     ElMessage.success('已通过')
     fetchList()
@@ -149,6 +173,7 @@ async function handleReject(row) {
 }
 
 fetchList()
+fetchPolicy()
 </script>
 
 <style scoped>
