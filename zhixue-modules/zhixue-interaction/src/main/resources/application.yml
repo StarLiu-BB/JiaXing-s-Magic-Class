@@ -14,6 +14,11 @@ spring:
       password: ${ZHIXUE_REDIS_PASSWORD:}
   cloud:
     openfeign:
+      client:
+        config:
+          remoteAiService:
+            connectTimeout: 1000
+            readTimeout: 22000
       circuitbreaker:
         # 必须显式开启，否则 fallbackFactory 永不触发；
         # 弹幕审核依赖 zhixue-ai，AI 故障不应拖垮弹幕发送
@@ -47,6 +52,11 @@ resilience4j:
 
 interaction:
   websocket-port: 9999
+  danmaku:
+    workers: ${ZHIXUE_DANMAKU_WORKERS:4}
+    queue-capacity: ${ZHIXUE_DANMAKU_QUEUE_CAPACITY:200}
+    fail-open: ${ZHIXUE_DANMAKU_FAIL_OPEN:true}
+    max-age-ms: ${ZHIXUE_DANMAKU_MAX_AGE_MS:30000}
   danmaku-queue: queue_danmaku
   danmaku-exchange: exchange_danmaku
   danmaku-routing-key: danmaku.broadcast

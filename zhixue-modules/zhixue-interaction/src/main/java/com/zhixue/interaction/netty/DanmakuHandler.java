@@ -3,7 +3,8 @@ package com.zhixue.interaction.netty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhixue.common.core.exception.ServiceException;
 import com.zhixue.interaction.domain.dto.DanmakuMessageDTO;
-import com.zhixue.interaction.mq.DanmakuProducer;
+import com.zhixue.interaction.service.DanmakuModerationService;
+import com.zhixue.common.security.session.LoginSessionRegistry;
 import com.zhixue.interaction.redis.RedisMessageListener;
 import com.zhixue.interaction.redis.RedisMessagePublisher;
 import com.zhixue.interaction.sensitive.SensitiveWordFilter;
@@ -33,11 +34,11 @@ public class DanmakuHandler extends SimpleChannelInboundHandler<TextWebSocketFra
     private static final String HEARTBEAT = "ping";
 
     private final RedisMessageListener redisMessageListener;
-    private final RedisMessagePublisher redisMessagePublisher;
-    private final DanmakuProducer danmakuProducer;
+    private final DanmakuModerationService moderationService;
     private final SensitiveWordFilter sensitiveWordFilter;
     /** 必须注入 Spring 托管的实例：它已注册 JavaTimeModule，否则含 LocalDateTime 的弹幕无法序列化 */
     private final ObjectMapper objectMapper;
+    private final LoginSessionRegistry sessions;
 
     /**
      * 当有新的 WebSocket 连接建立时调用。
@@ -90,17 +91,32 @@ public class DanmakuHandler extends SimpleChannelInboundHandler<TextWebSocketFra
             // 检查并过滤弹幕里的敏感词，把敏感词替换成 *
             dto.setContent(sensitiveWordFilter.filter(dto.getContent()));
 
-            // 通过 Redis 把弹幕广播给所有连接的用户，确保大家都能看到同一条弹幕
-            redisMessagePublisher.publish(dto);
-
-            // 把弹幕消息放到消息队列里，异步保存到数据库，避免影响实时性能
-            danmakuProducer.send(dto);
+            dto.setAuditStatus(null);
+            dto.setAuditRemark(null);
+            String token = ctx.channel().attr(WsHandshakeAuthHandler.TOKEN).get();
+            boolean accepted = moderationService.submit(dto, () -> {
+                if (!ctx.channel().isActive()) return false;
+                var user = sessions.resolve(token);
+                return user != null && java.util.Objects.equals(user.getUserId(), userId);
+            }, result -> {
+                if (!result.notice().isEmpty()) sendNotice(ctx.channel(), result.code(), result.notice());
+            });
+            if (!accepted) sendNotice(ctx.channel(), 503, "审核队列繁忙，请稍后重试");
         } catch (ServiceException e) {
             log.warn("弹幕业务异常: {}", e.getMessage());
             ctx.channel().writeAndFlush(new TextWebSocketFrame("{\"code\":400,\"msg\":\"" + e.getMessage() + "\"}"));
         } catch (Exception e) {
-            log.error("处理弹幕消息失败, body={}", text, e);
+            log.error("处理弹幕消息失败 roomId={}, userId={}", roomId, userId);
             ctx.channel().writeAndFlush(new TextWebSocketFrame("{\"code\":500,\"msg\":\"处理失败\"}"));
+        }
+    }
+
+    private void sendNotice(Channel channel, int code, String notice) {
+        if (!channel.isActive()) return;
+        try {
+            channel.writeAndFlush(new TextWebSocketFrame(objectMapper.writeValueAsString(java.util.Map.of("code", code, "msg", notice))));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException failure) {
+            log.warn("弹幕结果通知序列化失败");
         }
     }
 

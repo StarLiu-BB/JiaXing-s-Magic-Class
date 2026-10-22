@@ -21,8 +21,7 @@ import java.util.Map;
 public class DanmakuPersistenceService {
 
     private final DanmakuMapper danmakuMapper;
-    private final RemoteAiService remoteAiService;
-    private final SecurityProperties securityProperties;
+    private final DanmakuAuditService auditService;
 
     public void persist(DanmakuMessageDTO dto) {
         Danmaku entity = new Danmaku();
@@ -31,29 +30,16 @@ public class DanmakuPersistenceService {
         entity.setContent(dto.getContent());
         entity.setTimePoint(dto.getTimePoint());
 
-        int status = 1;
-        String remark = null;
-        try {
-            // 审核接口仅限内部调用：不带内部凭据会被 AI 服务拒绝（403），弹幕将一律按"审核失败"放行
-            R<String> auditResult = remoteAiService.auditText(Map.of("content", dto.getContent()),
-                    "true", securityProperties.getInternalToken());
-            if (auditResult != null && auditResult.isSuccess()) {
-                String result = auditResult.getData();
-                if (result != null && !"OK".equalsIgnoreCase(result.trim())) {
-                    status = 2;
-                    remark = result;
-                }
-            } else if (auditResult != null) {
-                log.warn("AI 审核返回失败，按通过处理，msg={}", auditResult.getMsg());
-            } else {
-                log.warn("AI 审核返回空结果，按通过处理");
-            }
-        } catch (Exception e) {
-            log.error("AI 审核异常，按通过处理", e);
+        Integer status = dto.getAuditStatus();
+        String remark = dto.getAuditRemark();
+        if (status == null) {
+            DanmakuAuditService.Decision decision = auditService.audit(dto.getContent());
+            status = decision.status();
+            remark = decision.remark();
         }
-
+        if (status < 0 || status > 2) throw new com.zhixue.common.core.exception.ServiceException("审核状态不合法");
         entity.setAuditStatus(status);
-        entity.setAuditRemark(remark);
-        danmakuMapper.insert(entity);
+        entity.setAuditRemark(remark == null ? null : remark.substring(0, Math.min(remark.length(), 255)));
+        if (danmakuMapper.insert(entity) != 1) throw new com.zhixue.common.core.exception.ServiceException("审核记录保存失败");
     }
 }

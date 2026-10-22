@@ -65,6 +65,13 @@ class DanmakuBroadcastTest {
     }
 
     @Test
+    void serializationFailurePropagatesToGateInsteadOfPretendingBroadcastSucceeded() {
+        var publisher = new RedisMessagePublisher(mock(StringRedisTemplate.class), new ObjectMapper());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> publisher.publish(danmaku(1001L, "hello")))
+                .hasMessageContaining("序列化失败");
+    }
+
+    @Test
     void shouldOnlyDeliverToChannelsInSameRoom() throws Exception {
         RedisMessageListener listener = newListener();
 

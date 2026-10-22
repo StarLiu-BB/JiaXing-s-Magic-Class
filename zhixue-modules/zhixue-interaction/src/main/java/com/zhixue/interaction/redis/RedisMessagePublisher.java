@@ -27,7 +27,7 @@ public class RedisMessagePublisher {
             String payload = objectMapper.writeValueAsString(message);
             redisTemplate.convertAndSend(CHANNEL, payload);
         } catch (JsonProcessingException e) {
-            log.error("Redis 发布弹幕消息序列化失败", e);
+            throw new IllegalStateException("Redis发布弹幕序列化失败", e);
         }
     }
 }

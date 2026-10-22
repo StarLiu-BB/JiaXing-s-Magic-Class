@@ -56,7 +56,7 @@ class DanmakuWebSocketAuthTest {
 
     private final com.zhixue.common.security.session.LoginSessionRegistry sessions = mock(com.zhixue.common.security.session.LoginSessionRegistry.class);
     private final RedisMessageListener roomRegistry = mock(RedisMessageListener.class);
-    private final DanmakuProducer producer = mock(DanmakuProducer.class);
+    private final com.zhixue.interaction.service.DanmakuModerationService moderation = mock(com.zhixue.interaction.service.DanmakuModerationService.class);
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
@@ -71,7 +71,8 @@ class DanmakuWebSocketAuthTest {
         authHandler = new WsHandshakeAuthHandler(sessions, props, roomRegistry);
         SensitiveWordFilter filter = mock(SensitiveWordFilter.class);
         when(filter.filter(anyString())).thenAnswer(inv -> inv.getArgument(0));
-        danmakuHandler = new DanmakuHandler(roomRegistry, mock(RedisMessagePublisher.class), producer, filter, objectMapper);
+        danmakuHandler = new DanmakuHandler(roomRegistry, moderation, filter, objectMapper, sessions);
+        when(moderation.submit(any(), any(), any())).thenReturn(true);
 
         token = JwtUtils.generateToken("1003", Map.of(), SECRET, 600);
         LoginUser user = new LoginUser();
@@ -152,7 +153,7 @@ class DanmakuWebSocketAuthTest {
         ch.writeInbound(new TextWebSocketFrame("{\"roomId\":9999,\"userId\":1001,\"content\":\"讲得好\",\"timePoint\":12}"));
 
         ArgumentCaptor<DanmakuMessageDTO> captor = ArgumentCaptor.forClass(DanmakuMessageDTO.class);
-        verify(producer).send(captor.capture());
+        verify(moderation).submit(captor.capture(), any(), any());
         assertThat(captor.getValue().getUserId()).isEqualTo(1003L);
         assertThat(captor.getValue().getRoomId()).isEqualTo(2001L);
         assertThat(captor.getValue().getContent()).isEqualTo("讲得好");
@@ -168,14 +169,14 @@ class DanmakuWebSocketAuthTest {
 
         TextWebSocketFrame reply = ch.readOutbound();
         assertThat(reply.text()).isEqualTo("{\"type\":\"pong\"}");
-        verify(producer, never()).send(any());
+        verify(moderation, never()).submit(any(), any(), any());
     }
 
     @Test
     void unauthenticatedChannelCannotSend() {
         EmbeddedChannel ch = new EmbeddedChannel(danmakuHandler);
         ch.writeInbound(new TextWebSocketFrame("{\"roomId\":2001,\"userId\":1003,\"content\":\"x\"}"));
-        verify(producer, never()).send(any());
+        verify(moderation, never()).submit(any(), any(), any());
         assertThat(((TextWebSocketFrame) ch.readOutbound()).text()).contains("401");
     }
 
