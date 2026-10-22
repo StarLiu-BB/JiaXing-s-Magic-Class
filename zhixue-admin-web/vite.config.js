@@ -12,11 +12,11 @@ export default defineConfig({
   plugins: [
     vue(),
     AutoImport({
-      resolvers: [ElementPlusResolver()],
+      resolvers: [ElementPlusResolver({ importStyle: process.env.VITEST ? false : 'css' })],
       imports: ['vue', 'vue-router', 'pinia']
     }),
     Components({
-      resolvers: [ElementPlusResolver()]
+      resolvers: [ElementPlusResolver({ importStyle: process.env.VITEST ? false : 'css' })]
     })
   ],
   resolve: {
@@ -35,6 +35,10 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
+  },
+  test: {
+    environment: 'node',
+    include: ['tests/unit/**/*.test.js']
   },
   build: {
     outDir: 'dist',

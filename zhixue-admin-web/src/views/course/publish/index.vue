@@ -8,12 +8,17 @@
         <el-step title="完成发布" />
       </el-steps>
 
-      <div class="step-content">
+      <el-alert v-if="readonly" title="只读模式：仅查看课程信息" type="info" :closable="false" />
+      <el-alert v-if="loadError" :title="loadError" type="error" :closable="false">
+        <el-button @click="loadCourseData">重试</el-button>
+      </el-alert>
+      <div class="step-content" v-loading="loadingCourse">
         <!-- 步骤1：基本信息（离开本步时保存，新课程以草稿创建） -->
         <el-form
           v-show="activeStep === 0"
           ref="step1FormRef"
           :model="form"
+          :disabled="!canWrite"
           :rules="step1Rules"
           label-width="120px"
         >
@@ -73,7 +78,7 @@
 
         <!-- 步骤2：章节管理（课程已保存，章节与课时实时保存） -->
         <div v-show="activeStep === 1" class="chapter-management">
-          <div class="chapter-toolbar">
+          <div v-if="canWrite" class="chapter-toolbar">
             <el-button type="primary" icon="Plus" @click="handleAddChapter">添加章节</el-button>
             <span class="upload-tip">章节与课时保存后立即生效</span>
           </div>
@@ -97,7 +102,7 @@
                   {{ data.title }}
                   <span class="lesson-meta">{{ formatMinutes(data.duration) }}</span>
                 </span>
-                <span class="node-actions">
+                <span v-if="canWrite" class="node-actions">
                   <el-button v-if="!data.isLesson" link type="primary" icon="Plus" @click="handleAddLesson(data)">
                     添加课时
                   </el-button>
@@ -110,7 +115,7 @@
         </div>
 
         <!-- 步骤3：试看设置 -->
-        <el-form v-show="activeStep === 2" :model="form" label-width="120px">
+        <el-form v-show="activeStep === 2" :model="form" :disabled="!canWrite" label-width="120px">
           <el-form-item label="允许试看">
             <el-switch v-model="form.allowPreview" />
           </el-form-item>
@@ -122,7 +127,7 @@
 
         <!-- 步骤4：完成发布 -->
         <div v-show="activeStep === 3" class="publish-summary">
-          <el-result icon="success" title="课程信息已保存" :sub-title="summaryText" />
+          <el-result :icon="readonly ? 'info' : 'success'" :title="readonly ? '课程信息' : '课程信息已保存'" :sub-title="summaryText" />
           <el-descriptions title="课程信息" :column="2" border style="margin-top: 12px">
             <el-descriptions-item label="课程标题">{{ form.title }}</el-descriptions-item>
             <el-descriptions-item label="课程分类">{{ getCategoryName(form.categoryId) }}</el-descriptions-item>
@@ -140,20 +145,20 @@
 
       <div class="step-actions">
         <el-button v-if="activeStep > 0" @click="prevStep">上一步</el-button>
-        <el-button v-if="activeStep < 3" type="primary" :loading="saving" @click="nextStep">下一步</el-button>
+        <el-button v-if="activeStep < 3" type="primary" :loading="saving" :disabled="loadingCourse || !!loadError" @click="nextStep">下一步</el-button>
         <template v-if="activeStep === 3">
-          <el-button v-if="canPublish" type="success" :loading="saving" @click="handlePublish">
+          <el-button v-if="canPublish" type="success" :loading="saving" :disabled="loadingCourse || !!loadError" @click="handlePublish">
             {{ isPublished ? '重新上架' : '发布课程' }}
           </el-button>
-          <el-button @click="handleSaveDraft">{{ isPublished ? '完成' : '保存为草稿' }}</el-button>
+          <el-button v-if="canWrite" @click="handleSaveDraft">{{ isPublished ? '完成' : '保存为草稿' }}</el-button>
         </template>
-        <el-button @click="handleCancel">取消</el-button>
+        <el-button @click="handleCancel">{{ readonly ? '返回' : '取消' }}</el-button>
       </div>
     </el-card>
 
     <!-- 章节/课时编辑弹窗 -->
     <el-dialog :title="nodeDialogTitle" v-model="nodeDialogVisible" width="560px" append-to-body>
-      <el-form ref="nodeFormRef" :model="nodeForm" :rules="nodeRules" label-width="100px">
+      <el-form ref="nodeFormRef" :model="nodeForm" :disabled="!canWrite" :rules="nodeRules" label-width="100px">
         <el-form-item :label="nodeForm.isLesson ? '课时标题' : '章节标题'" prop="title">
           <el-input v-model="nodeForm.title" maxlength="100" :placeholder="nodeForm.isLesson ? '请输入课时标题' : '请输入章节标题'" />
         </el-form-item>
@@ -169,7 +174,7 @@
       </el-form>
       <template #footer>
         <el-button @click="nodeDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submitNodeForm">保存</el-button>
+        <el-button v-if="canWrite" type="primary" :loading="saving" @click="submitNodeForm">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -198,7 +203,17 @@ const activeStep = ref(0)
 const courseId = ref(null)
 const isPublished = ref(false)
 const saving = ref(false)
-const canPublish = computed(() => (userStore.permissions || []).includes('course:publish'))
+const canEdit = computed(() => (userStore.permissions || []).includes('course:edit'))
+const readonly = computed(() => route.meta?.readonly === true || !canEdit.value)
+const canPublish = computed(() => route.meta?.readonly !== true && (userStore.permissions || []).includes('course:publish'))
+const loadingCourse = ref(!!route.query.id)
+const loadError = ref('')
+const canWrite = computed(() => !readonly.value && !loadingCourse.value && !loadError.value)
+const requireWrite = () => {
+  if (canWrite.value) return true
+  ElMessage.warning('当前无法修改课程，请确认权限和加载状态')
+  return false
+}
 
 const step1FormRef = ref(null)
 const nodeFormRef = ref(null)
@@ -240,7 +255,7 @@ const nodeRules = {
 
 const totalLessons = computed(() => chapterTree.value.reduce((n, c) => n + (c.lessons || []).length, 0))
 const summaryText = computed(() =>
-  isPublished.value ? '课程已发布，修改已保存' : '课程目前是草稿，发布后学生才能看到'
+  readonly.value ? '仅查看课程信息，未执行保存' : isPublished.value ? '课程已发布，修改已保存' : '课程目前是草稿，发布后学生才能看到'
 )
 
 const getCategoryName = (id) => categoryOptions.value.find((c) => c.id === id)?.name || ''
@@ -257,6 +272,7 @@ const getCategoryOptions = async () => {
 
 // ---------- 封面 ----------
 const beforeCoverUpload = (file) => {
+  if (!requireWrite()) return false
   if (!file.type.startsWith('image/')) {
     ElMessage.error('只能上传图片文件')
     return false
@@ -269,6 +285,7 @@ const beforeCoverUpload = (file) => {
 }
 
 const handleCoverSuccess = (response) => {
+  if (!requireWrite()) return
   // /media/upload 返回 R<MediaFile>，地址在 data.fileUrl
   const url = response?.code === 200 ? response.data?.fileUrl : ''
   if (url) {
@@ -299,6 +316,7 @@ const coursePayload = () => ({
 
 /** 新课程以草稿创建并拿回 ID；已有课程直接更新（发布/上下架状态后端不会被编辑接口改动） */
 const saveCourse = async () => {
+  if (!requireWrite()) return
   if (courseId.value) {
     await updateCourse({ id: courseId.value, ...coursePayload() })
     return
@@ -323,6 +341,11 @@ const withSaving = async (fn) => {
 }
 
 const nextStep = async () => {
+  if (loadingCourse.value || loadError.value) return
+  if (readonly.value) {
+    activeStep.value = Math.min(activeStep.value + 1, 3)
+    return
+  }
   if (activeStep.value === 0) {
     const valid = await step1FormRef.value.validate().catch(() => false)
     if (!valid) return
@@ -353,6 +376,7 @@ const prevStep = () => {
 }
 
 const handlePublish = async () => {
+  if (!canPublish.value || !courseId.value || loadingCourse.value || loadError.value) return
   try {
     await ElMessageBox.confirm('发布后学生即可在学生端看到并购买该课程，确定发布吗？', '发布课程', {
       confirmButtonText: '发布',
@@ -387,6 +411,7 @@ const resetNodeForm = () => {
 }
 
 const handleAddChapter = () => {
+  if (!requireWrite()) return
   resetNodeForm()
   nodeForm.orderNum = chapterTree.value.length + 1
   nodeDialogTitle.value = '添加章节'
@@ -394,6 +419,7 @@ const handleAddChapter = () => {
 }
 
 const handleAddLesson = (chapter) => {
+  if (!requireWrite()) return
   resetNodeForm()
   nodeForm.chapterId = chapter.id
   nodeForm.isLesson = true
@@ -403,6 +429,7 @@ const handleAddLesson = (chapter) => {
 }
 
 const handleEditNode = (data) => {
+  if (!requireWrite()) return
   resetNodeForm()
   Object.assign(nodeForm, {
     id: data.id,
@@ -418,6 +445,7 @@ const handleEditNode = (data) => {
 }
 
 const handleDeleteNode = async (data) => {
+  if (!requireWrite()) return
   const lessons = data.isLesson ? 0 : (data.lessons || []).length
   try {
     await ElMessageBox.confirm(
@@ -442,6 +470,7 @@ const handleDeleteNode = async (data) => {
 }
 
 const submitNodeForm = async () => {
+  if (!requireWrite()) return
   const valid = await nodeFormRef.value.validate().catch(() => false)
   if (!valid) return
   try {
@@ -497,8 +526,11 @@ const loadCourseData = async () => {
   const id = route.query.id
   if (!id) return
   courseId.value = String(id)
+  loadingCourse.value = true
+  loadError.value = ''
   try {
-    const course = (await getCourse(courseId.value))?.data || {}
+    const course = (await getCourse(courseId.value))?.data
+    if (!course?.id) throw new Error('课程信息未加载')
     Object.assign(form, {
       title: course.title || '',
       subtitle: course.subtitle || '',
@@ -513,7 +545,10 @@ const loadCourseData = async () => {
     isPublished.value = Number(course.status) === 1 && Number(course.shelfStatus) === 1
     await loadChapters()
   } catch (error) {
+    loadError.value = '课程加载失败，请重试'
     console.error('加载课程失败:', error)
+  } finally {
+    loadingCourse.value = false
   }
 }
 

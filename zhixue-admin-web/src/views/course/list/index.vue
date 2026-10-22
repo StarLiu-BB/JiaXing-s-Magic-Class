@@ -63,7 +63,7 @@
             type="primary"
             plain
             icon="Plus"
-            v-hasPermi="['course:publish']"
+            v-hasPermi="['course:edit']"
             @click="handleAdd"
           >
             发布课程
@@ -324,7 +324,7 @@ const handleAdd = () => {
 
 // 查看
 const handleView = (row) => {
-  router.push(`/course/publish?id=${row.id}`)
+  router.push(`/course/view?id=${row.id}`)
 }
 
 // 编辑

@@ -72,7 +72,7 @@
           <el-input v-model="form.title" maxlength="60" show-word-limit />
         </el-form-item>
         <el-form-item label="课程ID" prop="productId">
-          <el-input-number v-model="form.productId" :min="1" :step="1" :controls="false" style="width: 200px" />
+          <el-input v-model="form.productId" placeholder="请输入课程 ID" style="width: 240px" />
           <span class="form-tip">须为已发布且已上架的课程，否则用户买到后无法观看</span>
         </el-form-item>
         <el-form-item label="秒杀价" prop="seckillPrice">
@@ -119,6 +119,7 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { parseId } from '@/utils/id'
 import {
   addSeckill,
   changeSeckillStatus,
@@ -151,7 +152,7 @@ const queryParams = reactive({ pageNum: 1, pageSize: 10, title: '', status: unde
 const emptyForm = () => ({
   id: undefined,
   title: '',
-  productId: undefined,
+  productId: '',
   seckillPrice: 1,
   totalStock: 100,
   timeRange: [],
@@ -161,7 +162,9 @@ const form = reactive(emptyForm())
 
 const rules = {
   title: [{ required: true, message: '请输入活动标题', trigger: 'blur' }],
-  productId: [{ required: true, message: '请输入课程ID', trigger: 'blur' }],
+  productId: [{ required: true, validator: (_rule, value, callback) => {
+    try { parseId(value); callback() } catch (error) { callback(error) }
+  }, trigger: 'blur' }],
   seckillPrice: [{ required: true, message: '请输入秒杀价', trigger: 'blur' }],
   totalStock: [{ required: true, message: '请输入总库存', trigger: 'blur' }],
   timeRange: [{ type: 'array', len: 2, required: true, message: '请选择活动时间', trigger: 'change' }],
@@ -224,7 +227,7 @@ async function openEditDialog(row) {
     Object.assign(form, emptyForm(), {
       id: detail.id,
       title: detail.title,
-      productId: Number(detail.productId),
+      productId: parseId(detail.productId),
       seckillPrice: Number(detail.seckillPrice),
       totalStock: Number(detail.totalStock),
       timeRange: [toPickerValue(detail.startTime), toPickerValue(detail.endTime)],
@@ -239,6 +242,7 @@ async function openEditDialog(row) {
 async function submitForm() {
   try {
     await formRef.value?.validate()
+    form.productId = parseId(form.productId)
   } catch {
     return
   }

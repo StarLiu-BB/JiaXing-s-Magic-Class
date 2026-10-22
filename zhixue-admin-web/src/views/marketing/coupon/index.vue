@@ -128,6 +128,7 @@
 import { computed, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/modules/user'
+import { parseIdList } from '@/utils/id'
 import {
   addCoupon,
   changeCouponStatus,
@@ -294,12 +295,15 @@ async function onStatusChange(row, enabled) {
 }
 
 async function handleIssue(row) {
+  if (!canEdit.value) return
   try {
     const { value } = await ElMessageBox.prompt('请输入接收用户ID，多个以英文逗号分隔', `发放「${row.name}」`, {
       inputPlaceholder: '例如：1003,1004',
-      inputValidator: (v) => (/^\s*\d+(\s*,\s*\d+)*\s*$/.test(v || '') ? true : '请输入以逗号分隔的用户ID')
+      inputValidator: value => {
+        try { parseIdList(value); return true } catch (error) { return error.message }
+      }
     })
-    const userIds = value.split(',').map((id) => Number(id.trim()))
+    const userIds = parseIdList(value)
     const res = await issueCoupon(row.id, userIds)
     const success = Number(res?.data || 0)
     // 后端逐个发放，超出限领或库存的用户会失败；如实展示成功人数，不笼统提示"发放成功"

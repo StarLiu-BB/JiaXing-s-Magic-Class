@@ -23,13 +23,22 @@ export default {
       }
     },
     {
+      path: 'view',
+      name: 'CourseView',
+      component: () => import('@/views/course/publish/index.vue'),
+      meta: {
+        title: '课程查看', permission: ['course:list'], readonly: true,
+        hidden: true, activeMenu: '/course/list', keepAlive: false
+      }
+    },
+    {
       path: 'publish',
       name: 'CoursePublish',
       component: () => import('@/views/course/publish/index.vue'),
       meta: {
         title: '课程发布',
         icon: 'Plus',
-        permission: ['course:publish'],
+        permission: ['course:edit', 'course:publish'],
         keepAlive: false
       }
     },

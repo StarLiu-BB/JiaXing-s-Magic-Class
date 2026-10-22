@@ -9,6 +9,8 @@ import App from './App.vue'
 import router from './router'
 import pinia from './stores'
 import { setupDirectives } from './directive'
+import { useUserStore } from '@/stores/modules/user'
+import { recoverFromExpiredLogin, setSessionExpiredHandler } from '@/utils/session'
 
 // 主题与全局样式必须在 Element Plus、nprogress 的样式之后引入
 import '@fontsource-variable/geist'
@@ -25,6 +27,7 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 setupDirectives(app)
 
 app.use(pinia)
+setSessionExpiredHandler(() => recoverFromExpiredLogin(useUserStore(pinia), router))
 app.use(router)
 app.use(ElementPlus, {
   locale: zhCn

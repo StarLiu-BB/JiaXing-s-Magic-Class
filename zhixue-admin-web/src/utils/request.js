@@ -1,7 +1,7 @@
 import axios from 'axios'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { getToken } from './auth'
-import router from '@/router'
+import { handleSessionExpired } from './session'
 
 // 创建 axios 实例
 const service = axios.create({
@@ -32,6 +32,13 @@ service.interceptors.request.use(
   }
 )
 
+function recoverExpiredRequest(config) {
+  const sent = config?.headers?.Authorization
+  const current = getToken()
+  if (config && sent !== (current ? `Bearer ${current}` : undefined)) return
+  handleSessionExpired().catch(error => console.error('登录恢复失败:', error))
+}
+
 // 响应拦截器
 service.interceptors.response.use(
   response => {
@@ -43,19 +50,7 @@ service.interceptors.response.use(
     if (res.code !== undefined && res.code !== 200) {
       // 401: 未登录或 token 过期
       if (res.code === 401) {
-        ElMessageBox.confirm(
-          '登录状态已过期，您可以继续留在该页面，或者重新登录',
-          '系统提示',
-          {
-            confirmButtonText: '重新登录',
-            cancelButtonText: '取消',
-            type: 'warning'
-          }
-        ).then(() => {
-          // 清除 token 并跳转到登录页
-          localStorage.removeItem('token')
-          router.push('/login')
-        })
+        recoverExpiredRequest(response.config)
         return Promise.reject(new Error(res.msg || '未授权，请重新登录'))
       }
       
@@ -97,9 +92,7 @@ service.interceptors.response.use(
           break
         case 401:
           message = '未授权，请重新登录'
-          // 清除 token 并跳转到登录页
-          localStorage.removeItem('token')
-          router.push('/login')
+          recoverExpiredRequest(error.config)
           break
         case 403:
           message = '拒绝访问'
